@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upside — Etude temps de transport</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Charte Upside — navy + doré */
+  --bg:#eef0f4;--bg2:#ffffff;--bg3:#f4f5f8;
+  --navy:#1a2235;--navy2:#243048;--navy3:#2e3c57;
+  --brd:rgba(26,34,53,0.10);--brd2:rgba(26,34,53,0.18);
+  --txt:#1a2235;--muted:#5a6478;--hint:#8a93a6;
+  --acc:#c8a96e;--acc-bg:rgba(200,169,110,0.12);--acc-dark:#a8844a;
+  --grn:#2d7a3a;--grn-bg:#e8f5ea;--grn-bd:#7dc489;
+  --red:#c0392b;--red-bg:#fdecea;--red-bd:#e8948d;
+  --org:#9a6520;--org-bg:#fdf3e3;
+  --blu:#1a5fa5;--blu-bg:#e8f0fb;
+  --f:'DM Sans',sans-serif;--f-head:'Playfair Display',Georgia,serif;
+  --radius:10px;--radius-lg:14px;--shadow:0 2px 12px rgba(26,34,53,0.08);--shadow-md:0 4px 20px rgba(26,34,53,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);font-family:var(--f);font-size:13px;color:var(--txt);height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;}
+.app{display:flex;flex-direction:column;height:100vh;}
+.topbar{display:flex;align-items:center;padding:0 28px;background:var(--navy);border-bottom:none;height:56px;flex-shrink:0;gap:16px;box-shadow:0 2px 16px rgba(0,0,0,0.18);}
+.tlogo{font-size:16px;font-weight:400;letter-spacing:-0.3px;white-space:nowrap;color:#ffffff;font-family:var(--f-head);}
+.tlogo span{color:var(--acc);}
+.idf-wrap{display:flex;align-items:center;gap:7px;font-size:11px;color:rgba(255,255,255,0.7);white-space:nowrap;}
+.tog{position:relative;width:34px;height:19px;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;}
+.tog-sl{position:absolute;inset:0;background:rgba(255,255,255,0.2);border-radius:10px;cursor:pointer;transition:background 0.2s;}
+.tog-sl:before{content:'';position:absolute;width:13px;height:13px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform 0.2s;}
+.tog input:checked + .tog-sl{background:var(--acc);}
+.tog input:checked + .tog-sl:before{transform:translateX(15px);}
+.idf-badge{background:rgba(200,169,110,0.25);border:1px solid var(--acc);color:var(--acc);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;}
+.tmeta{font-size:11px;color:rgba(255,255,255,0.5);margin-left:auto;}
+.nav{display:flex;background:var(--bg2);border-bottom:1px solid var(--brd);padding:0 28px;flex-shrink:0;box-shadow:0 1px 0 var(--brd);}
+.ntab{padding:14px 18px;font-size:12px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.15s;user-select:none;letter-spacing:0.01em;}
+.ntab:hover{color:var(--txt);}
+.ntab.active{color:var(--navy);border-bottom-color:var(--acc);font-weight:600;}
+.body{display:flex;flex:1;overflow:hidden;}
+.left{width:256px;min-width:256px;background:var(--bg2);border-right:1px solid var(--brd);display:flex;flex-direction:column;overflow-y:auto;box-shadow:inset -1px 0 0 var(--brd);}
+.ps{padding:14px 16px;border-bottom:1px solid var(--brd);}
+.pt{font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--hint);margin-bottom:10px;font-weight:600;}
+.upbox{border:1.5px dashed var(--brd2);border-radius:10px;padding:14px;text-align:center;cursor:pointer;position:relative;transition:all 0.2s;background:var(--bg3);}
+.upbox:hover{border-color:var(--acc);background:rgba(200,169,110,0.04);}
+.upbox input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.fok{display:flex;align-items:center;gap:6px;background:var(--grn-bg);border:1px solid var(--grn-bd);border-radius:6px;padding:7px 9px;margin-top:7px;}
+.fb{flex:1;padding:5px 7px;border-radius:20px;border:1px solid var(--brd2);background:var(--bg3);font-size:11px;cursor:pointer;color:var(--muted);transition:all 0.15s;font-family:var(--f);}
+.fb.on{background:var(--org-bg);border-color:var(--acc);color:var(--org);font-weight:500;}
+.fl{font-size:10px;color:var(--hint);margin-bottom:3px;display:block;}
+.fi{width:100%;background:var(--bg2);border:1px solid var(--brd2);border-radius:7px;padding:7px 10px;color:var(--txt);font-size:11px;outline:none;font-family:var(--f);margin-bottom:5px;transition:border-color 0.15s;}
+.fi:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(200,169,110,0.12);}
+.fi::placeholder{color:var(--hint);}
+.ks{font-size:10px;display:flex;align-items:center;gap:4px;margin-top:-3px;margin-bottom:6px;}
+.ks.demo{color:var(--org);}
+.ks.live{color:var(--grn);}
+.ksd{width:5px;height:5px;border-radius:50%;background:currentColor;}
+.sb{padding:9px 11px;border:1px solid var(--brd);border-radius:var(--radius);margin-bottom:6px;background:var(--bg3);position:relative;transition:box-shadow 0.15s;}
+.sb.ok{border-color:var(--acc);background:rgba(200,169,110,0.06);box-shadow:0 0 0 3px rgba(200,169,110,0.1);}
+.stag{display:inline-flex;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:500;margin-bottom:4px;}
+.to{background:rgba(26,95,165,0.1);color:var(--blu);border:1px solid rgba(26,95,165,0.2);}
+.td{background:rgba(45,122,58,0.1);color:var(--grn);border:1px solid rgba(45,122,58,0.2);}
+.sn{font-size:11px;font-weight:500;}
+.sa{font-size:10px;color:var(--hint);margin-top:2px;line-height:1.4;}
+.seb{position:absolute;top:6px;right:6px;background:transparent;border:none;cursor:pointer;color:var(--acc-dark);font-size:10px;padding:2px 6px;border-radius:4px;font-family:var(--f);font-weight:500;}
+.seb:hover{color:var(--acc);}
+.srm{position:absolute;top:6px;right:6px;cursor:pointer;color:var(--hint);font-size:13px;}
+.srm:hover{color:var(--red);}
+.se{border:1px dashed var(--brd2);border-radius:7px;padding:12px;margin-bottom:5px;background:var(--bg3);cursor:pointer;transition:border-color 0.15s;text-align:center;}
+.se:hover{border-color:var(--acc);}
+.as{width:100%;padding:8px;border:1.5px dashed var(--brd2);border-radius:8px;background:transparent;color:var(--hint);font-size:11px;cursor:pointer;font-family:var(--f);transition:all 0.2s;margin-top:4px;}
+.as:hover{border-color:var(--acc);color:var(--acc-dark);background:rgba(200,169,110,0.04);}
+.li{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:11px;color:var(--muted);}
+.ld{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.lsq{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+.run-btn{width:100%;padding:11px;background:var(--navy);border:1px solid var(--acc);border-radius:8px;color:var(--acc);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--f);transition:all 0.2s;letter-spacing:0.04em;text-transform:uppercase;}
+.run-btn:hover{background:var(--acc);color:var(--navy);}
+.run-btn:disabled{opacity:0.3;cursor:not-allowed;background:var(--bg3);border-color:var(--brd);color:var(--hint);}
+.pg{margin-top:8px;display:none;}
+.pg.on{display:block;}
+.pgb{height:2px;background:var(--bg3);border-radius:1px;overflow:hidden;}
+.pgf{height:100%;background:linear-gradient(90deg,var(--acc-dark),var(--acc));transition:width 0.3s;border-radius:1px;}
+.pgl{font-size:10px;color:var(--hint);margin-top:3px;}
+.right{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.tab-panel{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.tab-panel.active{display:flex;}
+.map-area{flex:1;position:relative;background:var(--bg3);overflow:hidden;min-height:180px;}
+.mph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;}
+.mphi{font-size:30px;opacity:0.15;}
+.mpht{font-size:12px;color:var(--hint);text-align:center;max-width:180px;line-height:1.5;}
+#mapEl{width:100%;height:100%;display:none;}
+.ileg{position:absolute;bottom:12px;right:12px;background:rgba(255,255,255,0.96);border:1px solid var(--brd);border-radius:10px;padding:10px 12px;font-size:10px;z-index:999;display:none;box-shadow:var(--shadow);}
+.ili{display:flex;align-items:center;gap:5px;margin-bottom:3px;color:var(--muted);}
+.ili:last-child{margin-bottom:0;}
+.ilsq{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.carto-stats{background:var(--bg2);border-top:1px solid var(--brd);padding:16px;flex-shrink:0;display:none;}
+.carto-kpis{display:flex;gap:0;margin-bottom:12px;}
+.ckpi{flex:1;text-align:center;padding:8px 0;border-right:1px solid var(--brd);}
+.ckpi:last-child{border-right:none;}
+.ckpi-val{font-size:30px;font-weight:600;line-height:1;color:var(--navy);font-family:var(--f-head);}
+.ckpi-lbl{font-size:10px;color:var(--hint);margin-top:4px;letter-spacing:0.04em;text-transform:uppercase;}
+.dept-section{display:grid;grid-template-columns:170px 1fr;gap:12px;align-items:start;}
+.dept-title{font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
+.mode-bar{background:var(--bg2);border-top:1px solid var(--brd);padding:9px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.mode-pill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;}
+.mode-pill.tc{background:var(--blu-bg);color:var(--blu);border:1px solid rgba(26,95,165,0.2);}
+.mode-pill.car{background:var(--grn-bg);color:var(--grn);border:1px solid rgba(45,122,58,0.2);}
+.stats-panel{overflow-y:auto;padding:18px 20px;}
+.site-stat-card{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius-lg);margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow);}
+.ssc-header{padding:11px 14px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:9px;background:var(--bg3);}
+.ssc-badge{width:21px;height:21px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;}
+.ssc-body{padding:12px 13px;}
+.kpi-row4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:11px;}
+.kpi4{background:var(--bg3);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--brd);}
+.kpi4-val{font-size:19px;font-weight:600;line-height:1;color:var(--navy);}
+.kpi4-lbl{font-size:10px;color:var(--hint);margin-top:3px;}
+.kpi4-sub{font-size:10px;margin-top:2px;}
+.mc2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px;}
+.mcc{background:var(--bg3);border-radius:6px;padding:9px 11px;}
+.mch{font-size:10px;font-weight:500;margin-bottom:5px;}
+.distrib-title{font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
+.t5r{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:11px;}
+.t5n{width:16px;height:16px;border-radius:50%;background:var(--bg3);border:1px solid var(--brd);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;flex-shrink:0;}
+.transport-section{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.tc-card{background:var(--bg3);border-radius:8px;padding:12px;}
+.tc-title{font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:9px;}
+.bilan-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;}
+.bilan-table th{padding:8px 10px;text-align:center;background:var(--navy);border:1px solid var(--navy2);font-weight:500;font-size:10px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.06em;}
+.bilan-table th.l{text-align:left;color:rgba(255,255,255,0.9);}
+.bilan-table td{padding:6px 10px;text-align:center;border:1px solid var(--brd);}
+.bilan-table td.lb{text-align:left;color:var(--muted);}
+.bilan-table td.vl{font-weight:500;}
+.bilan-table td.pos{color:var(--grn);font-weight:500;}
+.bilan-table td.neg{color:var(--red);font-weight:500;}
+.impact-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;flex-wrap:wrap;}
+.il-lbl{font-size:11px;color:var(--muted);width:58px;flex-shrink:0;}
+.ip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.ip.g{background:var(--grn-bg);color:var(--grn);border:1px solid var(--grn-bd);}
+.ip.s{background:var(--bg3);color:var(--muted);border:1px solid var(--brd2);}
+.ip.p{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd);}
+.shdr{font-size:12px;font-weight:600;color:var(--navy);margin-bottom:10px;padding-bottom:7px;border-bottom:2px solid var(--brd);letter-spacing:0.02em;}
+.eb{display:flex;gap:6px;padding-top:8px;}
+.ebtn{padding:7px 14px;border-radius:7px;border:1px solid var(--brd2);background:var(--bg3);color:var(--txt);font-size:11px;cursor:pointer;font-family:var(--f);transition:all 0.15s;}
+.ebtn:hover{border-color:var(--acc);color:var(--org);}
+.ebtn.pr{background:rgba(200,169,110,0.1);border-color:var(--acc);color:var(--acc-dark);font-weight:600;}
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:1000;}
+.mdl{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius-lg);padding:24px;width:320px;box-shadow:var(--shadow-md);}
+.mh{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:4px;font-family:var(--f-head);}
+.ms{font-size:11px;color:var(--muted);margin-bottom:13px;}
+.mbtns{display:flex;gap:6px;justify-content:flex-end;margin-top:11px;}
+.mb{padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--f);}
+.mb.c{background:var(--bg3);border:1px solid var(--brd2);color:var(--muted);}
+.mb.o{background:var(--navy);border:1px solid var(--acc);color:var(--acc);font-weight:600;transition:all 0.15s;}
+.empty-state{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;height:100%;text-align:center;padding:40px;}
+.empty-icon{font-size:26px;opacity:0.15;}
+.empty-txt{font-size:13px;color:var(--hint);line-height:1.7;}
+.save-list{display:flex;flex-direction:column;gap:5px;margin-bottom:6px;}
+.save-item{display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid var(--brd);border-radius:8px;background:var(--bg3);cursor:pointer;transition:all 0.15s;}
+.save-item:hover{border-color:var(--acc);background:var(--acc-bg);}
+.save-item-icon{font-size:14px;flex-shrink:0;}
+.save-item-body{flex:1;min-width:0;}
+.save-item-name{font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.save-item-meta{font-size:10px;color:var(--hint);margin-top:1px;}
+.save-item-del{color:var(--hint);font-size:13px;padding:2px 4px;cursor:pointer;flex-shrink:0;border:none;background:none;font-family:var(--f);}
+.save-item-del:hover{color:var(--red);}
+.upside-popup .leaflet-popup-content-wrapper{padding:0;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(26,34,53,0.18);border:1px solid var(--brd);}
+.upside-popup .leaflet-popup-content{margin:10px 12px;}
+.sv-btn{width:100%;padding:8px;border-radius:7px;border:1px solid var(--brd2);background:var(--bg3);color:var(--txt);font-size:11px;cursor:pointer;font-family:var(--f);transition:all 0.15s;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;}
+.sv-btn:hover{border-color:var(--acc);color:var(--org);}
+.sv-btn.pr{background:rgba(200,169,110,0.1);border-color:var(--acc);color:var(--acc-dark);font-weight:600;}
+.sv-btn:disabled{opacity:0.35;cursor:not-allowed;}
+.reset-btn{padding:5px 12px;border-radius:6px;border:1px solid rgba(200,169,110,0.5);background:transparent;color:var(--acc);font-size:11px;cursor:pointer;font-family:var(--f);transition:all 0.15s;white-space:nowrap;}
+.reset-btn:hover{border-color:var(--acc);color:#ffffff;background:rgba(200,169,110,0.2);}
+
+/* ─── Affinements charte Upside ───────────────────────────────────────────── */
+.ntab:hover{color:var(--navy);}
+.save-item:hover{border-color:var(--acc);background:rgba(200,169,110,0.06);}
+.fb{flex:1;padding:6px 7px;border-radius:7px;border:1px solid var(--brd2);background:var(--bg3);font-size:11px;cursor:pointer;color:var(--muted);transition:all 0.15s;font-family:var(--f);}
+.fb.on{background:var(--navy);border-color:var(--navy);color:var(--acc);font-weight:500;}
+.mb.o:hover{background:var(--acc);color:var(--navy);}
+.sn{font-size:12px;font-weight:600;color:var(--navy);}
+.fok{display:flex;align-items:center;gap:6px;background:var(--grn-bg);border:1px solid var(--grn-bd);border-radius:8px;padding:8px 10px;margin-top:7px;}
+.ks.live{color:var(--grn);font-weight:500;}
+.run-btn:not(:disabled):hover{background:var(--acc);color:var(--navy);border-color:var(--acc);}
+/* Icône empty state plus Upside */
+.empty-icon{font-size:32px;opacity:0.12;}
+/* Map area */
+.map-area{flex:1;position:relative;background:var(--bg3);overflow:hidden;min-height:180px;}
+/* kpi4-lbl */
+.kpi4-lbl{font-size:10px;color:var(--hint);margin-top:4px;letter-spacing:0.02em;}
+/* mcc card */
+.mcc{background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--brd);}
+/* tc-card */
+.tc-card{background:var(--bg3);border-radius:10px;padding:13px;border:1px solid var(--brd);}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="tlogo">upside<span style="color:var(--acc)">+</span><span style="margin-left:16px;font-family:var(--f);font-weight:300;font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:0.08em;text-transform:uppercase">Etude temps de transport</span></div>
+    <div class="idf-wrap">
+      <label class="tog"><input type="checkbox" id="idfToggle" onchange="onIdfToggle()"><span class="tog-sl"></span></label>
+      <span id="idfLabel" style="color:rgba(255,255,255,0.7)">Tous les salaries</span>
+      <span class="idf-badge" id="idfBadge" style="display:none">IDF uniquement</span>
+    </div>
+    <div class="tmeta" id="topMeta">— salaries · Depart 08:00</div>
+    <button class="reset-btn" onclick="resetSession()" title="Réinitialiser — efface le fichier, les clés API et les implantations. Les analyses sauvegardées sont conservées.">↺ Réinitialiser</button>
+  </div>
+  <div class="nav">
+    <div class="ntab active" data-tab="carto" onclick="switchTab(this)">Cartographie salaries</div>
+    <div class="ntab" data-tab="actuelle" onclick="switchTab(this)">Implantation actuelle</div>
+    <div class="ntab" data-tab="futures" onclick="switchTab(this)">Implantations futures</div>
+    <div class="ntab" data-tab="bilan" onclick="switchTab(this)">Bilan comparatif</div>
+  </div>
+  <div class="body">
+    <div class="left">
+      <div class="ps">
+        <div class="pt">Fichier collaborateurs</div>
+        <div class="upbox">
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+          <div style="font-size:11px;font-weight:500;margin-bottom:2px">Deposer le fichier Excel</div>
+          <div style="font-size:10px;color:var(--hint)">.xlsx · .csv · Upside & Concerto</div>
+        </div>
+        <div id="fileRequired" style="display:flex;align-items:center;gap:6px;background:var(--org-bg);border:1px solid var(--acc);border-radius:6px;padding:7px 9px;margin-top:7px;">
+          <span style="color:var(--org);font-size:12px">⚠</span>
+          <div style="font-size:10px;color:var(--org)">Fichier requis pour lancer l'analyse</div>
+        </div>
+        <div class="fok" id="fileOk" style="display:none">
+          <span style="color:var(--grn)">✓</span>
+          <div style="font-size:10px;color:var(--grn);font-weight:500" id="fileTxt">—</div>
+        </div>
+      </div>
+      <div class="ps">
+        <div class="pt">Filtres</div>
+        <div style="display:flex;gap:5px;margin-bottom:8px">
+          <button class="fb on" id="fMoy" onclick="toggleFilter('moy')">Tps Moyen</button>
+          <button class="fb" id="fMed" onclick="toggleFilter('med')">Tps Median</button>
+        </div>
+        <label class="fl">Heure de depart</label>
+        <input type="time" class="fi" id="arrTime" value="08:00" style="margin-bottom:0">
+      </div>
+      <div class="ps">
+        <div class="pt">Cles API</div>
+        <label class="fl">PRIM / IDFM — <a href="https://prim.iledefrance-mobilites.fr" target="_blank" style="color:var(--acc);text-decoration:none">prim.iledefrance-mobilites.fr</a></label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="password" class="fi" id="primKey" placeholder="Token PRIM" style="margin-bottom:0;flex:1" oninput="onKeyInput('prim')">
+          <button onclick="validatePrim()" id="primValBtn" style="padding:5px 9px;border-radius:5px;border:1px solid var(--brd2);background:var(--bg3);font-size:10px;cursor:pointer;color:var(--muted);white-space:nowrap;font-family:var(--f);flex-shrink:0">Tester</button>
+        </div>
+        <div class="ks demo" id="primSt" style="margin-top:5px"><span class="ksd"></span> Non renseignee</div>
+        <label class="fl" style="margin-top:8px">OpenRouteService</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="password" class="fi" id="orsKey" placeholder="Cle ORS" style="margin-bottom:0;flex:1" oninput="onKeyInput('ors')">
+          <button onclick="validateOrs()" id="orsValBtn" style="padding:5px 9px;border-radius:5px;border:1px solid var(--brd2);background:var(--bg3);font-size:10px;cursor:pointer;color:var(--muted);white-space:nowrap;font-family:var(--f);flex-shrink:0">Tester</button>
+        </div>
+        <div class="ks demo" id="orsSt" style="margin-top:5px"><span class="ksd"></span> Non renseignee</div>
+      </div>
+      <div class="ps">
+        <div class="pt">Implantations</div>
+        <div style="font-size:10px;color:var(--hint);margin-bottom:5px">Site de depart</div>
+        <div id="originBlock"></div>
+        <div style="font-size:10px;color:var(--hint);margin:8px 0 5px" id="destLabel">Sites d'arrivee</div>
+        <div id="destList"></div>
+        <button class="as" onclick="openDestModal()">+ Ajouter un site d'arrivee</button>
+      </div>
+      <div class="ps">
+        <div class="pt">Analyses sauvegardees</div>
+        <div class="save-list" id="saveList"></div>
+        <button class="sv-btn pr" id="saveBtn" onclick="saveAnalysis()" disabled>
+          <span>💾</span> Sauvegarder l'analyse en cours
+        </button>
+        <div style="margin-top:6px;display:flex;gap:5px">
+          <button class="sv-btn" onclick="document.getElementById('loadFile').click()">
+            <span>📂</span> Charger un fichier
+          </button>
+          <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadAnalysisFile(this)">
+        </div>
+      </div>
+      <div class="ps">
+        <div class="pt">Legende</div>
+        <div class="li"><div class="ld" style="background:var(--grn)"></div>Salarie (gain)</div>
+        <div class="li"><div class="ld" style="background:var(--red)"></div>Salarie (perte)</div>
+        <div class="li"><div class="ld" style="background:var(--blu)"></div>Salarie (stable)</div>
+        <div class="li"><div class="lsq" style="background:rgba(76,175,130,0.4)"></div>0–15 min</div>
+        <div class="li"><div class="lsq" style="background:rgba(122,191,110,0.4)"></div>15–30 min</div>
+        <div class="li"><div class="lsq" style="background:rgba(200,169,110,0.4)"></div>30–45 min</div>
+        <div class="li"><div class="lsq" style="background:rgba(224,149,92,0.4)"></div>45–60 min</div>
+      </div>
+      <div class="ps">
+        <button class="run-btn" id="runBtn" onclick="runAnalysis()" disabled title="Chargez un fichier Excel collaborateurs pour lancer l'analyse">Lancer l'analyse</button>
+        <div class="pg" id="prog">
+          <div class="pgb"><div class="pgf" id="progFill" style="width:0%"></div></div>
+          <div class="pgl" id="progLbl">Initialisation...</div>
+        </div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="tab-panel active" id="tab-carto" style="flex-direction:row;overflow:hidden">
+        <!-- GAUCHE : carte -->
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative;border-right:1px solid var(--brd)">
+          <div class="map-area" style="flex:1">
+            <div class="mph" id="mapPh"><div class="mphi">🗺</div><div class="mpht">Configurez vos implantations<br>puis lancez l'analyse</div></div>
+            <div id="mapEl"></div>
+            <div class="ileg" id="isoLegend">
+              <div style="font-size:10px;font-weight:500;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em">Isochrones</div>
+              <div class="ili"><div class="ilsq" style="background:rgba(76,175,130,0.5)"></div>0–15 min</div>
+              <div class="ili"><div class="ilsq" style="background:rgba(122,191,110,0.5)"></div>15–30 min</div>
+              <div class="ili"><div class="ilsq" style="background:rgba(200,169,110,0.5)"></div>30–45 min</div>
+              <div class="ili"><div class="ilsq" style="background:rgba(224,149,92,0.5)"></div>45–60 min</div>
+            </div>
+          </div>
+          <div id="modeBarCarto" style="display:none" class="mode-bar">
+            <span style="font-size:11px;color:var(--muted)">Modes :</span>
+            <span class="mode-pill tc">🚇 TC — <span id="pctTC">—</span>%</span>
+            <span class="mode-pill car">🚗 Voiture — <span id="pctCar">—</span>%</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--hint)" id="nbSal">—</span>
+          </div>
+        </div>
+        <!-- DROITE : stats -->
+        <div style="width:380px;min-width:320px;overflow-y:auto;background:var(--bg2)">
+          <div class="carto-stats" id="cartoStats" style="border-top:none;padding:16px"></div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-actuelle">
+        <div class="empty-state" id="emptyActuelle"><div class="empty-icon">📍</div><div class="empty-txt">Lancez l'analyse pour afficher<br>les statistiques du site actuel</div></div>
+        <div class="stats-panel" id="statsActuelle" style="display:none"></div>
+      </div>
+      <div class="tab-panel" id="tab-futures">
+        <div class="empty-state" id="emptyFutures"><div class="empty-icon">🏢</div><div class="empty-txt">Lancez l'analyse pour afficher<br>les statistiques des sites cibles</div></div>
+        <div class="stats-panel" id="statsFutures" style="display:none"></div>
+      </div>
+      <div class="tab-panel" id="tab-bilan">
+        <div class="empty-state" id="emptyBilan"><div class="empty-icon">📊</div><div class="empty-txt">Lancez l'analyse pour afficher<br>le bilan comparatif</div></div>
+        <div class="stats-panel" id="statsBilan" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── ÉTAT GLOBAL ──────────────────────────────────────────────────────────────
+const S={
+  allCollabs:[],
+  idfOnly:false,
+  filterMode:'moy',
+  origin:null,
+  sites:[],
+  rawTimes:{},
+  rawGeo:{},
+  results:null,
+  map:null,
+  currentTab:'carto',
+  pieChart:null,
+  barChart:null,
+  nbHorsIDF:0
+};
+
+const BDEP='ABCDEFGHIJK';
+const SC=['#3B6D11','#185FA5','#854F0B','#A32D2D','#639922'];
+const IDF_CPS=['75','77','78','91','92','93','94','95'];
+const IDF_DEP_NAMES={'75':'Paris 75','77':'Seine-et-Marne 77','78':'Yvelines 78','91':'Essonne 91','92':'Hauts-de-Seine 92','93':'Seine-Saint-Denis 93','94':'Val-de-Marne 94','95':'Val-d\'Oise 95'};
+const PIE_COLORS=['#1a3a5c','#2a5f8f','#3b8fbf','#5abcd8','#7ad4e8','#9de4f0','#bef0f8','#d4f5fc'];
+
+// ─── UTILITAIRES ─────────────────────────────────────────────────────────────
+function isIDF(cp){return IDF_CPS.some(d=>String(cp||'').startsWith(d));}
+function sl(ms){return new Promise(r=>setTimeout(r,ms));}
+function sP(p,l){document.getElementById('progFill').style.width=p+'%';document.getElementById('progLbl').textContent=l;}
+function activeCollabs(){return S.idfOnly?S.allCollabs.filter(c=>isIDF(c.cp)):S.allCollabs;}
+
+// ─── CLÉS API ─────────────────────────────────────────────────────────────────
+function getPrimKey(){return document.getElementById('primKey').value.trim();}
+function getOrsKey(){return document.getElementById('orsKey').value.trim();}
+
+// ─── GÉOCODAGE via api-adresse.data.gouv.fr (gratuit, sans clé) ──────────────
+async function geocodeAddress(address){
+  try{
+    const r=await fetch('https://api-adresse.data.gouv.fr/search/?q='+encodeURIComponent(address)+'&limit=1');
+    const d=await r.json();
+    if(d.features&&d.features[0]){
+      const[lng,lat]=d.features[0].geometry.coordinates;
+      return{lat,lng};
+    }
+  }catch(e){}
+  return null;
+}
+
+// getGeo retourne les coordonnées réelles géocodées, ou null si indisponibles
+function getGeo(c){return S.rawGeo[c.id]||null;}
+
+// ─── FETCH AVEC TIMEOUT ───────────────────────────────────────────────────────
+// Toute requête qui ne répond pas en 8s est abandonnée — évite le blocage infini
+async function fetchWithTimeout(url, options={}, timeoutMs=8000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const r=await fetch(url,{...options,signal:controller.signal});
+    clearTimeout(timer);
+    return r;
+  }catch(e){
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
+// ─── TEMPS TC via PRIM / IDFM — multi-endpoint avec fallback automatique ──────
+let PRIM_MODE=null;
+
+async function primFetch(url,token){
+  const headers={'apikey':token};
+  const urls={
+    v2: url,
+    v3: url.replace('/v2/navitia/','/v3/navitia/'),
+    proxy: 'https://corsproxy.io/?'+encodeURIComponent(url)
+  };
+  if(PRIM_MODE)return fetchWithTimeout(urls[PRIM_MODE],{headers});
+  // Détermination automatique au premier appel
+  for(const [mode,u] of Object.entries(urls)){
+    try{
+      const r=await fetchWithTimeout(u,{headers});
+      if(r.status!==0){PRIM_MODE=mode;return r;}
+    }catch(e){}
+  }
+  throw new Error('Tous les endpoints PRIM ont echoue');
+}
+
+async function fetchPrimTC(fromLat,fromLng,toLat,toLng,token){
+  try{
+    const dt=getNextTuesdayAt8();
+    // datetime_represents=departure : Navitia calcule le meilleur trajet au DEPART de 8h00
+    // cohérent avec Google Maps et Geolocaux — évite les distorsions sur trajets longue distance
+    const url=`https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia/journeys?from=${fromLng};${fromLat}&to=${toLng};${toLat}&datetime=${dt}&datetime_represents=departure&count=1&min_nb_journeys=1`;
+    const r=await primFetch(url,token);
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(d.journeys&&d.journeys[0]){
+      const j=d.journeys[0];
+      const tcMin=Math.round(j.duration/60);
+      const walkSec=j.sections?j.sections.filter(s=>s.type==='street_network'&&s.mode==='walking').reduce((a,s)=>a+s.duration,0):0;
+      const walkMin=Math.round(walkSec/60);
+      return{tc:tcMin,walk:walkMin||Math.round(tcMin*0.25)};
+    }
+  }catch(e){}
+  return null;
+}
+
+// ─── TEMPS VOITURE via OpenRouteService ───────────────────────────────────────
+async function fetchORS(fromLat,fromLng,toLat,toLng,orsKey){
+  try{
+    const url=`https://api.openrouteservice.org/v2/directions/driving-car?api_key=${orsKey}&start=${fromLng},${fromLat}&end=${toLng},${toLat}`;
+    const r=await fetchWithTimeout(url,{},8000);
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(d.features&&d.features[0]){
+      return Math.round(d.features[0].properties.segments[0].duration/60);
+    }
+  }catch(e){}
+  return null;
+}
+
+function getNextTuesdayAt8(){
+  const d=new Date();const day=d.getDay();
+  const daysUntil=(2-day+7)%7||7;
+  d.setDate(d.getDate()+daysUntil);
+  // Heure locale 8h00 — construction manuelle pour éviter toute conversion UTC
+  // (ex : 8h00 Paris → 6h00 UTC en été, soit un créneau horaire erroné)
+  const pad=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(8)}${pad(0)}${pad(0)}`;
+}
+
+function siteKey(site){return site.name+'|'+site.addr;}
+
+// getTimes retourne null si les données réelles ne sont pas disponibles
+function getTimes(c,site){
+  const key=c.id+'__'+siteKey(site);
+  return S.rawTimes[key]||null;
+}
+
+// ─── HELPERS STATISTIQUES ─────────────────────────────────────────────────────
+
+// ─── FICHIER ──────────────────────────────────────────────────────────────────
+document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])doFile(e.target.files[0]);});
+function doFile(f){
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'binary'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      S.rawTimes={};S.rawGeo={};
+      S.allCollabs=pC(XLSX.utils.sheet_to_json(ws));
+      document.getElementById('fileRequired').style.display='none';
+      document.getElementById('fileOk').style.display='flex';
+      if(S.allCollabs.length===0){
+        document.getElementById('fileTxt').textContent='⚠ Aucun collaborateur detecte — verifiez les colonnes';
+        document.getElementById('fileOk').style.background='var(--red-bg)';
+        document.getElementById('fileOk').style.borderColor='var(--red-bd)';
+        document.getElementById('fileOk').querySelector('span').textContent='⚠';
+        document.getElementById('fileOk').querySelector('span').style.color='var(--red)';
+        document.getElementById('fileOk').querySelector('div').style.color='var(--red)';
+        // Laisser le bouton désactivé si aucun collaborateur détecté
+      } else {
+        document.getElementById('fileTxt').textContent=f.name+' · '+S.allCollabs.length+' collaborateurs';
+        document.getElementById('fileOk').style.background='';
+        document.getElementById('fileOk').style.borderColor='';
+        document.getElementById('runBtn').disabled=false;
+      }
+      updateMeta();
+    }catch(err){alert('Erreur de lecture du fichier : '+err.message);}
+  };
+  r.readAsBinaryString(f);
+}
+// ─── NORMALISATION DES ADRESSES ───────────────────────────────────────────────
+// Remplace les apostrophes typographiques courbes par des apostrophes droites
+// et nettoie les caractères qui peuvent perturber le géocodage
+function normalizeAddr(s){
+  if(!s)return'';
+  return String(s)
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g,"'") // apostrophes courbes → droite
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g,'"')  // guillemets courbes → droits
+    .replace(/[\u2013\u2014]/g,'-')                           // tirets longs → tiret simple
+    .trim();
+}
+
+function pC(data){
+  if(!data||data.length===0)return[];
+  const parsed=data.map((row,i)=>{
+    const ks=Object.keys(row);
+    const aK=ks.find(k=>k.toLowerCase().includes('adresse collab'))
+           ||ks.find(k=>k.toLowerCase().includes('adresse'))
+           ||ks.find(k=>k.toLowerCase().includes('address'))
+           ||ks.find(k=>k.toLowerCase()==='rue');
+    const cK=ks.find(k=>k.toLowerCase().includes('code postal collab'))
+           ||ks.find(k=>k.toLowerCase().includes('code postal'))
+           ||ks.find(k=>k.toLowerCase()==='cp')
+           ||ks.find(k=>k.toLowerCase()==='codepostal')
+           ||ks.find(k=>k.toLowerCase().includes('postal'));
+    const vK=ks.find(k=>k.toLowerCase().includes('ville collab'))
+           ||ks.find(k=>k.toLowerCase().includes('ville'))
+           ||ks.find(k=>k.toLowerCase()==='city')
+           ||ks.find(k=>k.toLowerCase()==='commune');
+    const mK=ks.find(k=>k.toLowerCase().includes('titre de transport'))
+           ||ks.find(k=>k.toLowerCase().includes('titre'))
+           ||ks.find(k=>k.toLowerCase().includes('transport'))
+           ||ks.find(k=>k.toLowerCase()==='vélo')
+           ||ks.find(k=>k.toLowerCase()==='velo');
+
+    const cp=normalizeAddr(cK?String(row[cK]||''):'').replace(/\s/g,'').padStart(5,'0');
+    const ville=normalizeAddr(vK?String(row[vK]||''):'');
+    let adresse=normalizeAddr(aK?String(row[aK]||''):'');
+
+    // CORRECTION 1 : adresse "?" → utiliser uniquement CP + ville pour le géocodage
+    const adresseInvalide=!adresse||adresse==='?'||adresse===''||adresse.replace(/[?.\s-]/g,'').length===0;
+    const addressGeocode=adresseInvalide
+      ? [cp,ville].filter(Boolean).join(' ')   // géocodage par CP+ville uniquement
+      : [adresse,cp,ville].filter(Boolean).join(', ');
+
+    // CORRECTION 3 : marquer si l'adresse est approximative (CP seul)
+    const adresseApprox=adresseInvalide;
+
+    return{
+      id:i+1,
+      address:addressGeocode,
+      adresseApprox,
+      cp,ville,
+      mode:mK?nM(row[mK]):'tc',
+      horsIDF:!isIDF(cp)  // CORRECTION 2 : marquer explicitement hors IDF
+    };
+  }).filter(c=>c.address&&c.address.length>3);
+
+  // CORRECTION 4 : dédoublonnage par adresse exacte
+  // Les vrais doublons (même personne, même adresse) sont conservés une seule fois pour le géocodage
+  // mais comptés individuellement dans les statistiques
+  // → On conserve TOUS les collaborateurs (chacun est un salarié distinct)
+  // mais on partage le rawGeo : deux collaborateurs à la même adresse partagent les mêmes coordonnées
+  // Ce comportement est géré dans l'étape géocodage (cache par adresse, pas par ID)
+  return parsed;
+}
+function nM(v){if(!v)return'tc';const s=String(v).toLowerCase();if(s.includes('voiture')||s.includes('car'))return'car';if(s.includes('velo'))return'bike';return'tc';}
+function updateMeta(){
+  const n=activeCollabs().length||'—';
+  document.getElementById('topMeta').textContent=n+' salaries · Depart 08:00';
+}
+
+// ─── FILTRE IDF ───────────────────────────────────────────────────────────────
+// CORRECTION : le toggle recalcule entièrement S.results avec le nouveau sous-ensemble
+function onIdfToggle(){
+  S.idfOnly=document.getElementById('idfToggle').checked;
+  const lbl=document.getElementById('idfLabel');lbl.textContent=S.idfOnly?'IDF uniquement':'Tous les salaries';
+  document.getElementById('idfBadge').style.display=S.idfOnly?'inline-flex':'none';
+  updateMeta();
+  // Si une analyse existe déjà, la recalculer avec le bon sous-ensemble
+  if(S.origin&&S.sites.length>0&&Object.keys(S.rawTimes).length>0){
+    S.results=buildResults();
+    renderAll();
+  }
+}
+
+// ─── KEYS ─────────────────────────────────────────────────────────────────────
+// ─── PROXY CORS ───────────────────────────────────────────────────────────────
+// Nécessaire quand l'application est ouverte en fichier local (file://)
+// Inutile depuis un serveur https:// (GitHub Pages, Netlify)
+const IS_LOCAL = location.protocol === 'file:';
+function proxify(url){
+  return IS_LOCAL ? 'https://corsproxy.io/?' + encodeURIComponent(url) : url;
+}
+async function apiFetch(url, options={}){
+  // Tentative directe d'abord
+  try{
+    const r = await fetch(url, options);
+    return r;
+  }catch(e){
+    // Si échec CORS en local, passer par le proxy
+    if(IS_LOCAL){
+      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+      return await fetch(proxyUrl, options);
+    }
+    throw e;
+  }
+}
+
+// ─── CLÉS API — VALIDATION ────────────────────────────────────────────────────
+function onKeyInput(which){
+  const key=document.getElementById(which==='prim'?'primKey':'orsKey').value.trim();
+  const el=document.getElementById(which==='prim'?'primSt':'orsSt');
+  const field=document.getElementById(which==='prim'?'primKey':'orsKey');
+  field.style.borderColor='';
+  if(key.length===0){
+    setKeyStatus(el,'neutral','Non renseignee');
+  } else {
+    setKeyStatus(el,'pending','Cle saisie — cliquer Tester pour valider');
+  }
+}
+
+function setKeyStatus(el,state,msg){
+  const colors={neutral:'var(--hint)',pending:'var(--org)',valid:'var(--grn)',invalid:'var(--red)',testing:'var(--org)'};
+  const icons={neutral:'○',pending:'◌',valid:'✓',invalid:'✗',testing:'⟳'};
+  el.style.color=colors[state]||colors.neutral;
+  el.innerHTML=`<span style="font-size:11px;margin-right:3px">${icons[state]}</span>${msg}`;
+}
+
+async function validatePrim(){
+  const key=document.getElementById('primKey').value.trim();
+  const el=document.getElementById('primSt');
+  const btn=document.getElementById('primValBtn');
+  if(!key){setKeyStatus(el,'neutral','Saisissez votre token PRIM');return;}
+  setKeyStatus(el,'testing','Test en cours...');
+  btn.disabled=true;btn.textContent='...';
+
+  const testUrl='https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia/journeys?from=2.347;48.859&to=2.332;48.871&count=1';
+  const headers={'apikey':key};
+  const endpoints=[
+    {label:'PRIM v2 direct', url:testUrl, fetchFn:()=>fetch(testUrl,{headers})},
+    {label:'PRIM v3 direct', url:testUrl, fetchFn:()=>fetch(testUrl.replace('/v2/navitia/','/v3/navitia/'),{headers})},
+    {label:'PRIM v2 via proxy', url:testUrl, fetchFn:()=>fetch('https://corsproxy.io/?'+encodeURIComponent(testUrl),{headers})}
+  ];
+
+  for(const ep of endpoints){
+    setKeyStatus(el,'testing','Test '+ep.label+'...');
+    try{
+      const r=await ep.fetchFn();
+      if(r.status===200){
+        const d=await r.json();
+        if(d.journeys&&d.journeys.length>0){
+          const mins=Math.round(d.journeys[0].duration/60);
+          // Mémoriser le mode qui fonctionne
+          if(ep.label.includes('v3'))PRIM_MODE='v3';
+          else if(ep.label.includes('proxy'))PRIM_MODE='proxy';
+          else PRIM_MODE='v2';
+          setKeyStatus(el,'valid',`Token valide — ${ep.label} (test : ${mins} min) ✓`);
+          document.getElementById('primKey').style.borderColor='var(--grn-bd)';
+          btn.disabled=false;btn.textContent='Tester';
+          return;
+        }
+      } else if(r.status===401||r.status===403){
+        setKeyStatus(el,'invalid','Token invalide ou expire (erreur '+r.status+')');
+        document.getElementById('primKey').style.borderColor='var(--red-bd)';
+        btn.disabled=false;btn.textContent='Tester';
+        return;
+      } else if(r.status===429){
+        setKeyStatus(el,'invalid','Quota depasse — reessayez dans quelques minutes');
+        btn.disabled=false;btn.textContent='Tester';
+        return;
+      }
+    }catch(e){}
+  }
+  setKeyStatus(el,'invalid','Echec sur tous les endpoints — verifiez votre token et votre connexion');
+  document.getElementById('primKey').style.borderColor='var(--red-bd)';
+  btn.disabled=false;btn.textContent='Tester';
+}
+
+async function validateOrs(){
+  const key=document.getElementById('orsKey').value.trim();
+  const el=document.getElementById('orsSt');
+  const btn=document.getElementById('orsValBtn');
+  if(!key){setKeyStatus(el,'neutral','Saisissez votre cle ORS');return;}
+  setKeyStatus(el,'testing','Test en cours...');
+  btn.disabled=true;btn.textContent='...';
+  try{
+    const url=`https://api.openrouteservice.org/v2/directions/driving-car?api_key=${key}&start=2.3522,48.8566&end=2.3472,48.8600`;
+    const r=await apiFetch(url);
+    if(r.status===200){
+      const d=await r.json();
+      if(d.features&&d.features[0]){
+        const mins=Math.round(d.features[0].properties.segments[0].duration/60);
+        setKeyStatus(el,'valid',`Cle valide — ORS operationnel (test : ${mins} min) ✓`);
+        document.getElementById('orsKey').style.borderColor='var(--grn-bd)';
+      } else {
+        setKeyStatus(el,'invalid','Reponse inattendue — verifiez votre cle');
+      }
+    } else if(r.status===401||r.status===403){
+      setKeyStatus(el,'invalid','Cle invalide ou expiree (erreur '+r.status+')');
+      document.getElementById('orsKey').style.borderColor='var(--red-bd)';
+    } else if(r.status===429){
+      setKeyStatus(el,'invalid','Quota journalier depasse — reessayez demain');
+    } else {
+      setKeyStatus(el,'invalid','Erreur '+r.status+' — cle non reconnue');
+    }
+  }catch(e){
+    setKeyStatus(el,'invalid','Echec connexion ('+e.message.substring(0,40)+')');
+  }
+  btn.disabled=false;btn.textContent='Tester';
+}
+
+// ─── FILTRES ──────────────────────────────────────────────────────────────────
+function toggleFilter(m){
+  S.filterMode=m;
+  document.getElementById('fMoy').className='fb'+(m==='moy'?' on':'');
+  document.getElementById('fMed').className='fb'+(m==='med'?' on':'');
+  if(S.results){rActuelle();rFutures();rBilan();}
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(el){
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');S.currentTab=el.dataset.tab;
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+S.currentTab).classList.add('active');
+  if(S.currentTab==='carto'&&S.map)setTimeout(()=>S.map.invalidateSize(),50);
+}
+
+// ─── SITES ────────────────────────────────────────────────────────────────────
+function rOrigin(){
+  const c=document.getElementById('originBlock');
+  if(!S.origin){c.innerHTML='<div class="se" onclick="openOriginModal()"><div style="font-size:16px;opacity:0.15;margin-bottom:3px">+</div><div style="font-size:11px;color:var(--hint)">Cliquer pour renseigner le site de depart</div></div>';}
+  else{c.innerHTML='<div class="sb ok"><div class="stag to">Depart</div><button class="seb" onclick="openOriginModal()">Modifier</button><div class="sn">'+S.origin.name+'</div><div class="sa">'+S.origin.addr.replace('\n','<br>')+'</div></div>';}
+}
+function rDests(){
+  const c=document.getElementById('destList');
+  let h='';S.sites.forEach((s,i)=>{h+='<div class="sb ok"><div class="stag td">Arrivee '+BDEP[i]+'</div><span class="srm" onclick="rmSite('+i+')">&#215;</span><div class="sn">'+s.name+'</div><div class="sa">'+s.addr.replace('\n','<br>')+'</div></div>';});
+  c.innerHTML=h;
+  document.getElementById('destLabel').textContent=S.sites.length>0?S.sites.length+' site'+(S.sites.length>1?'s':'')+' d\'arrivee':'Sites d\'arrivee';
+}
+function rmSite(i){
+  // Effacer le cache des temps pour ce site (ils seront recalculés si le site est ré-ajouté)
+  const key=siteKey(S.sites[i]);
+  Object.keys(S.rawTimes).forEach(k=>{if(k.includes('__'+key))delete S.rawTimes[k];});
+  S.sites.splice(i,1);rDests();
+}
+function openOriginModal(){oSM('Site de depart','Adresse actuelle de vos collaborateurs.',true,S.origin);}
+function openDestModal(){oSM('Ajouter un site d\'arrivee','Site cible a analyser.',false,null);}
+function oSM(title,sub,isOrigin,ex){
+  const old=document.getElementById('mOv');if(old)old.remove();
+  const m=document.createElement('div');m.className='mbg';m.id='mOv';
+  const n=ex?ex.name:'';const a1=ex?ex.addr.split('\n')[0]:'';const a2=ex&&ex.addr.split('\n')[1]?ex.addr.split('\n')[1]:'';
+  m.innerHTML='<div class="mdl"><div class="mh">'+title+'</div><div class="ms">'+sub+'</div><label class="fl">Nom du site</label><input type="text" class="fi" id="mN" placeholder="ex : Wojo Champs-Elysees" value="'+n+'"><label class="fl">Adresse</label><input type="text" class="fi" id="mA1" placeholder="ex : 16 rue Washington" value="'+a1+'"><label class="fl">Code postal et ville</label><input type="text" class="fi" id="mA2" placeholder="ex : 75008 Paris" value="'+a2+'"><div class="mbtns"><button class="mb c" onclick="cModal()">Annuler</button><button class="mb o" onclick="sSite('+isOrigin+')">Confirmer</button></div></div>';
+  m.addEventListener('click',e=>{if(e.target===m)cModal();});
+  document.body.appendChild(m);setTimeout(()=>document.getElementById('mN').focus(),50);
+}
+function cModal(){const m=document.getElementById('mOv');if(m)m.remove();}
+function sSite(isOrigin){
+  const n=document.getElementById('mN').value.trim();
+  const a1=document.getElementById('mA1').value.trim();
+  const a2=document.getElementById('mA2').value.trim();
+  if(!n)return;
+  const addr=[a1,a2].filter(Boolean).join('\n');
+  // Coordonnées initialisées à null — seront géocodées précisément au lancement de l'analyse
+  const site={name:n,addr:addr||n,lat:null,lng:null,_geocoded:false};
+  if(isOrigin){
+    if(S.origin&&siteKey(S.origin)!==siteKey(site)){S.rawTimes={};S.rawGeo={};}
+    S.origin=site;rOrigin();
+  }else{S.sites.push(site);rDests();}
+  cModal();
+}
+
+// ─── ANALYSE ──────────────────────────────────────────────────────────────────
+async function runAnalysis(){
+  if(S.allCollabs.length===0){alert('Aucun collaborateur detecte dans le fichier. Verifiez que les colonnes Adresse, Code Postal et Ville sont bien presentes.');return;}
+  if(!S.origin){alert('Veuillez renseigner le site de depart.');return;}
+  if(S.sites.length===0){alert('Veuillez ajouter au moins un site d\'arrivee.');return;}
+  const btn=document.getElementById('runBtn');const pw=document.getElementById('prog');
+  btn.disabled=true;pw.classList.add('on');
+
+  const primKey=getPrimKey();
+  const orsKey=getOrsKey();
+
+  // Blocage strict — les deux clés sont obligatoires
+  if(!primKey){
+    pw.classList.remove('on');btn.disabled=false;
+    alert('La cle PRIM / IDFM est obligatoire pour calculer les temps TC.\nRenseignez et validez votre token avant de lancer l\'analyse.');
+    return;
+  }
+  if(!orsKey){
+    pw.classList.remove('on');btn.disabled=false;
+    alert('La cle OpenRouteService est obligatoire pour calculer les temps voiture.\nRenseignez et validez votre cle avant de lancer l\'analyse.');
+    return;
+  }
+
+  const allC=S.allCollabs;
+  const allSites=[S.origin,...S.sites];
+
+  // Compter les hors IDF pour affichage cartographie
+  S.nbHorsIDF = allC.filter(c=>c.horsIDF).length;
+  // L'analyse ne porte que sur les salariés IDF
+  const collabsIDF = allC.filter(c=>!c.horsIDF);
+
+  // ── ÉTAPE 1 : Géocodage des adresses ──────────────────────────────────────
+  sP(2,'Etape 1/3 — Geocodage des adresses (0/'+collabsIDF.length+')...');
+  let geocoded=0;let geocodeErrors=0;
+
+  // Cache partagé par adresse — deux collaborateurs à la même adresse
+  // partagent les mêmes coordonnées sans doubler les requêtes API
+  const geoByAddress={};
+
+  for(const c of collabsIDF){
+    if(!S.rawGeo[c.id]){
+      const addrKey=c.address.toLowerCase().trim();
+      if(geoByAddress[addrKey]){
+        // CORRECTION 4 : doublon — réutiliser le géocodage déjà effectué
+        S.rawGeo[c.id]=geoByAddress[addrKey];
+      } else if(c.address&&c.address.length>3){
+        const geo=await geocodeAddress(c.address);
+        if(geo){
+          S.rawGeo[c.id]=geo;
+          geoByAddress[addrKey]=geo;
+        } else {
+          geocodeErrors++;
+        }
+        await sl(25);
+      } else {
+        geocodeErrors++;
+      }
+    }
+    geocoded++;
+    if(geocoded%5===0)sP(2+Math.round((geocoded/collabsIDF.length)*18),
+      'Etape 1/3 — Geocodage '+geocoded+'/'+collabsIDF.length+(S.nbHorsIDF>0?' ('+S.nbHorsIDF+' hors IDF exclus)':'')+'...');
+  }
+  if(geocodeErrors>0){
+    sP(20,geocodeErrors+' adresse(s) non geocodee(s) — ces collaborateurs seront exclus...');
+    await sl(800);
+  }
+
+  // Géocodage précis des sites
+  sP(20,'Geocodage des sites...');
+  for(const site of allSites){
+    if(!site._geocoded){
+      const addr=(site.addr||site.name).replace('\n',' ');
+      const geo=await geocodeAddress(addr);
+      if(!geo){
+        pw.classList.remove('on');btn.disabled=false;
+        alert('Impossible de geocoder le site "'+site.name+'".\nVerifiez l\'adresse et relancez.');
+        return;
+      }
+      site.lat=geo.lat;site.lng=geo.lng;site._geocoded=true;
+      await sl(100);
+    }
+  }
+
+  // ── ÉTAPE 2 : Calcul des temps via APIs réelles ────────────────────────────
+  // Stratégie : séquentiel avec TC et voiture en parallèle pour chaque collaborateur
+  // Une pause adaptative évite les 429 — allongée automatiquement si l'API ralentit
+  const allSiteCollabPairs=[];
+  for(const site of allSites){
+    for(const c of collabsIDF){
+      const key=c.id+'__'+siteKey(site);
+      if(!S.rawTimes[key]&&S.rawGeo[c.id])allSiteCollabPairs.push({site,c,key});
+    }
+  }
+  const totalReq=collabsIDF.length*allSites.length;
+  let done=collabsIDF.length*allSites.length-allSiteCollabPairs.length;
+  let apiErrors=0;
+  let pauseMs=300;
+  sP(22,'Etape 2/3 — Calcul des trajets ('+done+'/'+totalReq+')...');
+
+  for(const {site,c,key} of allSiteCollabPairs){
+    const geo=getGeo(c);
+    // TC et voiture en parallèle (2 requêtes simultanées max)
+    const [primRes,carTime]=await Promise.all([
+      fetchPrimTC(geo.lat,geo.lng,site.lat,site.lng,primKey),
+      fetchORS(geo.lat,geo.lng,site.lat,site.lng,orsKey)
+    ]);
+    if(primRes){
+      const {tc,walk}=primRes;
+      S.rawTimes[key]={tc,car:carTime,walk};
+      if(pauseMs>300)pauseMs=Math.max(300,pauseMs-50); // récupération progressive
+    } else {
+      apiErrors++;
+      // Si PRIM échoue, suspicion de 429 — allonger la pause
+      pauseMs=Math.min(2000,pauseMs+200);
+    }
+    done++;
+    if(done%3===0||done===totalReq){
+      const restants=totalReq-done;
+      const etaSec=Math.round(restants*pauseMs/1000);
+      sP(22+Math.round((done/totalReq)*68),
+        'Etape 2/3 — '+done+'/'+totalReq+(etaSec>3?' (~'+etaSec+'s)':'')+'...');
+    }
+    await sl(pauseMs);
+  }
+
+  // ── ÉTAPE 3 : Compilation ─────────────────────────────────────────────────
+  sP(92,'Etape 3/3 — Compilation...');await sl(100);
+  S.results=buildResults();
+  if(!S.results||S.results.collabs.length===0){
+    pw.classList.remove('on');btn.disabled=false;sP(0,'');
+    alert('Aucun resultat disponible. Toutes les requetes API ont echoue.\nVerifiez vos cles (bouton Tester) et relancez.');
+    return;
+  }
+  const n=S.results.collabs.length;
+  const missing=S.results.missing||0;
+  sP(100,'Analyse terminee — '+n+' salaries · donnees reelles'+(missing>0?' · '+missing+' exclus (API sans reponse)':''));
+  await sl(300);
+  pw.classList.remove('on');btn.disabled=false;
+  document.getElementById('topMeta').textContent=n+' salaries analyses · Donnees reelles · Depart 08:00'+(missing>0?' ('+missing+' exclus)':'');
+  document.getElementById('saveBtn').disabled=false;
+  renderAll();
+}
+
+// ─── BUILD RESULTS ────────────────────────────────────────────────────────────
+// Strictement basé sur les données réelles de S.rawTimes.
+// Un collaborateur sans temps calculé est exclu de l'analyse et comptabilisé séparément.
+function buildResults(){
+  const allActive=activeCollabs();
+  if(allActive.length===0)return null;
+
+  // Exclure les collaborateurs sans coordonnées géocodées réelles
+  const withGeo=allActive.filter(c=>S.rawGeo[c.id]);
+  // Exclure ceux sans données TC calculées pour le site d'origine
+  const collabs=withGeo.filter(c=>getTimes(c,S.origin)!==null).map(c=>({...c,...S.rawGeo[c.id]}));
+  const missing=allActive.length-collabs.length;
+
+  if(collabs.length===0)return null;
+  const n=collabs.length;
+
+  function getT(c,site){return getTimes(c,site)||{tc:null,car:null,walk:null};}
+
+  // Stats filtrées par mode — TC uniquement sur collabs TC, voiture uniquement sur collabs voiture
+  const tcCollabs=collabs.filter(c=>c.mode==='tc');
+  const carCollabs=collabs.filter(c=>c.mode==='car');
+  const tcN=tcCollabs.length;
+  const carN=carCollabs.length;
+
+  const oTC=tcCollabs.map(c=>getT(c,S.origin).tc).filter(v=>v!==null).sort((a,b)=>a-b);
+  const oCAR=carCollabs.map(c=>getT(c,S.origin).car).filter(v=>v!==null).sort((a,b)=>a-b);
+  const oWALK=tcCollabs.map(c=>getT(c,S.origin).walk).filter(v=>v!==null);
+
+  const origStats={
+    n,missing,
+    avgTC:oTC.length?Math.round(oTC.reduce((a,b)=>a+b,0)/oTC.length):null,
+    medTC:oTC.length?oTC[Math.floor(oTC.length/2)]:null,
+    minTC:oTC.length?Math.min(...oTC):null,
+    maxTC:oTC.length?Math.max(...oTC):null,
+    avgCar:oCAR.length?Math.round(oCAR.reduce((a,b)=>a+b,0)/oCAR.length):null,
+    medCar:oCAR.length?oCAR[Math.floor(oCAR.length/2)]:null,
+    avgWalk:oWALK.length?Math.round(oWALK.reduce((a,b)=>a+b,0)/oWALK.length):null,
+    crit:oTC.filter(t=>t>60).length,
+    zoneConfort:n>0?Math.round((collabs.filter(c=>{
+      const t=getT(c,S.origin);
+      const v=c.mode==='car'?t.car:t.tc;
+      return v!==null&&v<=45;
+    }).length/n)*100):null,
+    zoneConfortN:collabs.filter(c=>{const t=getT(c,S.origin);const v=c.mode==='car'?t.car:t.tc;return v!==null&&v<=45;}).length,
+    dist:mkD(oTC),
+    tcCount:tcN,carCount:carN,
+    pctTC:Math.round(tcN/n*100),pctCar:Math.round(carN/n*100),
+    depts:deptDistrib(collabs),communes:communeCount(collabs)
+  };
+
+  const sites=S.sites.map(site=>{
+    const sCollabs=collabs.filter(c=>getTimes(c,site)!==null);
+    const sn=sCollabs.length;
+    // Filtrer par mode : allTC sur TC uniquement, allCAR sur voiture uniquement
+    const sTCCollabs=sCollabs.filter(c=>c.mode==='tc');
+    const sCARCollabs=sCollabs.filter(c=>c.mode==='car');
+    const allTC=sTCCollabs.map(c=>getT(c,site).tc).filter(v=>v!==null).sort((a,b)=>a-b);
+    const allCAR=sCARCollabs.map(c=>getT(c,site).car).filter(v=>v!==null).sort((a,b)=>a-b);
+    const allW=sTCCollabs.map(c=>getT(c,site).walk).filter(v=>v!==null);
+    let g=0,p=0,st=0,cr=0;
+    const dl=[],dlTC=[],dlCAR=[];
+    sCollabs.forEach(c=>{
+      const o=getT(c,S.origin);const d=getT(c,site);
+      if(o.tc===null||d.tc===null)return;
+      const mo=c.mode==='car'?o.car:o.tc;
+      const md=c.mode==='car'?d.car:d.tc;
+      if(mo===null||md===null)return;
+      const delta=md-mo;dl.push(delta);
+      if(d.tc>60)cr++;
+      if(Math.abs(delta)<=5)st++;else if(delta<0)g++;else p++;
+    });
+    sCollabs.filter(c=>c.mode==='tc').forEach(c=>{
+      const o=getT(c,S.origin);const d=getT(c,site);
+      if(o.tc!==null&&d.tc!==null)dlTC.push(d.tc-o.tc);
+    });
+    sCollabs.filter(c=>c.mode==='car').forEach(c=>{
+      const o=getT(c,S.origin);const d=getT(c,site);
+      if(o.car!==null&&d.car!==null)dlCAR.push(d.car-o.car);
+    });
+    return{
+      site,gains:g,pertes:p,stables:st,crit:cr,n:sn,
+      avgD:dl.length?Math.round(dl.reduce((a,b)=>a+b,0)/dl.length):null,
+      avgDTC:dlTC.length?Math.round(dlTC.reduce((a,b)=>a+b,0)/dlTC.length):null,
+      avgDCAR:dlCAR.length?Math.round(dlCAR.reduce((a,b)=>a+b,0)/dlCAR.length):null,
+      avgTC:allTC.length?Math.round(allTC.reduce((a,b)=>a+b,0)/allTC.length):null,
+      medTC:allTC.length?allTC[Math.floor(allTC.length/2)]:null,
+      minTC:allTC.length?Math.min(...allTC):null,
+      maxTC:allTC.length?Math.max(...allTC):null,
+      avgCar:allCAR.length?Math.round(allCAR.reduce((a,b)=>a+b,0)/allCAR.length):null,
+      medCar:allCAR.length?allCAR[Math.floor(allCAR.length/2)]:null,
+      avgWalk:allW.length?Math.round(allW.reduce((a,b)=>a+b,0)/allW.length):null,
+      dist:mkD(allTC),
+      zoneConfort:sn>0?Math.round((sCollabs.filter(c=>{const t=getT(c,site);const v=c.mode==='car'?t.car:t.tc;return v!==null&&v<=45;}).length/sn)*100):null,
+      zoneConfortN:sCollabs.filter(c=>{const t=getT(c,site);const v=c.mode==='car'?t.car:t.tc;return v!==null&&v<=45;}).length
+    };
+  });
+
+  const rows=collabs.map(c=>{
+    const oT=getT(c,S.origin);
+    return{...c,origTC:oT.tc,origCar:oT.car,
+      siteData:sites.map(s=>{
+        const t=getT(c,s.site);
+        if(t.tc===null)return null;
+        const mo=c.mode==='car'?oT.car:oT.tc;
+        const md=c.mode==='car'?t.car:t.tc;
+        return{tc:t.tc,car:t.car,delta:(mo!==null&&md!==null)?md-mo:null};
+      })
+    };
+  });
+  return{collabs,sites,origStats,rows,missing};
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function mkD(arr){return[{l:'0–15',c:arr.filter(t=>t<=15).length,col:'#4caf82',bg:'#4caf82'},{l:'15–30',c:arr.filter(t=>t>15&&t<=30).length,col:'#a0c878',bg:'#a0c878'},{l:'30–45',c:arr.filter(t=>t>30&&t<=45).length,col:'#d4b84a',bg:'#d4b84a'},{l:'45–60',c:arr.filter(t=>t>45&&t<=60).length,col:'#e0822a',bg:'#e0822a'},{l:'+60',c:arr.filter(t=>t>60).length,col:'#c0392b',bg:'#c0392b'}];}
+function deptDistrib(collabs){const m={};collabs.forEach(c=>{const d=String(c.cp||'').substring(0,2);m[d]=(m[d]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([d,cnt])=>({dept:d,name:IDF_DEP_NAMES[d]||(d==='14'?'Calvados 14':d==='27'?'Eure 27':d==='59'?'Nord 59':'Dept '+d),cnt,pct:Math.round(cnt/collabs.length*100)}));}
+function communeCount(collabs){return new Set(collabs.map(c=>String(c.cp||'').trim())).size;}
+
+// ─── RENDER ALL ───────────────────────────────────────────────────────────────
+function renderAll(){
+  if(!S.results)return;
+  iMap();rCartoStats();rModeBar();rActuelle();rFutures();rBilan();
+}
+
+// ─── CARTO STATS ──────────────────────────────────────────────────────────────
+function rCartoStats(){
+  if(!S.results)return;
+  const r=S.results;const oS=r.origStats;const n=r.collabs.length;
+  const nbDepts=new Set(r.collabs.map(c=>String(c.cp||'').substring(0,2))).size;
+  const nbHorsIDF=S.nbHorsIDF||0;
+  const nbApprox=r.collabs.filter(c=>c.adresseApprox).length;
+  const el=document.getElementById('cartoStats');
+  el.style.display='block';
+
+  // Bandeau hors IDF
+  let bandeaux='';
+  if(nbHorsIDF>0){
+    bandeaux+=`<div style="display:flex;align-items:center;gap:8px;background:var(--org-bg);border:1px solid var(--acc);border-radius:7px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--org)">
+      <span style="font-size:14px">⚠</span>
+      <div><b>${nbHorsIDF} collaborateur${nbHorsIDF>1?'s':''} hors Île-de-France</b> non pris en compte dans l'analyse (API PRIM limitée à l'IDF). Activez le filtre IDF pour les masquer sur la carte.</div>
+    </div>`;
+  }
+  if(nbApprox>0){
+    bandeaux+=`<div style="display:flex;align-items:center;gap:8px;background:var(--blu-bg);border:1px solid var(--blu);border-radius:7px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--blu)">
+      <span style="font-size:14px">ℹ</span>
+      <div><b>${nbApprox} adresse${nbApprox>1?'s':''} incomplète${nbApprox>1?'s':''}</b> (champ "?" dans le fichier) — géocodées par code postal uniquement, position approximative.</div>
+    </div>`;
+  }
+
+  el.innerHTML=bandeaux+
+    `<div class="carto-kpis">
+      <div class="ckpi"><div class="ckpi-val">${n}</div><div class="ckpi-lbl">salaries analyses</div></div>
+      <div class="ckpi"><div class="ckpi-val">${nbDepts}</div><div class="ckpi-lbl">departements</div></div>
+      <div class="ckpi"><div class="ckpi-val">${oS.communes}</div><div class="ckpi-lbl">communes</div></div>
+    </div>
+    <div class="dept-section">
+      <div><div class="dept-title">Repartition par departement</div><canvas id="pieChart" width="160" height="160"></canvas></div>
+      <div><div class="dept-title">Detail</div>${oS.depts.map((d,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px"><div style="width:10px;height:10px;border-radius:50%;background:${PIE_COLORS[i]||'#888'};flex-shrink:0"></div><div style="flex:1">${d.name}</div><div style="color:var(--muted)">${d.pct}%</div></div>`).join('')}</div>
+    </div>`;
+  if(S.pieChart){S.pieChart.destroy();S.pieChart=null;}
+  const ctx=document.getElementById('pieChart');
+  if(ctx){S.pieChart=new Chart(ctx,{type:'doughnut',data:{labels:oS.depts.map(d=>d.name),datasets:[{data:oS.depts.map(d=>d.cnt),backgroundColor:PIE_COLORS,borderWidth:1,borderColor:'#fff'}]},options:{responsive:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/n*100)}%)`}}}}});}
+}
+function rModeBar(){
+  if(!S.results)return;
+  const r=S.results;
+  document.getElementById('modeBarCarto').style.display='flex';
+  document.getElementById('pctTC').textContent=r.origStats.pctTC;
+  document.getElementById('pctCar').textContent=r.origStats.pctCar;
+  document.getElementById('nbSal').textContent=r.collabs.length+' salaries analyses';
+}
+
+// ─── TAB ACTUELLE ─────────────────────────────────────────────────────────────
+function rActuelle(){
+  if(!S.results)return;
+  const r=S.results;const n=r.collabs.length;const uM=S.filterMode==='med';const oS=r.origStats;
+  document.getElementById('emptyActuelle').style.display='none';
+  const el=document.getElementById('statsActuelle');el.style.display='block';
+  let h=`<div class="shdr">${S.origin.name} — Statistiques du site actuel</div>`;
+  // Déterminer les modes présents
+  const hasTC=oS.tcCount>0;
+  const hasCar=oS.carCount>0;
+  h+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--brd);border:1px solid var(--brd);border-radius:8px;overflow:hidden;margin-bottom:14px">`;
+  if(hasTC){
+    h+=`<div style="background:var(--bg2);padding:14px 16px;text-align:center"><div style="font-size:28px;font-weight:500">${uM?oS.medTC:oS.avgTC}<span style="font-size:13px;color:var(--hint)"> min</span></div><div style="font-size:11px;color:var(--muted);margin-top:3px">🚇 Tps ${uM?'median':'moyen'} TC<br><span style="font-size:10px">dont ${oS.avgWalk}min de marche</span></div><div style="font-size:11px;color:var(--hint);margin-top:2px">${oS.medTC}min median</div></div>`;
+  }
+  if(hasCar){
+    h+=`<div style="background:var(--bg2);padding:14px 16px;text-align:center"><div style="font-size:28px;font-weight:500">${uM?oS.medCar:oS.avgCar}<span style="font-size:13px;color:var(--hint)"> min</span></div><div style="font-size:11px;color:var(--muted);margin-top:3px">🚗 Tps ${uM?'median':'moyen'} Voiture</div></div>`;
+  }
+  h+=`<div style="background:var(--bg2);padding:14px 16px;text-align:center"><div style="font-size:28px;font-weight:500;color:var(--red)">${oS.crit}</div><div style="font-size:11px;color:var(--muted);margin-top:3px">cas sensibles<br><span style="font-size:10px">Trajet superieur a 1h</span></div></div>`;
+  h+=`</div>`;
+  // Zone de confort — bandeau visuel distinct
+  if(oS.zoneConfort!==null){
+    const zc=oS.zoneConfort;const zcN=oS.zoneConfortN;
+    const zcColor=zc>=70?'var(--grn)':zc>=50?'var(--org)':'var(--red)';
+    h+=`<div style="display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--brd);border-radius:8px;padding:12px 16px;margin-bottom:14px">
+      <div style="text-align:center;min-width:64px">
+        <div style="font-size:26px;font-weight:500;color:${zcColor}">${zc}%</div>
+        <div style="font-size:9px;color:var(--hint);margin-top:1px">${zcN} sal.</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:500;color:var(--txt);margin-bottom:3px">🟢 Zone de confort ≤ 45 min</div>
+        <div style="font-size:10px;color:var(--muted);line-height:1.5">Part des salaries atteignant le site en 45 min ou moins.<br>Seuil de confort généralement associé à la satisfaction et à la rétention.</div>
+      </div>
+      <div style="width:80px;height:8px;background:var(--bg2);border-radius:4px;border:1px solid var(--brd);overflow:hidden">
+        <div style="width:${zc}%;height:100%;background:${zcColor};border-radius:4px;transition:width 0.5s"></div>
+      </div>
+    </div>`;
+  }
+  h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;font-weight:500;color:var(--txt)">🧑 ${n} salaries</div></div>`;
+  const maxC=Math.max(...oS.dist.map(d=>d.c),1);
+  oS.dist.forEach(d=>{const pct=Math.round(d.c/n*100);
+    // Largeur proportionnelle mais avec minimum 8% pour toujours afficher le libellé
+    const wPct=Math.max(8,Math.round(d.c/maxC*100));
+    h+=`<div style="display:flex;align-items:center;margin-bottom:6px;gap:0">
+      <div style="font-size:11px;font-weight:500;width:90px;flex-shrink:0;text-align:right;padding-right:10px;color:var(--txt)">${pct}% – ${d.c} 🧑</div>
+      <div style="flex:1;height:32px;background:var(--bg3);border-radius:0 5px 5px 0;overflow:visible;position:relative">
+        <div style="width:${wPct}%;min-width:90px;height:100%;background:${d.bg};border-radius:0 5px 5px 0;display:flex;align-items:center;padding:0 10px;position:relative">
+          <span style="font-size:11px;font-weight:600;color:#fff;white-space:nowrap">${d.l} min</span>
+        </div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=h;
+}
+
+// ─── TAB FUTURES ──────────────────────────────────────────────────────────────
+
+function rFutures(){
+  if(!S.results)return;
+  const r=S.results;const n=r.collabs.length;const uM=S.filterMode==='med';
+  document.getElementById('emptyFutures').style.display='none';
+  const el=document.getElementById('statsFutures');el.style.display='block';
+  if(!r.sites||r.sites.length===0){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">⚠</div><div class="empty-txt">Aucune donnee disponible pour les sites cibles.<br>Verifiez vos cles API et relancez l\'analyse.</div></div>';
+    return;
+  }
+  const fmt=v=>v!==null&&v!==undefined?v:'—';
+  let h='';
+  r.sites.forEach((s,i)=>{
+    const col=SC[i]||SC[0];
+    const oAvgTC=r.origStats.avgTC;const oMedTC=r.origStats.medTC;
+    const oAvgW=r.origStats.avgWalk;const oCrit=r.origStats.crit;
+    const refTC=uM?s.medTC:s.avgTC;const oRefTC=uM?oMedTC:oAvgTC;
+    const diffTC=refTC!==null&&oRefTC!==null?refTC-oRefTC:null;
+    const diffW=s.avgWalk!==null&&oAvgW!==null?s.avgWalk-oAvgW:null;
+    const diffCrit=s.crit!==null&&oCrit!==null?s.crit-oCrit:null;
+    h+=`<div class="site-stat-card">
+      <div class="ssc-header">
+        <div class="ssc-badge" style="background:${col}20;color:${col}">${BDEP[i]}</div>
+        <div><div style="font-size:12px;font-weight:500">${s.site.name}</div>
+        <div style="font-size:10px;color:var(--hint)">${s.site.addr.replace('\n',' · ')}</div></div>
+        ${s.n<n?`<div style="font-size:10px;color:var(--org);margin-left:auto">${s.n}/${n} sal.</div>`:''}
+      </div>
+      <div class="ssc-body">
+        <div class="kpi-row4">
+          <div class="kpi4"><div class="kpi4-val">${fmt(refTC)}<span style="font-size:12px;color:var(--hint)">m</span></div><div class="kpi4-lbl">Tps ${uM?'med':'moy'} TC</div>${diffTC!==null?`<div class="kpi4-sub" style="color:${diffTC<=0?'var(--grn)':'var(--red)'}">${diffTC>0?'+':''}${diffTC} m</div>`:''}</div>
+          <div class="kpi4"><div class="kpi4-val" style="color:var(--red)">${fmt(s.crit)}</div><div class="kpi4-lbl">Cas sensibles</div>${diffCrit!==null?`<div class="kpi4-sub" style="color:${diffCrit<=0?'var(--grn)':'var(--red)'}">${diffCrit>0?'+':''}${diffCrit}</div>`:''}</div>
+          <div class="kpi4"><div class="kpi4-val">${fmt(s.avgWalk)}<span style="font-size:12px;color:var(--hint)">m</span></div><div class="kpi4-lbl">Marche moy.</div>${diffW!==null?`<div class="kpi4-sub" style="color:${diffW<=0?'var(--grn)':'var(--red)'}">${diffW>0?'+':''}${diffW} m</div>`:''}</div>
+          ${r.origStats.carCount>0?`<div class="kpi4"><div class="kpi4-val">${fmt(uM?s.medCar:s.avgCar)}<span style="font-size:12px;color:var(--hint)">m</span></div><div class="kpi4-lbl">Tps ${uM?'med':'moy'} Voiture</div></div>`:''}
+        </div>
+        <!-- Zone de confort -->
+        ${s.zoneConfort!==null?(()=>{
+          const zc=s.zoneConfort;const zcRef=r.origStats.zoneConfort;
+          const diff=zcRef!==null?zc-zcRef:null;
+          const zcColor=zc>=70?'var(--grn)':zc>=50?'var(--org)':'var(--red)';
+          return `<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:7px;padding:9px 12px;margin-bottom:10px">
+            <div style="text-align:center;min-width:52px">
+              <div style="font-size:20px;font-weight:500;color:${zcColor}">${zc}%</div>
+              <div style="font-size:9px;color:var(--hint)">${s.zoneConfortN} sal.</div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:11px;font-weight:500;color:var(--txt)">🟢 Zone de confort ≤ 45 min</div>
+              ${diff!==null?`<div style="font-size:10px;margin-top:2px;color:${diff>=0?'var(--grn)':'var(--red)'}">
+                ${diff>=0?'▲':'▼'} ${Math.abs(diff)} pts vs site actuel (${zcRef}%)
+              </div>`:''}
+            </div>
+            <div style="width:60px;height:6px;background:var(--bg2);border-radius:3px;border:1px solid var(--brd);overflow:hidden">
+              <div style="width:${zc}%;height:100%;background:${zcColor};border-radius:3px"></div>
+            </div>
+          </div>`;
+        })():''}
+        </div>
+        <div class="mc2">
+          <div class="mcc"><div class="mch" style="color:var(--blu)">🚇 Impact TC</div>
+            <div style="font-size:10px;color:var(--muted)">Delta moy : <b style="color:${s.avgDTC!==null&&s.avgDTC<=0?'var(--grn)':'var(--red)'}">${s.avgDTC!==null?(s.avgDTC>0?'+':'')+s.avgDTC+' min':'—'}</b></div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px">Tps moy : <b>${fmt(s.avgTC)} min</b> (actuel : ${fmt(oAvgTC)} min)</div>
+          </div>
+          ${r.origStats.carCount>0?`<div class="mcc"><div class="mch" style="color:var(--grn)">🚗 Impact Voiture</div><div style="font-size:10px;color:var(--muted)">Delta moy : <b style="color:${s.avgDCAR!==null&&s.avgDCAR<=0?'var(--grn)':'var(--red)'}">${s.avgDCAR!==null?(s.avgDCAR>0?'+':'')+s.avgDCAR+' min':'—'}</b></div><div style="font-size:10px;color:var(--muted);margin-top:2px">Tps moy : <b>${fmt(s.avgCar)} min</b> (actuel : ${fmt(r.origStats.avgCar)} min)</div></div>`:''}
+        </div>
+        <div class="distrib-title">Repartition des temps de trajet (TC)</div>`;
+    const sN=s.n||n;const mx=Math.max(...s.dist.map(d=>d.c),1);
+    s.dist.forEach(d=>{const pct=sN>0?Math.round(d.c/sN*100):0;
+      const wPct=Math.max(8,Math.round(d.c/mx*100));
+      h+=`<div style="display:flex;align-items:center;margin-bottom:5px;gap:0">
+        <div style="font-size:10px;font-weight:500;width:80px;flex-shrink:0;text-align:right;padding-right:8px">${pct}% – ${d.c}</div>
+        <div style="flex:1;height:28px;background:var(--bg3);border-radius:0 4px 4px 0;overflow:visible">
+          <div style="width:${wPct}%;min-width:80px;height:100%;background:${d.bg};border-radius:0 4px 4px 0;display:flex;align-items:center;padding:0 8px">
+            <span style="font-size:10px;font-weight:600;color:#fff;white-space:nowrap">${d.l} min</span>
+          </div>
+        </div>
+      </div>`;
+    });
+    h+=`</div></div>`;
+  });
+  el.innerHTML=h;
+}
+function rBilan(){
+  if(!S.results)return;
+  const r=S.results;const uM=S.filterMode==='med';
+  document.getElementById('emptyBilan').style.display='none';
+  const el=document.getElementById('statsBilan');el.style.display='block';
+
+  const fmt=v=>(v!==null&&v!==undefined)?v:'—';
+  const oTC=uM?r.origStats.medTC:r.origStats.avgTC;
+  const oCar=uM?r.origStats.medCar:r.origStats.avgCar;
+
+  // ── Meilleur scénario : score composite rigoureux ──────────────────────────
+  // Critère 1 (prioritaire) : gains - pertes > 0 (plus de gagnants que de perdants)
+  // Critère 2 : temps médian TC inférieur au site actuel
+  // Critère 3 : moins de cas sensibles >1h
+  // Un site avec données null sur un critère est ignoré pour ce critère
+  function scoreSite(s){
+    const gainsPertesNet = (s.gains||0) - (s.pertes||0);
+    const ameliorationTC = (oTC!==null&&(uM?s.medTC:s.avgTC)!==null) ? oTC-(uM?s.medTC:s.avgTC) : 0;
+    const ameliorationCrit = (r.origStats.crit!==null&&s.crit!==null) ? r.origStats.crit-s.crit : 0;
+    // Pondération : gains/pertes compte pour 60%, TC pour 30%, cas sensibles pour 10%
+    return gainsPertesNet*0.6 + ameliorationTC*0.3 + ameliorationCrit*0.1;
+  }
+  const bestSite = r.sites.length > 0
+    ? r.sites.reduce((best,s) => scoreSite(s) > scoreSite(best) ? s : best)
+    : null;
+
+  // ── Meilleur sur chaque indicateur (avec protection null) ─────────────────
+  const siteWithBestTC = r.sites.filter(s=>(uM?s.medTC:s.avgTC)!==null)
+    .reduce((b,s)=>{
+      const v=uM?s.medTC:s.avgTC;const bv=uM?b?.medTC:b?.avgTC;
+      return(!b||v<bv)?s:b;
+    },null);
+  const siteWithBestCrit = r.sites.filter(s=>s.crit!==null)
+    .reduce((b,s)=>(!b||s.crit<b.crit)?s:b,null);
+
+  let h=`<div class="shdr">Tableau comparatif des temps de trajet</div>`;
+  h+=`<div style="overflow-x:auto;margin-bottom:14px"><table class="bilan-table"><thead><tr>`;
+  h+=`<th class="l" style="width:155px">INDICATEUR</th>`;
+  h+=`<th>DEPART<br><small style="font-weight:400;font-size:9px;text-transform:none">${S.origin.name}</small></th>`;
+  r.sites.forEach((s,i)=>{h+=`<th>SITE ${BDEP[i]}<br><small style="font-weight:400;font-size:9px;text-transform:none">${s.site.name}</small></th>`;});
+  if(r.sites.length)h+=`<th>MEILLEUR<br>SCENARIO</th>`;
+  h+=`</tr></thead><tbody>`;
+
+  // Temps TC
+  h+=`<tr><td class="lb">Tps ${uM?'median':'moyen'} TC</td><td class="vl">${fmt(oTC)} min</td>`;
+  r.sites.forEach(s=>{
+    const v=uM?s.medTC:s.avgTC;
+    if(v===null){h+=`<td style="color:var(--hint)">—</td>`;return;}
+    const d=oTC!==null?v-oTC:null;
+    h+=`<td class="vl">${v} min${d!==null?` <span style="font-size:10px;color:${d<=0?'var(--grn)':'var(--red)'}">${d>0?'+':''}${d}</span>`:''}`;
+    h+=`</td>`;
+  });
+  h+=r.sites.length?`<td class="pos">${siteWithBestTC?siteWithBestTC.site.name:'—'}</td>`:'';
+  h+=`</tr>`;
+
+  // Temps Voiture — masqué si aucun collaborateur en voiture
+  if(r.origStats.carCount>0){
+    h+=`<tr><td class="lb">Tps ${uM?'median':'moyen'} Voiture</td><td class="vl">${fmt(oCar)} min</td>`;
+    r.sites.forEach(s=>{
+      const v=uM?s.medCar:s.avgCar;
+      if(v===null){h+=`<td style="color:var(--hint)">—</td>`;return;}
+      const d=oCar!==null?v-oCar:null;
+      h+=`<td class="vl">${v} min${d!==null?` <span style="font-size:10px;color:${d<=0?'var(--grn)':'var(--red)'}">${d>0?'+':''}${d}</span>`:''}`;
+      h+=`</td>`;
+    });
+    h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
+  }
+
+  // Min / Max TC
+  h+=`<tr><td class="lb">Le plus proche TC</td><td class="vl">${fmt(r.origStats.minTC)} min</td>`;
+  r.sites.forEach(s=>{h+=`<td class="vl">${fmt(s.minTC)} min</td>`;});
+  h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
+
+  h+=`<tr><td class="lb">Le plus loin TC</td><td class="vl">${fmt(r.origStats.maxTC)} min</td>`;
+  r.sites.forEach(s=>{h+=`<td class="vl">${fmt(s.maxTC)} min</td>`;});
+  h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
+
+  // Marche — masquée si aucun collaborateur en TC
+  if(r.origStats.tcCount>0)
+  h+=`<tr><td class="lb">Marche moy. TC</td><td class="vl">${fmt(r.origStats.avgWalk)} min</td>`;
+  r.sites.forEach(s=>{
+    const v=s.avgWalk;const ref=r.origStats.avgWalk;
+    if(v===null){h+=`<td style="color:var(--hint)">—</td>`;return;}
+    h+=`<td class="${ref!==null&&v<=ref?'pos':'neg'} vl">${v} min</td>`;
+  });
+  if(r.origStats.tcCount>0){h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;}
+
+  // Cas sensibles
+  h+=`<tr><td class="lb" style="color:var(--red)">Cas sensibles &gt;1h</td><td class="neg">${fmt(r.origStats.crit)}</td>`;
+  r.sites.forEach(s=>{
+    const d=s.crit!==null&&r.origStats.crit!==null?s.crit-r.origStats.crit:null;
+    h+=`<td class="${d!==null&&d<=0?'pos':'neg vl'}">${fmt(s.crit)}${d!==null?` (${d>0?'+':''}${d})`:''}</td>`;
+  });
+  h+=r.sites.length?`<td class="pos">${siteWithBestCrit?siteWithBestCrit.site.name:'—'}</td>`:'';h+=`</tr>`;
+
+  // Zone de confort
+  const bestZC=r.sites.filter(s=>s.zoneConfort!==null).reduce((b,s)=>(!b||s.zoneConfort>b.zoneConfort)?s:b,null);
+  h+=`<tr><td class="lb">🟢 Zone confort ≤45min</td><td class="vl">${r.origStats.zoneConfort!==null?r.origStats.zoneConfort+'%':'—'}</td>`;
+  r.sites.forEach(s=>{
+    if(s.zoneConfort===null){h+=`<td style="color:var(--hint)">—</td>`;return;}
+    const d=r.origStats.zoneConfort!==null?s.zoneConfort-r.origStats.zoneConfort:null;
+    h+=`<td class="${d!==null&&d>=0?'pos':'neg'} vl">${s.zoneConfort}%${d!==null?` <span style="font-size:10px">${d>=0?'+':''}${d} pts</span>`:''}`;
+    h+=`</td>`;
+  });
+  h+=r.sites.length?`<td class="pos">${bestZC?bestZC.site.name:'—'}</td>`:'';h+=`</tr>`;
+
+  // Gains / Pertes
+  h+=`<tr><td class="lb">&#9650; Gains salaries</td><td class="vl">—</td>`;
+  r.sites.forEach(s=>{h+=`<td class="pos vl">${fmt(s.gains)}</td>`;});
+  h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
+
+  h+=`<tr><td class="lb">&#9660; Pertes salaries</td><td class="vl">—</td>`;
+  r.sites.forEach(s=>{h+=`<td class="neg vl">${fmt(s.pertes)}</td>`;});
+  h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
+
+  // Ligne meilleur scénario global
+  h+=`<tr style="background:var(--grn-bg)"><td class="lb" style="font-weight:500">Meilleur scenario global</td><td style="color:var(--hint);text-align:center">—</td>`;
+  r.sites.forEach(s=>{
+    const isBest=bestSite&&s.site.name===bestSite.site.name&&scoreSite(s)>0;
+    h+=`<td class="${isBest?'pos':''}" style="${isBest?'font-weight:600':''}">${isBest?'✓':'—'}</td>`;
+  });
+  h+=r.sites.length?`<td class="pos" style="font-weight:600">${bestSite&&scoreSite(bestSite)>0?bestSite.site.name:'Aucun (tous degradent)'}</td>`:'';
+  h+=`</tr></tbody></table></div>`;
+
+  // Section gains/pertes
+  h+=`<div class="shdr">Gains et pertes de temps par site <span style="font-size:10px;font-weight:400;color:var(--hint)">— Seuil de stabilite : ±10 min</span></div>`;
+  r.sites.forEach((s,i)=>{
+    const isBest=bestSite&&s.site.name===bestSite.site.name&&scoreSite(s)>0;
+    h+=`<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;border:1px solid ${isBest?'var(--grn-bd)':'var(--brd)'};background:${isBest?'var(--grn-bg)':'transparent'}">`;
+    h+=`<div style="font-size:11px;font-weight:500;margin-bottom:5px;color:${SC[i]};display:flex;align-items:center;gap:7px">&#9632; Site ${BDEP[i]} — ${s.site.name}${isBest?`<span style="background:var(--grn);color:#fff;font-size:9px;padding:1px 7px;border-radius:3px">Recommande</span>`:''}`;
+    h+=`</div>`;
+    h+=`<div class="impact-row"><div class="il-lbl">Impact</div><div style="display:flex;gap:5px"><span class="ip p">&#9660; Pertes ${fmt(s.pertes)}</span><span class="ip s">&#8212; Stables ${fmt(s.stables)}</span><span class="ip g">&#9650; Gains ${fmt(s.gains)}</span></div></div>`;
+    let deltaLine='';
+    if(r.origStats.tcCount>0&&s.avgDTC!==null)deltaLine+=`TC : <b style="color:${s.avgDTC<=0?'var(--grn)':'var(--red)'}">${s.avgDTC>0?'+':''}${s.avgDTC} min</b>`;
+    if(r.origStats.carCount>0&&s.avgDCAR!==null){if(deltaLine)deltaLine+=' &nbsp;·&nbsp; ';deltaLine+=`Voiture : <b style="color:${s.avgDCAR<=0?'var(--grn)':'var(--red)'}">${s.avgDCAR>0?'+':''}${s.avgDCAR} min</b>`;}
+    if(deltaLine)h+=`<div style="font-size:11px;color:var(--muted)">${deltaLine}</div>`;
+    h+=`</div>`;
+  });
+
+  h+=`<div class="eb"><button class="ebtn pr" onclick="doExport()">&#8595; Exporter Excel</button><button class="ebtn" onclick="doCSV()">&#8595; Export CSV</button></div>`;
+  el.innerHTML=h;
+}
+
+// ─── MAP ──────────────────────────────────────────────────────────────────────
+function iMap(){
+  if(!S.results)return;
+  const r=S.results;
+  const el=document.getElementById('mapEl');
+  document.getElementById('mapPh').style.display='none';el.style.display='block';document.getElementById('isoLegend').style.display='block';
+  if(S.map){S.map.remove();S.map=null;}
+  const map=L.map('mapEl',{zoomControl:true}).setView([48.87,2.33],11);S.map=map;
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© CartoDB',maxZoom:19}).addTo(map);
+  S.sites.forEach(s=>{if(!s.lat||!s.lng)return;[3000,6000,9000,12000].forEach((rad,i)=>L.circle([s.lat,s.lng],{radius:rad,fillColor:['rgba(76,175,130,0.12)','rgba(122,191,110,0.10)','rgba(200,169,110,0.08)','rgba(224,149,92,0.07)'][i],fillOpacity:1,color:['rgba(76,175,130,0.3)','rgba(122,191,110,0.3)','rgba(200,169,110,0.3)','rgba(224,149,92,0.3)'][i],weight:1}).addTo(map));});
+  r.collabs.forEach(c=>{
+    if(!c.lat||!c.lng)return;
+    const row=r.rows.find(x=>x.id===c.id);
+    const delta=row&&row.siteData[0]?row.siteData[0].delta:0;
+
+    // ── Calcul du delta global pour la couleur du point ──────────────────────
+    // On prend le delta du premier site disponible, cohérent avec la légende
+    const dotColor=delta<=-5?'#3B6D11':delta>=5?'#A32D2D':'#185FA5';
+
+    // ── Construction du contenu de la popup ──────────────────────────────────
+    const origTC=row?.origTC;
+    const origCar=row?.origCar;
+    const isSensible=origTC!==null&&origTC>60;
+    const modeIcon=c.mode==='car'?'🚗':'🚇';
+    const addrDisplay=c.ville?(c.cp+' '+c.ville):'CP '+c.cp;
+
+    // Ligne "Cas sensible" uniquement si trajet actuel > 1h
+    const casTag=isSensible
+      ?`<div style="background:#c0392b;color:#fff;text-align:center;padding:3px 0;font-size:10px;font-weight:600;letter-spacing:0.04em;border-radius:3px;margin:6px 0">CAS SENSIBLE</div>`
+      :'<div style="margin:6px 0"></div>';
+
+    // Temps actuel : on affiche TC si mode TC, voiture si mode voiture
+    const tActuel=c.mode==='car'?(origCar!==null?origCar+'min':'—'):(origTC!==null?origTC+'min':'—');
+
+    // Lignes futures — une par site
+    let rowsFutures='';
+    if(row&&row.siteData){
+      row.siteData.forEach((sd,i)=>{
+        if(!S.sites[i])return;
+        const tFut=c.mode==='car'?(sd?.car!==null?sd.car+'min':'—'):(sd?.tc!==null?sd.tc+'min':'—');
+        const d=sd?.delta;
+        const coulFut=d!==null?(d<=-5?'#3B6D11':d>=5?'#c0392b':'#185FA5'):'#555';
+        rowsFutures+=`<tr>
+          <td style="padding:4px 8px;border-top:1px solid #eee;color:#555;font-size:11px">${S.sites[i].name}</td>
+          <td style="padding:4px 8px;border-top:1px solid #eee;text-align:center;font-weight:600;font-size:11px;color:${coulFut}">${tFut}</td>
+        </tr>`;
+      });
+    }
+
+    const popupHTML=`
+      <div style="font-family:'DM Sans',sans-serif;width:200px;padding:2px">
+        <div style="text-align:center;margin-bottom:4px">
+          <div style="font-size:20px">${modeIcon}</div>
+          <div style="font-size:11px;font-weight:600;color:#1a1a18;line-height:1.4">N°${c.id}<br><span style="font-weight:400;color:#6b6b65">${c.ville||''}</span></div>
+        </div>
+        ${casTag}
+        <div style="font-size:10px;color:#6b6b65;text-align:center;margin-bottom:6px;line-height:1.5">${addrDisplay}</div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e0e0e0;border-radius:5px;overflow:hidden">
+          <thead>
+            <tr style="background:#2a2a28">
+              <th style="padding:4px 8px;text-align:left;color:#fff;font-size:10px;font-weight:500">Adresse</th>
+              <th style="padding:4px 8px;text-align:center;color:#fff;font-size:10px;font-weight:500">Durée</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:4px 8px;color:#555;font-size:11px">Actuelle</td>
+              <td style="padding:4px 8px;text-align:center;font-weight:600;font-size:11px">${tActuel}</td>
+            </tr>
+            ${rowsFutures}
+          </tbody>
+        </table>
+      </div>`;
+
+    L.circleMarker([c.lat,c.lng],{radius:5,fillColor:dotColor,color:'white',weight:1.5,fillOpacity:0.9})
+      .addTo(map)
+      .bindPopup(popupHTML,{maxWidth:220,className:'upside-popup'});
+  });
+  if(S.origin?.lat)L.marker([S.origin.lat,S.origin.lng],{icon:L.divIcon({html:'<div style="width:13px;height:13px;background:#c8a96e;border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>',iconSize:[13,13],className:''})}).addTo(map).bindPopup('<b>'+S.origin.name+'</b>');
+  r.sites.forEach((s,i)=>{if(!s.site.lat||!s.site.lng)return;L.marker([s.site.lat,s.site.lng],{icon:L.divIcon({html:'<div style="background:'+SC[i]+';color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:sans-serif">'+BDEP[i]+'</div>',className:''})}).addTo(map).bindPopup('<b>'+s.site.name+'</b>');});
+}
+
+// ─── SAUVEGARDE / CHARGEMENT D'ANALYSES ──────────────────────────────────────
+// Les analyses sont stockées dans localStorage (persistant entre sessions)
+// ET exportables/importables en fichier .json
+
+const SAVE_KEY = 'upside_analyses';
+
+function getSavedAnalyses(){
+  try{ return JSON.parse(localStorage.getItem(SAVE_KEY)||'[]'); }
+  catch(e){ return []; }
+}
+
+function setSavedAnalyses(list){
+  try{ localStorage.setItem(SAVE_KEY,JSON.stringify(list)); }
+  catch(e){ alert('Espace de stockage insuffisant. Supprimez des analyses anciennes.'); }
+}
+
+function saveAnalysis(){
+  if(!S.results||!S.origin)return;
+  const name=prompt('Nom de cette analyse :',
+    S.origin.name+' — '+new Date().toLocaleDateString('fr-FR'));
+  if(!name)return;
+
+  const snapshot={
+    id: Date.now(),
+    name,
+    date: new Date().toISOString(),
+    origin: S.origin,
+    sites: S.sites,
+    allCollabs: S.allCollabs,
+    rawGeo: S.rawGeo,
+    rawTimes: S.rawTimes,
+    idfOnly: S.idfOnly,
+    filterMode: S.filterMode,
+    results: S.results
+  };
+
+  // Taille estimée — localStorage est limité à ~5MB
+  const size=JSON.stringify(snapshot).length;
+  if(size>4*1024*1024){
+    // Trop volumineux pour localStorage — proposer uniquement le fichier
+    if(confirm('Cette analyse est volumineuse ('+Math.round(size/1024)+'KB).\nElle ne peut pas être stockée localement.\nTélécharger en fichier .json ?')){
+      downloadAnalysis(snapshot);
+    }
+    return;
+  }
+
+  const list=getSavedAnalyses();
+  // Limite à 10 analyses en localStorage
+  if(list.length>=10){
+    if(!confirm('Vous avez atteint la limite de 10 analyses sauvegardees.\nSupprimer la plus ancienne ?'))return;
+    list.shift();
+  }
+  list.push(snapshot);
+  setSavedAnalyses(list);
+  renderSaveList();
+
+  // Proposer aussi le téléchargement fichier
+  if(confirm('Analyse sauvegardée ✓\nTélécharger aussi en fichier .json (recommandé pour archivage) ?')){
+    downloadAnalysis(snapshot);
+  }
+}
+
+function downloadAnalysis(snapshot){
+  const blob=new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='Upside_'+snapshot.name.replace(/[^a-zA-Z0-9]/g,'_')+'_'+
+    new Date(snapshot.date).toISOString().slice(0,10)+'.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function loadSavedAnalysis(id){
+  const list=getSavedAnalyses();
+  const snap=list.find(s=>s.id===id);
+  if(!snap){alert('Analyse introuvable.');return;}
+  applySnapshot(snap);
+}
+
+function deleteSavedAnalysis(id,e){
+  e.stopPropagation();
+  if(!confirm('Supprimer cette analyse ?'))return;
+  const list=getSavedAnalyses().filter(s=>s.id!==id);
+  setSavedAnalyses(list);
+  renderSaveList();
+}
+
+function loadAnalysisFile(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const snap=JSON.parse(e.target.result);
+      if(!snap.results||!snap.origin){
+        alert('Fichier invalide — ce n\'est pas un fichier d\'analyse Upside.');
+        return;
+      }
+      // Option : sauvegarder en localStorage pour les prochaines sessions
+      if(confirm('Analyse chargee : "'+snap.name+'"\nL\'ajouter aux analyses sauvegardees ?')){
+        const list=getSavedAnalyses();
+        if(!list.find(s=>s.id===snap.id)){
+          if(list.length>=10)list.shift();
+          list.push(snap);
+          setSavedAnalyses(list);
+        }
+        renderSaveList();
+      }
+      applySnapshot(snap);
+    }catch(err){
+      alert('Erreur de lecture du fichier : '+err.message);
+    }
+  };
+  r.readAsText(f);
+  input.value=''; // reset pour permettre recharger le même fichier
+}
+
+function applySnapshot(snap){
+  // Restaurer l'état complet
+  S.allCollabs = snap.allCollabs||[];
+  S.rawGeo     = snap.rawGeo||{};
+  S.rawTimes   = snap.rawTimes||{};
+  S.origin     = snap.origin||null;
+  S.sites      = snap.sites||[];
+  S.idfOnly    = snap.idfOnly||false;
+  S.filterMode = snap.filterMode||'moy';
+  S.results    = snap.results||null;
+  PRIM_MODE    = null; // reset mode API
+
+  // Mettre à jour l'UI
+  rOrigin();rDests();
+  document.getElementById('idfToggle').checked=S.idfOnly;
+  const lbl=document.getElementById('idfLabel');lbl.textContent=S.idfOnly?'IDF uniquement':'Tous les salaries';
+  document.getElementById('idfBadge').style.display=S.idfOnly?'inline-flex':'none';
+
+  if(S.allCollabs.length>0){
+    document.getElementById('fileRequired').style.display='none';
+    document.getElementById('fileOk').style.display='flex';
+    document.getElementById('fileTxt').textContent=S.allCollabs.length+' collaborateurs (analyse chargee)';
+    document.getElementById('fileOk').style.background='';
+    document.getElementById('fileOk').style.borderColor='';
+    document.getElementById('runBtn').disabled=false;
+  }
+
+  if(S.results){
+    document.getElementById('saveBtn').disabled=false;
+    document.getElementById('topMeta').textContent=
+      (S.results.collabs?.length||0)+' salaries · Analyse chargee · '+
+      new Date(snap.date).toLocaleDateString('fr-FR');
+    renderAll();
+    alert('Analyse "'+snap.name+'" chargee avec succes.\nAucun recalcul necessaire.');
+  }
+}
+
+function renderSaveList(){
+  const list=getSavedAnalyses();
+  const el=document.getElementById('saveList');
+  if(list.length===0){
+    el.innerHTML='<div class="save-empty">Aucune analyse sauvegardee</div>';
+    return;
+  }
+  el.innerHTML=list.slice().reverse().map(s=>`
+    <div class="save-item" onclick="loadSavedAnalysis(${s.id})">
+      <span class="save-item-icon">📊</span>
+      <div class="save-item-body">
+        <div class="save-item-name">${s.name}</div>
+        <div class="save-item-meta">${new Date(s.date).toLocaleDateString('fr-FR')} · ${s.results?.collabs?.length||'?'} sal. · ${(s.sites?.length||0)+1} sites</div>
+      </div>
+      <button class="save-item-del" onclick="deleteSavedAnalysis(${s.id},event)" title="Supprimer">&#215;</button>
+    </div>
+  `).join('');
+}
+function doExport(){if(!S.results||typeof XLSX==='undefined')return;const rows=[['ID','CP','Ville','Mode','TC actuel','Voiture actuel'].concat(S.results.sites.flatMap((s,i)=>['Site '+BDEP[i]+' TC','Site '+BDEP[i]+' Voiture','Delta '+BDEP[i]]))];S.results.rows.forEach(r=>rows.push([r.id,r.cp,r.ville||'',r.mode,r.origTC||'',r.origCar||'',...r.siteData.flatMap(sd=>sd?[sd.tc,sd.car,sd.delta]:['','',''])]));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Detail');const sum=[['Site','Tps moy TC','Median TC','Tps moy Voiture','Critiques','Gains','Stables','Pertes','Delta TC','Delta Voiture']];sum.push([S.origin.name,S.results.origStats.avgTC,S.results.origStats.medTC,S.results.origStats.avgCar,S.results.origStats.crit,'—','—','—','—','—']);S.results.sites.forEach((s,i)=>sum.push([s.site.name,s.avgTC,s.medTC,s.avgCar,s.crit,s.gains,s.stables,s.pertes,(s.avgDTC>0?'+':'')+s.avgDTC,(s.avgDCAR>0?'+':'')+s.avgDCAR]));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Synthese');XLSX.writeFile(wb,'Upside_Transport_'+new Date().toISOString().slice(0,10)+'.xlsx');}
+function doCSV(){if(!S.results)return;const h=['ID','CP','Ville','Mode','TC_actuel','Voiture_actuel'].concat(S.results.sites.flatMap((s,i)=>['Site_'+BDEP[i]+'_TC','Site_'+BDEP[i]+'_Voiture','Delta_'+BDEP[i]]));const csv=[h,...S.results.rows.map(r=>[r.id,r.cp,r.ville||'',r.mode,r.origTC||'',r.origCar||'',...r.siteData.flatMap(sd=>sd?[sd.tc,sd.car,sd.delta]:['','',''])])].map(r=>r.join(';')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='Upside_Transport_'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
+
+// ─── RÉINITIALISATION SESSION ─────────────────────────────────────────────────
+// Efface fichier, clés API, implantations, résultats et carte.
+// Les analyses sauvegardées en localStorage sont explicitement préservées.
+function resetSession(){
+  if(!confirm('Réinitialiser la session ?\n\nLe fichier collaborateurs, les clés API, les implantations et les résultats seront effacés.\nLes analyses sauvegardées sont conservées.'))return;
+
+  // ── État global ────────────────────────────────────────────────────────────
+  S.allCollabs=[];
+  S.rawGeo={};
+  S.rawTimes={};
+  S.origin=null;
+  S.sites=[];
+  S.results=null;
+  S.idfOnly=false;
+  S.filterMode='moy';
+  S.nbHorsIDF=0;
+  PRIM_MODE=null;
+
+  // ── Carte ──────────────────────────────────────────────────────────────────
+  if(S.map){S.map.remove();S.map=null;}
+
+  // ── Fichier collaborateurs ─────────────────────────────────────────────────
+  document.getElementById('fileInput').value='';
+  document.getElementById('fileRequired').style.display='flex';
+  document.getElementById('fileOk').style.display='none';
+  document.getElementById('fileTxt').textContent='—';
+
+  // ── Clés API ───────────────────────────────────────────────────────────────
+  document.getElementById('primKey').value='';
+  document.getElementById('orsKey').value='';
+  document.getElementById('primKey').style.borderColor='';
+  document.getElementById('orsKey').style.borderColor='';
+  setKeyStatus(document.getElementById('primSt'),'neutral','Non renseignee');
+  setKeyStatus(document.getElementById('orsSt'),'neutral','Non renseignee');
+
+  // ── Filtres ────────────────────────────────────────────────────────────────
+  S.filterMode='moy';
+  document.getElementById('fMoy').className='fb on';
+  document.getElementById('fMed').className='fb';
+  document.getElementById('idfToggle').checked=false;
+  document.getElementById('idfLabel').textContent='Tous les salaries';
+  document.getElementById('idfBadge').style.display='none';
+
+  // ── Implantations ──────────────────────────────────────────────────────────
+  rOrigin();
+  rDests();
+
+  // ── Boutons et meta ────────────────────────────────────────────────────────
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('saveBtn').disabled=true;
+  document.getElementById('topMeta').textContent='— salaries · Depart 08:00';
+  document.getElementById('prog').classList.remove('on');
+
+  // ── Onglets — retour à Cartographie ───────────────────────────────────────
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));
+  document.querySelector('.ntab[data-tab="carto"]').classList.add('active');
+  S.currentTab='carto';
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-carto').classList.add('active');
+
+  // ── Réinitialisation des vues ──────────────────────────────────────────────
+  document.getElementById('mapEl').style.display='none';
+  document.getElementById('mapPh').style.display='flex';
+  document.getElementById('isoLegend').style.display='none';
+  document.getElementById('cartoStats').style.display='none';
+  document.getElementById('modeBarCarto').style.display='none';
+  document.getElementById('emptyActuelle').style.display='flex';
+  document.getElementById('statsActuelle').style.display='none';
+  document.getElementById('emptyFutures').style.display='flex';
+  document.getElementById('statsFutures').style.display='none';
+  document.getElementById('emptyBilan').style.display='flex';
+  document.getElementById('statsBilan').style.display='none';
+
+  // ── Graphiques ─────────────────────────────────────────────────────────────
+  if(S.pieChart){S.pieChart.destroy();S.pieChart=null;}
+  if(S.barChart){S.barChart.destroy();S.barChart=null;}
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+rOrigin();rDests();renderSaveList();
+</script>
+</body>
+</html>

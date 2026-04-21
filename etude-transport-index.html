@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -247,19 +248,14 @@ body{background:var(--bg);font-family:var(--f);font-size:13px;color:var(--txt);h
         <input type="time" class="fi" id="arrTime" value="08:00" style="margin-bottom:0">
       </div>
       <div class="ps">
-        <div class="pt">Cles API</div>
-        <label class="fl">PRIM / IDFM — <a href="https://prim.iledefrance-mobilites.fr" target="_blank" style="color:var(--acc);text-decoration:none">prim.iledefrance-mobilites.fr</a></label>
+        <div class="pt">Cle API</div>
+        <label class="fl">Google Maps Platform — <a href="https://console.cloud.google.com/apis" target="_blank" style="color:var(--acc);text-decoration:none">console.cloud.google.com</a></label>
+        <div style="font-size:10px;color:var(--hint);margin-bottom:6px;line-height:1.5">Services requis : Geocoding API · Directions API</div>
         <div style="display:flex;gap:6px;align-items:center">
-          <input type="password" class="fi" id="primKey" placeholder="Token PRIM" style="margin-bottom:0;flex:1" oninput="onKeyInput('prim')">
-          <button onclick="validatePrim()" id="primValBtn" style="padding:5px 9px;border-radius:5px;border:1px solid var(--brd2);background:var(--bg3);font-size:10px;cursor:pointer;color:var(--muted);white-space:nowrap;font-family:var(--f);flex-shrink:0">Tester</button>
+          <input type="password" class="fi" id="gmKey" placeholder="AIza..." style="margin-bottom:0;flex:1" oninput="onKeyInput('gm')">
+          <button onclick="validateGm()" id="gmValBtn" style="padding:5px 9px;border-radius:5px;border:1px solid var(--brd2);background:var(--bg3);font-size:10px;cursor:pointer;color:var(--muted);white-space:nowrap;font-family:var(--f);flex-shrink:0">Tester</button>
         </div>
-        <div class="ks demo" id="primSt" style="margin-top:5px"><span class="ksd"></span> Non renseignee</div>
-        <label class="fl" style="margin-top:8px">OpenRouteService</label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input type="password" class="fi" id="orsKey" placeholder="Cle ORS" style="margin-bottom:0;flex:1" oninput="onKeyInput('ors')">
-          <button onclick="validateOrs()" id="orsValBtn" style="padding:5px 9px;border-radius:5px;border:1px solid var(--brd2);background:var(--bg3);font-size:10px;cursor:pointer;color:var(--muted);white-space:nowrap;font-family:var(--f);flex-shrink:0">Tester</button>
-        </div>
-        <div class="ks demo" id="orsSt" style="margin-top:5px"><span class="ksd"></span> Non renseignee</div>
+        <div class="ks demo" id="gmSt" style="margin-top:5px"><span class="ksd"></span> Non renseignee</div>
       </div>
       <div class="ps">
         <div class="pt">Implantations</div>
@@ -298,6 +294,15 @@ body{background:var(--bg);font-family:var(--f);font-size:13px;color:var(--txt);h
           <div class="pgb"><div class="pgf" id="progFill" style="width:0%"></div></div>
           <div class="pgl" id="progLbl">Initialisation...</div>
         </div>
+      </div>
+      <div class="ps" id="exportBlock" style="display:none">
+        <div class="pt">Export</div>
+        <button class="sv-btn pr" onclick="doExport()" style="margin-bottom:5px">
+          <span>📊</span> Exporter Excel (detail individuel)
+        </button>
+        <button class="sv-btn" onclick="doCSV()">
+          <span>📄</span> Export CSV
+        </button>
       </div>
     </div>
     <div class="right">
@@ -374,17 +379,18 @@ function sP(p,l){document.getElementById('progFill').style.width=p+'%';document.
 function activeCollabs(){return S.idfOnly?S.allCollabs.filter(c=>isIDF(c.cp)):S.allCollabs;}
 
 // ─── CLÉS API ─────────────────────────────────────────────────────────────────
-function getPrimKey(){return document.getElementById('primKey').value.trim();}
-function getOrsKey(){return document.getElementById('orsKey').value.trim();}
+function getGmKey(){return document.getElementById('gmKey').value.trim();}
 
-// ─── GÉOCODAGE via api-adresse.data.gouv.fr (gratuit, sans clé) ──────────────
+// ─── GÉOCODAGE via Google Geocoding API ──────────────────────────────────────
 async function geocodeAddress(address){
   try{
-    const r=await fetch('https://api-adresse.data.gouv.fr/search/?q='+encodeURIComponent(address)+'&limit=1');
+    const key=getGmKey();
+    const url='https://maps.googleapis.com/maps/api/geocode/json?address='+encodeURIComponent(address)+'&region=fr&key='+key;
+    const r=await fetchWithTimeout(url,{},8000);
     const d=await r.json();
-    if(d.features&&d.features[0]){
-      const[lng,lat]=d.features[0].geometry.coordinates;
-      return{lat,lng};
+    if(d.status==='OK'&&d.results&&d.results[0]){
+      const loc=d.results[0].geometry.location;
+      return{lat:loc.lat,lng:loc.lng};
     }
   }catch(e){}
   return null;
@@ -408,69 +414,64 @@ async function fetchWithTimeout(url, options={}, timeoutMs=8000){
   }
 }
 
-// ─── TEMPS TC via PRIM / IDFM — multi-endpoint avec fallback automatique ──────
-let PRIM_MODE=null;
-
-async function primFetch(url,token){
-  const headers={'apikey':token};
-  const urls={
-    v2: url,
-    v3: url.replace('/v2/navitia/','/v3/navitia/'),
-    proxy: 'https://corsproxy.io/?'+encodeURIComponent(url)
-  };
-  if(PRIM_MODE)return fetchWithTimeout(urls[PRIM_MODE],{headers});
-  // Détermination automatique au premier appel
-  for(const [mode,u] of Object.entries(urls)){
-    try{
-      const r=await fetchWithTimeout(u,{headers});
-      if(r.status!==0){PRIM_MODE=mode;return r;}
-    }catch(e){}
-  }
-  throw new Error('Tous les endpoints PRIM ont echoue');
-}
-
-async function fetchPrimTC(fromLat,fromLng,toLat,toLng,token){
+// ─── TEMPS TC via Google Directions API (mode transit) ───────────────────────
+async function fetchGmTC(fromLat,fromLng,toLat,toLng,key){
   try{
-    const dt=getNextTuesdayAt8();
-    // datetime_represents=departure : Navitia calcule le meilleur trajet au DEPART de 8h00
-    // cohérent avec Google Maps et Geolocaux — évite les distorsions sur trajets longue distance
-    const url=`https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia/journeys?from=${fromLng};${fromLat}&to=${toLng};${toLat}&datetime=${dt}&datetime_represents=departure&count=1&min_nb_journeys=1`;
-    const r=await primFetch(url,token);
+    const dt=getNextTuesdayAt8Unix();
+    const url='https://maps.googleapis.com/maps/api/directions/json'
+      +'?origin='+fromLat+','+fromLng
+      +'&destination='+toLat+','+toLng
+      +'&mode=transit'
+      +'&transit_mode=bus|subway|train|tram|rail'
+      +'&departure_time='+dt
+      +'&key='+key;
+    const r=await fetchWithTimeout(url,{},10000);
     if(!r.ok)return null;
     const d=await r.json();
-    if(d.journeys&&d.journeys[0]){
-      const j=d.journeys[0];
-      const tcMin=Math.round(j.duration/60);
-      const walkSec=j.sections?j.sections.filter(s=>s.type==='street_network'&&s.mode==='walking').reduce((a,s)=>a+s.duration,0):0;
+    if(d.status==='OK'&&d.routes&&d.routes[0]&&d.routes[0].legs&&d.routes[0].legs[0]){
+      const leg=d.routes[0].legs[0];
+      const tcMin=Math.round(leg.duration.value/60);
+      // Estimer la marche : cumul des steps de type WALKING
+      const walkSec=(leg.steps||[])
+        .filter(s=>s.travel_mode==='WALKING')
+        .reduce((a,s)=>a+s.duration.value,0);
       const walkMin=Math.round(walkSec/60);
-      return{tc:tcMin,walk:walkMin||Math.round(tcMin*0.25)};
+      return{tc:tcMin,walk:walkMin||Math.round(tcMin*0.2)};
     }
   }catch(e){}
   return null;
 }
 
-// ─── TEMPS VOITURE via OpenRouteService ───────────────────────────────────────
-async function fetchORS(fromLat,fromLng,toLat,toLng,orsKey){
+// ─── TEMPS VOITURE via Google Directions API (mode driving) ──────────────────
+async function fetchGmCar(fromLat,fromLng,toLat,toLng,key){
   try{
-    const url=`https://api.openrouteservice.org/v2/directions/driving-car?api_key=${orsKey}&start=${fromLng},${fromLat}&end=${toLng},${toLat}`;
-    const r=await fetchWithTimeout(url,{},8000);
+    const dt=getNextTuesdayAt8Unix();
+    const url='https://maps.googleapis.com/maps/api/directions/json'
+      +'?origin='+fromLat+','+fromLng
+      +'&destination='+toLat+','+toLng
+      +'&mode=driving'
+      +'&departure_time='+dt
+      +'&traffic_model=best_guess'
+      +'&key='+key;
+    const r=await fetchWithTimeout(url,{},10000);
     if(!r.ok)return null;
     const d=await r.json();
-    if(d.features&&d.features[0]){
-      return Math.round(d.features[0].properties.segments[0].duration/60);
+    if(d.status==='OK'&&d.routes&&d.routes[0]&&d.routes[0].legs&&d.routes[0].legs[0]){
+      const leg=d.routes[0].legs[0];
+      // duration_in_traffic si disponible, sinon duration
+      const durSec=(leg.duration_in_traffic||leg.duration).value;
+      return Math.round(durSec/60);
     }
   }catch(e){}
   return null;
 }
 
-function getNextTuesdayAt8(){
+function getNextTuesdayAt8Unix(){
   const d=new Date();const day=d.getDay();
   const daysUntil=(2-day+7)%7||7;
   d.setDate(d.getDate()+daysUntil);
-  // Heure locale 8h00 — construction manuelle pour éviter toute conversion UTC
-  // (ex : 8h00 Paris → 6h00 UTC en été, soit un créneau horaire erroné)
-  const pad=n=>String(n).padStart(2,'0');
-  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(8)}${pad(0)}${pad(0)}`;
+  d.setHours(8,0,0,0);
+  return Math.floor(d.getTime()/1000);
 }
 
 function siteKey(site){return site.name+'|'+site.addr;}
@@ -625,9 +626,9 @@ async function apiFetch(url, options={}){
 
 // ─── CLÉS API — VALIDATION ────────────────────────────────────────────────────
 function onKeyInput(which){
-  const key=document.getElementById(which==='prim'?'primKey':'orsKey').value.trim();
-  const el=document.getElementById(which==='prim'?'primSt':'orsSt');
-  const field=document.getElementById(which==='prim'?'primKey':'orsKey');
+  const key=document.getElementById('gmKey').value.trim();
+  const el=document.getElementById('gmSt');
+  const field=document.getElementById('gmKey');
   field.style.borderColor='';
   if(key.length===0){
     setKeyStatus(el,'neutral','Non renseignee');
@@ -643,85 +644,59 @@ function setKeyStatus(el,state,msg){
   el.innerHTML=`<span style="font-size:11px;margin-right:3px">${icons[state]}</span>${msg}`;
 }
 
-async function validatePrim(){
-  const key=document.getElementById('primKey').value.trim();
-  const el=document.getElementById('primSt');
-  const btn=document.getElementById('primValBtn');
-  if(!key){setKeyStatus(el,'neutral','Saisissez votre token PRIM');return;}
-  setKeyStatus(el,'testing','Test en cours...');
+async function validateGm(){
+  const key=document.getElementById('gmKey').value.trim();
+  const el=document.getElementById('gmSt');
+  const btn=document.getElementById('gmValBtn');
+  if(!key){setKeyStatus(el,'neutral','Saisissez votre cle Google Maps');return;}
+  setKeyStatus(el,'testing','Test Geocoding API...');
   btn.disabled=true;btn.textContent='...';
 
-  const testUrl='https://prim.iledefrance-mobilites.fr/marketplace/v2/navitia/journeys?from=2.347;48.859&to=2.332;48.871&count=1';
-  const headers={'apikey':key};
-  const endpoints=[
-    {label:'PRIM v2 direct', url:testUrl, fetchFn:()=>fetch(testUrl,{headers})},
-    {label:'PRIM v3 direct', url:testUrl, fetchFn:()=>fetch(testUrl.replace('/v2/navitia/','/v3/navitia/'),{headers})},
-    {label:'PRIM v2 via proxy', url:testUrl, fetchFn:()=>fetch('https://corsproxy.io/?'+encodeURIComponent(testUrl),{headers})}
-  ];
-
-  for(const ep of endpoints){
-    setKeyStatus(el,'testing','Test '+ep.label+'...');
-    try{
-      const r=await ep.fetchFn();
-      if(r.status===200){
-        const d=await r.json();
-        if(d.journeys&&d.journeys.length>0){
-          const mins=Math.round(d.journeys[0].duration/60);
-          // Mémoriser le mode qui fonctionne
-          if(ep.label.includes('v3'))PRIM_MODE='v3';
-          else if(ep.label.includes('proxy'))PRIM_MODE='proxy';
-          else PRIM_MODE='v2';
-          setKeyStatus(el,'valid',`Token valide — ${ep.label} (test : ${mins} min) ✓`);
-          document.getElementById('primKey').style.borderColor='var(--grn-bd)';
-          btn.disabled=false;btn.textContent='Tester';
-          return;
-        }
-      } else if(r.status===401||r.status===403){
-        setKeyStatus(el,'invalid','Token invalide ou expire (erreur '+r.status+')');
-        document.getElementById('primKey').style.borderColor='var(--red-bd)';
-        btn.disabled=false;btn.textContent='Tester';
-        return;
-      } else if(r.status===429){
-        setKeyStatus(el,'invalid','Quota depasse — reessayez dans quelques minutes');
-        btn.disabled=false;btn.textContent='Tester';
-        return;
-      }
-    }catch(e){}
-  }
-  setKeyStatus(el,'invalid','Echec sur tous les endpoints — verifiez votre token et votre connexion');
-  document.getElementById('primKey').style.borderColor='var(--red-bd)';
-  btn.disabled=false;btn.textContent='Tester';
-}
-
-async function validateOrs(){
-  const key=document.getElementById('orsKey').value.trim();
-  const el=document.getElementById('orsSt');
-  const btn=document.getElementById('orsValBtn');
-  if(!key){setKeyStatus(el,'neutral','Saisissez votre cle ORS');return;}
-  setKeyStatus(el,'testing','Test en cours...');
-  btn.disabled=true;btn.textContent='...';
+  // Test 1 : Geocoding API
   try{
-    const url=`https://api.openrouteservice.org/v2/directions/driving-car?api_key=${key}&start=2.3522,48.8566&end=2.3472,48.8600`;
-    const r=await apiFetch(url);
-    if(r.status===200){
-      const d=await r.json();
-      if(d.features&&d.features[0]){
-        const mins=Math.round(d.features[0].properties.segments[0].duration/60);
-        setKeyStatus(el,'valid',`Cle valide — ORS operationnel (test : ${mins} min) ✓`);
-        document.getElementById('orsKey').style.borderColor='var(--grn-bd)';
-      } else {
-        setKeyStatus(el,'invalid','Reponse inattendue — verifiez votre cle');
-      }
-    } else if(r.status===401||r.status===403){
-      setKeyStatus(el,'invalid','Cle invalide ou expiree (erreur '+r.status+')');
-      document.getElementById('orsKey').style.borderColor='var(--red-bd)';
-    } else if(r.status===429){
-      setKeyStatus(el,'invalid','Quota journalier depasse — reessayez demain');
-    } else {
-      setKeyStatus(el,'invalid','Erreur '+r.status+' — cle non reconnue');
+    const geoUrl='https://maps.googleapis.com/maps/api/geocode/json?address=75008+Paris&region=fr&key='+key;
+    const rGeo=await fetchWithTimeout(geoUrl,{},8000);
+    const dGeo=await rGeo.json();
+    if(dGeo.status==='REQUEST_DENIED'){
+      setKeyStatus(el,'invalid','Cle invalide ou Geocoding API non activee — verifiez la console Google');
+      document.getElementById('gmKey').style.borderColor='var(--red-bd)';
+      btn.disabled=false;btn.textContent='Tester';return;
+    }
+    if(dGeo.status!=='OK'){
+      setKeyStatus(el,'invalid','Geocoding API : statut '+dGeo.status);
+      btn.disabled=false;btn.textContent='Tester';return;
     }
   }catch(e){
-    setKeyStatus(el,'invalid','Echec connexion ('+e.message.substring(0,40)+')');
+    setKeyStatus(el,'invalid','Echec Geocoding API ('+e.message.substring(0,40)+')');
+    btn.disabled=false;btn.textContent='Tester';return;
+  }
+
+  // Test 2 : Directions API (transit)
+  setKeyStatus(el,'testing','Test Directions API...');
+  try{
+    const dt=getNextTuesdayAt8Unix();
+    const dirUrl='https://maps.googleapis.com/maps/api/directions/json'
+      +'?origin=48.8566,2.3522&destination=48.8600,2.3472'
+      +'&mode=transit&departure_time='+dt+'&key='+key;
+    const rDir=await fetchWithTimeout(dirUrl,{},10000);
+    const dDir=await rDir.json();
+    if(dDir.status==='REQUEST_DENIED'){
+      setKeyStatus(el,'invalid','Cle valide pour Geocoding mais Directions API non activee — activez-la dans la console Google');
+      document.getElementById('gmKey').style.borderColor='var(--red-bd)';
+      btn.disabled=false;btn.textContent='Tester';return;
+    }
+    if(dDir.status==='OK'&&dDir.routes&&dDir.routes[0]){
+      const mins=Math.round(dDir.routes[0].legs[0].duration.value/60);
+      setKeyStatus(el,'valid','Cle valide — Geocoding + Directions operationnels (test : '+mins+' min) ✓');
+      document.getElementById('gmKey').style.borderColor='var(--grn-bd)';
+    } else {
+      // ZERO_RESULTS ou autre statut non bloquant — la clé fonctionne
+      setKeyStatus(el,'valid','Cle valide — Geocoding + Directions actives ✓');
+      document.getElementById('gmKey').style.borderColor='var(--grn-bd)';
+    }
+  }catch(e){
+    setKeyStatus(el,'invalid','Echec Directions API ('+e.message.substring(0,40)+')');
+    btn.disabled=false;btn.textContent='Tester';return;
   }
   btn.disabled=false;btn.textContent='Tester';
 }
@@ -795,42 +770,31 @@ async function runAnalysis(){
   const btn=document.getElementById('runBtn');const pw=document.getElementById('prog');
   btn.disabled=true;pw.classList.add('on');
 
-  const primKey=getPrimKey();
-  const orsKey=getOrsKey();
+  const gmKey=getGmKey();
 
-  // Blocage strict — les deux clés sont obligatoires
-  if(!primKey){
+  // Blocage strict — la clé Google Maps est obligatoire
+  if(!gmKey){
     pw.classList.remove('on');btn.disabled=false;
-    alert('La cle PRIM / IDFM est obligatoire pour calculer les temps TC.\nRenseignez et validez votre token avant de lancer l\'analyse.');
-    return;
-  }
-  if(!orsKey){
-    pw.classList.remove('on');btn.disabled=false;
-    alert('La cle OpenRouteService est obligatoire pour calculer les temps voiture.\nRenseignez et validez votre cle avant de lancer l\'analyse.');
+    alert('La cle Google Maps est obligatoire.\nRenseignez et validez votre cle avant de lancer l\'analyse.');
     return;
   }
 
   const allC=S.allCollabs;
   const allSites=[S.origin,...S.sites];
 
-  // Compter les hors IDF pour affichage cartographie
-  S.nbHorsIDF = allC.filter(c=>c.horsIDF).length;
-  // L'analyse ne porte que sur les salariés IDF
-  const collabsIDF = allC.filter(c=>!c.horsIDF);
-
   // ── ÉTAPE 1 : Géocodage des adresses ──────────────────────────────────────
-  sP(2,'Etape 1/3 — Geocodage des adresses (0/'+collabsIDF.length+')...');
+  // Google Maps couvre France entière — tous les collaborateurs sont traités
+  sP(2,'Etape 1/3 — Geocodage des adresses (0/'+allC.length+')...');
   let geocoded=0;let geocodeErrors=0;
 
   // Cache partagé par adresse — deux collaborateurs à la même adresse
   // partagent les mêmes coordonnées sans doubler les requêtes API
   const geoByAddress={};
 
-  for(const c of collabsIDF){
+  for(const c of allC){
     if(!S.rawGeo[c.id]){
       const addrKey=c.address.toLowerCase().trim();
       if(geoByAddress[addrKey]){
-        // CORRECTION 4 : doublon — réutiliser le géocodage déjà effectué
         S.rawGeo[c.id]=geoByAddress[addrKey];
       } else if(c.address&&c.address.length>3){
         const geo=await geocodeAddress(c.address);
@@ -840,14 +804,14 @@ async function runAnalysis(){
         } else {
           geocodeErrors++;
         }
-        await sl(25);
+        await sl(50);
       } else {
         geocodeErrors++;
       }
     }
     geocoded++;
-    if(geocoded%5===0)sP(2+Math.round((geocoded/collabsIDF.length)*18),
-      'Etape 1/3 — Geocodage '+geocoded+'/'+collabsIDF.length+(S.nbHorsIDF>0?' ('+S.nbHorsIDF+' hors IDF exclus)':'')+'...');
+    if(geocoded%5===0)sP(2+Math.round((geocoded/allC.length)*18),
+      'Etape 1/3 — Geocodage '+geocoded+'/'+allC.length+'...');
   }
   if(geocodeErrors>0){
     sP(20,geocodeErrors+' adresse(s) non geocodee(s) — ces collaborateurs seront exclus...');
@@ -870,33 +834,32 @@ async function runAnalysis(){
     }
   }
 
-  // ── ÉTAPE 2 : Calcul des temps via APIs réelles ────────────────────────────
-  // Stratégie : séquentiel avec TC et voiture en parallèle pour chaque collaborateur
-  // Une pause adaptative évite les 429 — allongée automatiquement si l'API ralentit
+  // ── ÉTAPE 2 : Calcul des temps via Google Directions API ──────────────────
+  const collabsToProcess=allC;
+  S.nbHorsIDF = allC.filter(c=>c.horsIDF).length;
   const allSiteCollabPairs=[];
   for(const site of allSites){
-    for(const c of collabsIDF){
+    for(const c of collabsToProcess){
       const key=c.id+'__'+siteKey(site);
       if(!S.rawTimes[key]&&S.rawGeo[c.id])allSiteCollabPairs.push({site,c,key});
     }
   }
-  const totalReq=collabsIDF.length*allSites.length;
-  let done=collabsIDF.length*allSites.length-allSiteCollabPairs.length;
+  const totalReq=collabsToProcess.length*allSites.length;
+  let done=collabsToProcess.length*allSites.length-allSiteCollabPairs.length;
   let apiErrors=0;
-  let pauseMs=300;
+  let pauseMs=400;
   sP(22,'Etape 2/3 — Calcul des trajets ('+done+'/'+totalReq+')...');
 
   for(const {site,c,key} of allSiteCollabPairs){
     const geo=getGeo(c);
-    // TC et voiture en parallèle (2 requêtes simultanées max)
-    const [primRes,carTime]=await Promise.all([
-      fetchPrimTC(geo.lat,geo.lng,site.lat,site.lng,primKey),
-      fetchORS(geo.lat,geo.lng,site.lat,site.lng,orsKey)
+    const [tcRes,carTime]=await Promise.all([
+      fetchGmTC(geo.lat,geo.lng,site.lat,site.lng,gmKey),
+      fetchGmCar(geo.lat,geo.lng,site.lat,site.lng,gmKey)
     ]);
-    if(primRes){
-      const {tc,walk}=primRes;
+    if(tcRes){
+      const {tc,walk}=tcRes;
       S.rawTimes[key]={tc,car:carTime,walk};
-      if(pauseMs>300)pauseMs=Math.max(300,pauseMs-50); // récupération progressive
+      if(pauseMs>400)pauseMs=Math.max(400,pauseMs-50); // récupération progressive
     } else {
       apiErrors++;
       // Si PRIM échoue, suspicion de 429 — allonger la pause
@@ -927,6 +890,7 @@ async function runAnalysis(){
   pw.classList.remove('on');btn.disabled=false;
   document.getElementById('topMeta').textContent=n+' salaries analyses · Donnees reelles · Depart 08:00'+(missing>0?' ('+missing+' exclus)':'');
   document.getElementById('saveBtn').disabled=false;
+  document.getElementById('exportBlock').style.display='block';
   renderAll();
 }
 
@@ -1068,7 +1032,7 @@ function rCartoStats(){
   if(nbHorsIDF>0){
     bandeaux+=`<div style="display:flex;align-items:center;gap:8px;background:var(--org-bg);border:1px solid var(--acc);border-radius:7px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--org)">
       <span style="font-size:14px">⚠</span>
-      <div><b>${nbHorsIDF} collaborateur${nbHorsIDF>1?'s':''} hors Île-de-France</b> non pris en compte dans l'analyse (API PRIM limitée à l'IDF). Activez le filtre IDF pour les masquer sur la carte.</div>
+      <div><b>${nbHorsIDF} collaborateur${nbHorsIDF>1?'s':''} hors Île-de-France</b> — inclus dans l'analyse via Google Maps. Activez le filtre IDF pour les masquer sur la carte.</div>
     </div>`;
   }
   if(nbApprox>0){
@@ -1246,30 +1210,58 @@ function rBilan(){
   const oTC=uM?r.origStats.medTC:r.origStats.avgTC;
   const oCar=uM?r.origStats.medCar:r.origStats.avgCar;
 
-  // ── Meilleur scénario : score composite rigoureux ──────────────────────────
-  // Critère 1 (prioritaire) : gains - pertes > 0 (plus de gagnants que de perdants)
-  // Critère 2 : temps médian TC inférieur au site actuel
-  // Critère 3 : moins de cas sensibles >1h
-  // Un site avec données null sur un critère est ignoré pour ce critère
+  // ── Meilleur scénario : score composite incluant le site de départ ────────
+  // Le site de départ est candidat au même titre que les sites futurs.
+  // Si tous les sites futurs dégradent la situation, c'est le départ qui gagne.
   function scoreSite(s){
     const gainsPertesNet = (s.gains||0) - (s.pertes||0);
     const ameliorationTC = (oTC!==null&&(uM?s.medTC:s.avgTC)!==null) ? oTC-(uM?s.medTC:s.avgTC) : 0;
     const ameliorationCrit = (r.origStats.crit!==null&&s.crit!==null) ? r.origStats.crit-s.crit : 0;
-    // Pondération : gains/pertes compte pour 60%, TC pour 30%, cas sensibles pour 10%
     return gainsPertesNet*0.6 + ameliorationTC*0.3 + ameliorationCrit*0.1;
+  }
+  // Pseudo-objet représentant le site de départ dans la même structure que les sites futurs
+  const originAsSite={
+    site:S.origin,
+    isOrigin:true,
+    gains:0,pertes:0,stables:r.collabs.length,
+    avgTC:r.origStats.avgTC,medTC:r.origStats.medTC,
+    avgCar:r.origStats.avgCar,medCar:r.origStats.medCar,
+    crit:r.origStats.crit,
+    avgDTC:0,avgDCAR:0,
+    zoneConfort:r.origStats.zoneConfort
+  };
+  function scoreOrigin(){
+    // Le site actuel est le référentiel : son score est 0 par définition.
+    // Un site futur doit avoir un score > 0 pour être préféré.
+    return 0;
   }
   const bestSite = r.sites.length > 0
     ? r.sites.reduce((best,s) => scoreSite(s) > scoreSite(best) ? s : best)
     : null;
+  // Si le meilleur site futur n'améliore pas la situation (score ≤ 0), le départ est optimal
+  const bestIsOrigin = !bestSite || scoreSite(bestSite) <= 0;
+  const bestLabel = bestIsOrigin ? S.origin.name+' (site actuel)' : bestSite.site.name;
 
-  // ── Meilleur sur chaque indicateur (avec protection null) ─────────────────
+  // ── Meilleur sur chaque indicateur (avec protection null, départ inclus) ──
+  const tcValOrigin=uM?r.origStats.medTC:r.origStats.avgTC;
   const siteWithBestTC = r.sites.filter(s=>(uM?s.medTC:s.avgTC)!==null)
     .reduce((b,s)=>{
       const v=uM?s.medTC:s.avgTC;const bv=uM?b?.medTC:b?.avgTC;
       return(!b||v<bv)?s:b;
     },null);
+  // Si le site de départ est meilleur que tous les futurs sur TC
+  const bestTCLabel=(()=>{
+    if(!siteWithBestTC)return S.origin.name+' (actuel)';
+    const bestFutureTC=uM?siteWithBestTC.medTC:siteWithBestTC.avgTC;
+    return(tcValOrigin!==null&&tcValOrigin<=bestFutureTC)?S.origin.name+' (actuel)':siteWithBestTC.site.name;
+  })();
+
   const siteWithBestCrit = r.sites.filter(s=>s.crit!==null)
     .reduce((b,s)=>(!b||s.crit<b.crit)?s:b,null);
+  const bestCritLabel=(()=>{
+    if(!siteWithBestCrit)return S.origin.name+' (actuel)';
+    return(r.origStats.crit!==null&&r.origStats.crit<=siteWithBestCrit.crit)?S.origin.name+' (actuel)':siteWithBestCrit.site.name;
+  })();
 
   let h=`<div class="shdr">Tableau comparatif des temps de trajet</div>`;
   h+=`<div style="overflow-x:auto;margin-bottom:14px"><table class="bilan-table"><thead><tr>`;
@@ -1288,7 +1280,7 @@ function rBilan(){
     h+=`<td class="vl">${v} min${d!==null?` <span style="font-size:10px;color:${d<=0?'var(--grn)':'var(--red)'}">${d>0?'+':''}${d}</span>`:''}`;
     h+=`</td>`;
   });
-  h+=r.sites.length?`<td class="pos">${siteWithBestTC?siteWithBestTC.site.name:'—'}</td>`:'';
+  h+=r.sites.length?`<td class="pos">${bestTCLabel}</td>`:'';
   h+=`</tr>`;
 
   // Temps Voiture — masqué si aucun collaborateur en voiture
@@ -1329,10 +1321,14 @@ function rBilan(){
     const d=s.crit!==null&&r.origStats.crit!==null?s.crit-r.origStats.crit:null;
     h+=`<td class="${d!==null&&d<=0?'pos':'neg vl'}">${fmt(s.crit)}${d!==null?` (${d>0?'+':''}${d})`:''}</td>`;
   });
-  h+=r.sites.length?`<td class="pos">${siteWithBestCrit?siteWithBestCrit.site.name:'—'}</td>`:'';h+=`</tr>`;
+  h+=r.sites.length?`<td class="pos">${bestCritLabel}</td>`:'';h+=`</tr>`;
 
   // Zone de confort
   const bestZC=r.sites.filter(s=>s.zoneConfort!==null).reduce((b,s)=>(!b||s.zoneConfort>b.zoneConfort)?s:b,null);
+  const bestZCLabel=(()=>{
+    if(!bestZC)return S.origin.name+' (actuel)';
+    return(r.origStats.zoneConfort!==null&&r.origStats.zoneConfort>=bestZC.zoneConfort)?S.origin.name+' (actuel)':bestZC.site.name;
+  })();
   h+=`<tr><td class="lb">🟢 Zone confort ≤45min</td><td class="vl">${r.origStats.zoneConfort!==null?r.origStats.zoneConfort+'%':'—'}</td>`;
   r.sites.forEach(s=>{
     if(s.zoneConfort===null){h+=`<td style="color:var(--hint)">—</td>`;return;}
@@ -1340,7 +1336,7 @@ function rBilan(){
     h+=`<td class="${d!==null&&d>=0?'pos':'neg'} vl">${s.zoneConfort}%${d!==null?` <span style="font-size:10px">${d>=0?'+':''}${d} pts</span>`:''}`;
     h+=`</td>`;
   });
-  h+=r.sites.length?`<td class="pos">${bestZC?bestZC.site.name:'—'}</td>`:'';h+=`</tr>`;
+  h+=r.sites.length?`<td class="pos">${bestZCLabel}</td>`:'';h+=`</tr>`;
 
   // Gains / Pertes
   h+=`<tr><td class="lb">&#9650; Gains salaries</td><td class="vl">—</td>`;
@@ -1351,19 +1347,21 @@ function rBilan(){
   r.sites.forEach(s=>{h+=`<td class="neg vl">${fmt(s.pertes)}</td>`;});
   h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
 
-  // Ligne meilleur scénario global
-  h+=`<tr style="background:var(--grn-bg)"><td class="lb" style="font-weight:500">Meilleur scenario global</td><td style="color:var(--hint);text-align:center">—</td>`;
+  // Ligne meilleur scénario global — le site de départ peut être le meilleur
+  h+=`<tr style="background:var(--grn-bg)"><td class="lb" style="font-weight:500">Meilleur scenario global</td>`;
+  // Colonne départ : cocher si bestIsOrigin
+  h+=`<td class="${bestIsOrigin?'pos':''}" style="${bestIsOrigin?'font-weight:600':''}">${bestIsOrigin?'✓ Site actuel':'—'}</td>`;
   r.sites.forEach(s=>{
-    const isBest=bestSite&&s.site.name===bestSite.site.name&&scoreSite(s)>0;
+    const isBest=!bestIsOrigin&&bestSite&&s.site.name===bestSite.site.name&&scoreSite(s)>0;
     h+=`<td class="${isBest?'pos':''}" style="${isBest?'font-weight:600':''}">${isBest?'✓':'—'}</td>`;
   });
-  h+=r.sites.length?`<td class="pos" style="font-weight:600">${bestSite&&scoreSite(bestSite)>0?bestSite.site.name:'Aucun (tous degradent)'}</td>`:'';
+  h+=r.sites.length?`<td class="pos" style="font-weight:600">${bestLabel}</td>`:'';
   h+=`</tr></tbody></table></div>`;
 
   // Section gains/pertes
   h+=`<div class="shdr">Gains et pertes de temps par site <span style="font-size:10px;font-weight:400;color:var(--hint)">— Seuil de stabilite : ±10 min</span></div>`;
   r.sites.forEach((s,i)=>{
-    const isBest=bestSite&&s.site.name===bestSite.site.name&&scoreSite(s)>0;
+    const isBest=!bestIsOrigin&&bestSite&&s.site.name===bestSite.site.name&&scoreSite(s)>0;
     h+=`<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;border:1px solid ${isBest?'var(--grn-bd)':'var(--brd)'};background:${isBest?'var(--grn-bg)':'transparent'}">`;
     h+=`<div style="font-size:11px;font-weight:500;margin-bottom:5px;color:${SC[i]};display:flex;align-items:center;gap:7px">&#9632; Site ${BDEP[i]} — ${s.site.name}${isBest?`<span style="background:var(--grn);color:#fff;font-size:9px;padding:1px 7px;border-radius:3px">Recommande</span>`:''}`;
     h+=`</div>`;
@@ -1587,7 +1585,7 @@ function applySnapshot(snap){
   S.idfOnly    = snap.idfOnly||false;
   S.filterMode = snap.filterMode||'moy';
   S.results    = snap.results||null;
-  PRIM_MODE    = null; // reset mode API
+
 
   // Mettre à jour l'UI
   rOrigin();rDests();
@@ -1606,6 +1604,7 @@ function applySnapshot(snap){
 
   if(S.results){
     document.getElementById('saveBtn').disabled=false;
+    document.getElementById('exportBlock').style.display='block';
     document.getElementById('topMeta').textContent=
       (S.results.collabs?.length||0)+' salaries · Analyse chargee · '+
       new Date(snap.date).toLocaleDateString('fr-FR');
@@ -1632,7 +1631,60 @@ function renderSaveList(){
     </div>
   `).join('');
 }
-function doExport(){if(!S.results||typeof XLSX==='undefined')return;const rows=[['ID','CP','Ville','Mode','TC actuel','Voiture actuel'].concat(S.results.sites.flatMap((s,i)=>['Site '+BDEP[i]+' TC','Site '+BDEP[i]+' Voiture','Delta '+BDEP[i]]))];S.results.rows.forEach(r=>rows.push([r.id,r.cp,r.ville||'',r.mode,r.origTC||'',r.origCar||'',...r.siteData.flatMap(sd=>sd?[sd.tc,sd.car,sd.delta]:['','',''])]));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Detail');const sum=[['Site','Tps moy TC','Median TC','Tps moy Voiture','Critiques','Gains','Stables','Pertes','Delta TC','Delta Voiture']];sum.push([S.origin.name,S.results.origStats.avgTC,S.results.origStats.medTC,S.results.origStats.avgCar,S.results.origStats.crit,'—','—','—','—','—']);S.results.sites.forEach((s,i)=>sum.push([s.site.name,s.avgTC,s.medTC,s.avgCar,s.crit,s.gains,s.stables,s.pertes,(s.avgDTC>0?'+':'')+s.avgDTC,(s.avgDCAR>0?'+':'')+s.avgDCAR]));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Synthese');XLSX.writeFile(wb,'Upside_Transport_'+new Date().toISOString().slice(0,10)+'.xlsx');}
+function doExport(){
+  if(!S.results||typeof XLSX==='undefined')return;
+  const r=S.results;
+  const wb=XLSX.utils.book_new();
+
+  // ── Feuille 1 : Détail individuel ─────────────────────────────────────────
+  // En-têtes : ID · CP · Ville · Mode · puis pour chaque site (départ + arrivées) : TC et Voiture
+  const allSites=[{name:S.origin.name,isOrigin:true},...S.sites.map(s=>({name:s.name,isOrigin:false}))];
+  const header=['ID','CP','Ville','Mode'];
+  allSites.forEach((s,i)=>{
+    const label=s.isOrigin?'Départ — '+s.name:'Site '+BDEP[i-1]+' — '+s.name;
+    header.push(label+' (TC min)',label+' (Voiture min)');
+    if(!s.isOrigin)header.push(label+' (Delta min)');
+  });
+  const detailRows=[header];
+  r.rows.forEach(row=>{
+    const line=[row.id,row.cp,row.ville||'',row.mode==='car'?'Voiture':'TC'];
+    // Site de départ
+    line.push(row.origTC!==null?row.origTC:'',row.origCar!==null?row.origCar:'');
+    // Sites d'arrivée
+    (row.siteData||[]).forEach(sd=>{
+      if(!sd){line.push('','','');return;}
+      line.push(sd.tc!==null?sd.tc:'',sd.car!==null?sd.car:'',sd.delta!==null?sd.delta:'');
+    });
+    detailRows.push(line);
+  });
+  const wsDetail=XLSX.utils.aoa_to_sheet(detailRows);
+  // Largeurs colonnes
+  wsDetail['!cols']=[{wch:6},{wch:7},{wch:16},{wch:9},...allSites.flatMap(s=>s.isOrigin?[{wch:18},{wch:18}]:[{wch:18},{wch:18},{wch:12}])];
+  XLSX.utils.book_append_sheet(wb,wsDetail,'Detail collaborateurs');
+
+  // ── Feuille 2 : Synthèse ──────────────────────────────────────────────────
+  const sumHeader=['Site','Tps moy TC (min)','Médiane TC (min)','Tps moy Voiture (min)','Cas >1h','Gains','Stables','Pertes','Delta TC moy','Delta Voiture moy'];
+  const sumRows=[sumHeader];
+  sumRows.push([
+    S.origin.name+' (Départ)',
+    r.origStats.avgTC??'—',r.origStats.medTC??'—',r.origStats.avgCar??'—',
+    r.origStats.crit??'—','—','—','—','—','—'
+  ]);
+  r.sites.forEach((s,i)=>{
+    sumRows.push([
+      'Site '+BDEP[i]+' — '+s.site.name,
+      s.avgTC??'—',s.medTC??'—',s.avgCar??'—',
+      s.crit??'—',s.gains??'—',s.stables??'—',s.pertes??'—',
+      s.avgDTC!==null?(s.avgDTC>0?'+':'')+s.avgDTC:'—',
+      s.avgDCAR!==null?(s.avgDCAR>0?'+':'')+s.avgDCAR:'—'
+    ]);
+  });
+  const wsSum=XLSX.utils.aoa_to_sheet(sumRows);
+  wsSum['!cols']=[{wch:28},{wch:18},{wch:16},{wch:22},{wch:10},{wch:8},{wch:8},{wch:8},{wch:14},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,wsSum,'Synthèse');
+
+  XLSX.writeFile(wb,'Upside_Transport_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
 function doCSV(){if(!S.results)return;const h=['ID','CP','Ville','Mode','TC_actuel','Voiture_actuel'].concat(S.results.sites.flatMap((s,i)=>['Site_'+BDEP[i]+'_TC','Site_'+BDEP[i]+'_Voiture','Delta_'+BDEP[i]]));const csv=[h,...S.results.rows.map(r=>[r.id,r.cp,r.ville||'',r.mode,r.origTC||'',r.origCar||'',...r.siteData.flatMap(sd=>sd?[sd.tc,sd.car,sd.delta]:['','',''])])].map(r=>r.join(';')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='Upside_Transport_'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
 
 // ─── RÉINITIALISATION SESSION ─────────────────────────────────────────────────
@@ -1651,7 +1703,6 @@ function resetSession(){
   S.idfOnly=false;
   S.filterMode='moy';
   S.nbHorsIDF=0;
-  PRIM_MODE=null;
 
   // ── Carte ──────────────────────────────────────────────────────────────────
   if(S.map){S.map.remove();S.map=null;}
@@ -1662,13 +1713,10 @@ function resetSession(){
   document.getElementById('fileOk').style.display='none';
   document.getElementById('fileTxt').textContent='—';
 
-  // ── Clés API ───────────────────────────────────────────────────────────────
-  document.getElementById('primKey').value='';
-  document.getElementById('orsKey').value='';
-  document.getElementById('primKey').style.borderColor='';
-  document.getElementById('orsKey').style.borderColor='';
-  setKeyStatus(document.getElementById('primSt'),'neutral','Non renseignee');
-  setKeyStatus(document.getElementById('orsSt'),'neutral','Non renseignee');
+  // ── Clé API ───────────────────────────────────────────────────────────────
+  document.getElementById('gmKey').value='';
+  document.getElementById('gmKey').style.borderColor='';
+  setKeyStatus(document.getElementById('gmSt'),'neutral','Non renseignee');
 
   // ── Filtres ────────────────────────────────────────────────────────────────
   S.filterMode='moy';
@@ -1685,6 +1733,7 @@ function resetSession(){
   // ── Boutons et meta ────────────────────────────────────────────────────────
   document.getElementById('runBtn').disabled=true;
   document.getElementById('saveBtn').disabled=true;
+  document.getElementById('exportBlock').style.display='none';
   document.getElementById('topMeta').textContent='— salaries · Depart 08:00';
   document.getElementById('prog').classList.remove('on');
 

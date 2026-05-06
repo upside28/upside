@@ -1,0 +1,3178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upside — Etude temps de transport</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Aptos:wght@300;400;500;600;700&display=swap');
+:root{
+  /* Charte Upside — navy + doré */
+  --bg:#eef0f4;--bg2:#ffffff;--bg3:#f4f5f8;
+  --navy:#1a2235;--navy2:#243048;--navy3:#2e3c57;
+  --brd:rgba(26,34,53,0.10);--brd2:rgba(26,34,53,0.18);
+  --txt:#1a2235;--muted:#5a6478;--hint:#8a93a6;
+  --acc:#c8a96e;--acc-bg:rgba(200,169,110,0.12);--acc-dark:#a8844a;
+  --grn:#2d7a3a;--grn-bg:#e8f5ea;--grn-bd:#7dc489;
+  --red:#c0392b;--red-bg:#fdecea;--red-bd:#e8948d;
+  --org:#9a6520;--org-bg:#fdf3e3;
+  --blu:#1a5fa5;--blu-bg:#e8f0fb;
+  --f:'Aptos','Segoe UI',system-ui,-apple-system,sans-serif;--f-head:'Aptos','Segoe UI',system-ui,-apple-system,sans-serif;
+  --radius:10px;--radius-lg:14px;--shadow:0 2px 12px rgba(26,34,53,0.08);--shadow-md:0 4px 20px rgba(26,34,53,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);font-family:var(--f);font-size:13px;color:var(--txt);height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;}
+.app{display:flex;flex-direction:column;height:100vh;}
+.topbar{display:flex;align-items:center;padding:0 28px;background:var(--navy);border-bottom:none;height:56px;flex-shrink:0;gap:16px;box-shadow:0 2px 16px rgba(0,0,0,0.18);}
+.tlogo{display:flex;align-items:center;gap:14px;}
+.tlogo span{color:var(--acc);}
+.idf-wrap{display:flex;align-items:center;gap:7px;font-size:11px;color:rgba(255,255,255,0.7);white-space:nowrap;}
+.tog{position:relative;width:34px;height:19px;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;}
+.tog-sl{position:absolute;inset:0;background:rgba(255,255,255,0.2);border-radius:10px;cursor:pointer;transition:background 0.2s;}
+.tog-sl:before{content:'';position:absolute;width:13px;height:13px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform 0.2s;}
+.tog input:checked + .tog-sl{background:var(--acc);}
+.tog input:checked + .tog-sl:before{transform:translateX(15px);}
+.idf-badge{background:rgba(200,169,110,0.25);border:1px solid var(--acc);color:var(--acc);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;}
+.tmeta{font-size:11px;color:rgba(255,255,255,0.5);margin-left:auto;}
+.nav{display:flex;background:var(--bg2);border-bottom:1px solid var(--brd);padding:0 28px;flex-shrink:0;box-shadow:0 1px 0 var(--brd);}
+.ntab{padding:14px 18px;font-size:12px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.15s;user-select:none;letter-spacing:0.01em;}
+.ntab:hover{color:var(--txt);}
+.ntab.active{color:var(--navy);border-bottom-color:var(--acc);font-weight:600;}
+.body{display:flex;flex:1;overflow:hidden;}
+.left{width:256px;min-width:256px;background:var(--bg2);border-right:1px solid var(--brd);display:flex;flex-direction:column;overflow-y:auto;box-shadow:inset -1px 0 0 var(--brd);}
+.ps{padding:14px 16px;border-bottom:1px solid var(--brd);}
+.pt{font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--hint);margin-bottom:10px;font-weight:600;}
+.upbox{border:1.5px dashed var(--brd2);border-radius:10px;padding:14px;text-align:center;cursor:pointer;position:relative;transition:all 0.2s;background:var(--bg3);}
+.upbox:hover{border-color:var(--acc);background:rgba(200,169,110,0.04);}
+.upbox input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.fok{display:flex;align-items:center;gap:6px;background:var(--grn-bg);border:1px solid var(--grn-bd);border-radius:6px;padding:7px 9px;margin-top:7px;}
+.fb{flex:1;padding:5px 7px;border-radius:20px;border:1px solid var(--brd2);background:var(--bg3);font-size:11px;cursor:pointer;color:var(--muted);transition:all 0.15s;font-family:var(--f);}
+.fb.on{background:var(--org-bg);border-color:var(--acc);color:var(--org);font-weight:500;}
+.fl{font-size:10px;color:var(--hint);margin-bottom:3px;display:block;}
+.fi{width:100%;background:var(--bg2);border:1px solid var(--brd2);border-radius:7px;padding:7px 10px;color:var(--txt);font-size:11px;outline:none;font-family:var(--f);margin-bottom:5px;transition:border-color 0.15s;}
+.fi:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(200,169,110,0.12);}
+.fi::placeholder{color:var(--hint);}
+.ks{font-size:10px;display:flex;align-items:center;gap:4px;margin-top:-3px;margin-bottom:6px;}
+.ks.demo{color:var(--org);}
+.ks.live{color:var(--grn);}
+.ksd{width:5px;height:5px;border-radius:50%;background:currentColor;}
+.sb{padding:9px 11px;border:1px solid var(--brd);border-radius:var(--radius);margin-bottom:6px;background:var(--bg3);position:relative;transition:box-shadow 0.15s;}
+.sb.ok{border-color:var(--acc);background:rgba(200,169,110,0.06);box-shadow:0 0 0 3px rgba(200,169,110,0.1);}
+.stag{display:inline-flex;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:500;margin-bottom:4px;}
+.to{background:rgba(26,95,165,0.1);color:var(--blu);border:1px solid rgba(26,95,165,0.2);}
+.td{background:rgba(45,122,58,0.1);color:var(--grn);border:1px solid rgba(45,122,58,0.2);}
+.sn{font-size:11px;font-weight:500;}
+.sa{font-size:10px;color:var(--hint);margin-top:2px;line-height:1.4;}
+.seb{position:absolute;top:6px;right:6px;background:transparent;border:none;cursor:pointer;color:var(--acc-dark);font-size:10px;padding:2px 6px;border-radius:4px;font-family:var(--f);font-weight:500;}
+.seb:hover{color:var(--acc);}
+.srm{position:absolute;top:6px;right:6px;cursor:pointer;color:var(--hint);font-size:13px;}
+.srm:hover{color:var(--red);}
+.se{border:1px dashed var(--brd2);border-radius:7px;padding:12px;margin-bottom:5px;background:var(--bg3);cursor:pointer;transition:border-color 0.15s;text-align:center;}
+.se:hover{border-color:var(--acc);}
+.as{width:100%;padding:8px;border:1.5px dashed var(--brd2);border-radius:8px;background:transparent;color:var(--hint);font-size:11px;cursor:pointer;font-family:var(--f);transition:all 0.2s;margin-top:4px;}
+.as:hover{border-color:var(--acc);color:var(--acc-dark);background:rgba(200,169,110,0.04);}
+.li{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:11px;color:var(--muted);}
+.ld{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.lsq{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+.run-btn{width:100%;padding:11px;background:var(--navy);border:1px solid var(--acc);border-radius:8px;color:var(--acc);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--f);transition:all 0.2s;letter-spacing:0.04em;text-transform:uppercase;}
+.run-btn:hover{background:var(--acc);color:var(--navy);}
+.run-btn:disabled{opacity:0.3;cursor:not-allowed;background:var(--bg3);border-color:var(--brd);color:var(--hint);}
+.pg{margin-top:8px;display:none;}
+.pg.on{display:block;}
+.pgb{height:2px;background:var(--bg3);border-radius:1px;overflow:hidden;}
+.pgf{height:100%;background:linear-gradient(90deg,var(--acc-dark),var(--acc));transition:width 0.3s;border-radius:1px;}
+.pgl{font-size:10px;color:var(--hint);margin-top:3px;}
+.right{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.tab-panel{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.tab-panel.active{display:flex;}
+.map-area{flex:1;position:relative;background:var(--bg3);overflow:hidden;min-height:180px;}
+.mph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;}
+.mphi{font-size:30px;opacity:0.15;}
+.mpht{font-size:12px;color:var(--hint);text-align:center;max-width:180px;line-height:1.5;}
+#mapEl{width:100%;height:100%;display:none;}
+.ileg{position:absolute;bottom:12px;right:12px;background:rgba(255,255,255,0.96);border:1px solid var(--brd);border-radius:10px;padding:10px 12px;font-size:10px;z-index:999;display:none;box-shadow:var(--shadow);}
+.ili{display:flex;align-items:center;gap:5px;margin-bottom:3px;color:var(--muted);}
+.ili:last-child{margin-bottom:0;}
+.ilsq{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.carto-stats{background:var(--bg2);border-top:1px solid var(--brd);padding:16px;flex-shrink:0;display:none;}
+.carto-kpis{display:flex;gap:0;margin-bottom:12px;}
+.ckpi{flex:1;text-align:center;padding:8px 0;border-right:1px solid var(--brd);}
+.ckpi:last-child{border-right:none;}
+.ckpi-val{font-size:30px;font-weight:600;line-height:1;color:var(--navy);font-family:var(--f-head);}
+.ckpi-lbl{font-size:10px;color:var(--hint);margin-top:4px;letter-spacing:0.04em;text-transform:uppercase;}
+.dept-section{display:grid;grid-template-columns:170px 1fr;gap:12px;align-items:start;}
+.dept-title{font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
+.mode-bar{background:var(--bg2);border-top:1px solid var(--brd);padding:9px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.mode-pill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;}
+.mode-pill.tc{background:var(--blu-bg);color:var(--blu);border:1px solid rgba(26,95,165,0.2);}
+.mode-pill.car{background:var(--grn-bg);color:var(--grn);border:1px solid rgba(45,122,58,0.2);}
+.stats-panel{overflow-y:auto;padding:18px 20px;}
+.site-stat-card{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius-lg);margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow);}
+.ssc-header{padding:11px 14px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:9px;background:var(--bg3);}
+.ssc-badge{width:21px;height:21px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;}
+.ssc-body{padding:12px 13px;}
+.kpi-row4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:11px;}
+.kpi4{background:var(--bg3);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--brd);}
+.kpi4-val{font-size:19px;font-weight:600;line-height:1;color:var(--navy);}
+.kpi4-lbl{font-size:10px;color:var(--hint);margin-top:3px;}
+.kpi4-sub{font-size:10px;margin-top:2px;}
+.mc2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px;}
+.mcc{background:var(--bg3);border-radius:6px;padding:9px 11px;}
+.mch{font-size:10px;font-weight:500;margin-bottom:5px;}
+.distrib-title{font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
+.t5r{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:11px;}
+.t5n{width:16px;height:16px;border-radius:50%;background:var(--bg3);border:1px solid var(--brd);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;flex-shrink:0;}
+.transport-section{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.tc-card{background:var(--bg3);border-radius:8px;padding:12px;}
+.tc-title{font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:9px;}
+.bilan-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;}
+.bilan-table th{padding:8px 10px;text-align:center;background:var(--navy);border:1px solid var(--navy2);font-weight:500;font-size:10px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.06em;}
+.bilan-table th.l{text-align:left;color:rgba(255,255,255,0.9);}
+.bilan-table td{padding:6px 10px;text-align:center;border:1px solid var(--brd);}
+.bilan-table td.lb{text-align:left;color:var(--muted);}
+.bilan-table td.vl{font-weight:500;}
+.bilan-table td.pos{color:var(--grn);font-weight:500;}
+.bilan-table td.neg{color:var(--red);font-weight:500;}
+.impact-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;flex-wrap:wrap;}
+.il-lbl{font-size:11px;color:var(--muted);width:58px;flex-shrink:0;}
+.ip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.ip.g{background:var(--grn-bg);color:var(--grn);border:1px solid var(--grn-bd);}
+.ip.s{background:var(--bg3);color:var(--muted);border:1px solid var(--brd2);}
+.ip.p{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd);}
+.shdr{font-size:12px;font-weight:600;color:var(--navy);margin-bottom:10px;padding-bottom:7px;border-bottom:2px solid var(--brd);letter-spacing:0.02em;}
+.eb{display:flex;gap:6px;padding-top:8px;}
+.ebtn{padding:7px 14px;border-radius:7px;border:1px solid var(--brd2);background:var(--bg3);color:var(--txt);font-size:11px;cursor:pointer;font-family:var(--f);transition:all 0.15s;}
+.ebtn:hover{border-color:var(--acc);color:var(--org);}
+.ebtn.pr{background:rgba(200,169,110,0.1);border-color:var(--acc);color:var(--acc-dark);font-weight:600;}
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:1000;}
+.mdl{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--radius-lg);padding:24px;width:320px;box-shadow:var(--shadow-md);}
+.mh{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:4px;font-family:var(--f-head);}
+.ms{font-size:11px;color:var(--muted);margin-bottom:13px;}
+.mbtns{display:flex;gap:6px;justify-content:flex-end;margin-top:11px;}
+.mb{padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--f);}
+.mb.c{background:var(--bg3);border:1px solid var(--brd2);color:var(--muted);}
+.mb.o{background:var(--navy);border:1px solid var(--acc);color:var(--acc);font-weight:600;transition:all 0.15s;}
+.empty-state{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;height:100%;text-align:center;padding:40px;}
+.empty-icon{font-size:26px;opacity:0.15;}
+.empty-txt{font-size:13px;color:var(--hint);line-height:1.7;}
+.save-list{display:flex;flex-direction:column;gap:5px;margin-bottom:6px;}
+.save-item{display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid var(--brd);border-radius:8px;background:var(--bg3);cursor:pointer;transition:all 0.15s;}
+.save-item:hover{border-color:var(--acc);background:var(--acc-bg);}
+.save-item-icon{font-size:14px;flex-shrink:0;}
+.save-item-body{flex:1;min-width:0;}
+.save-item-name{font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.save-item-meta{font-size:10px;color:var(--hint);margin-top:1px;}
+.save-item-del{color:var(--hint);font-size:13px;padding:2px 4px;cursor:pointer;flex-shrink:0;border:none;background:none;font-family:var(--f);}
+.save-item-del:hover{color:var(--red);}
+.upside-popup .leaflet-popup-content-wrapper{padding:0;border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(26,34,53,0.18);border:1px solid var(--brd);}
+.upside-popup .leaflet-popup-content{margin:10px 12px;}
+.sv-btn{width:100%;padding:8px;border-radius:7px;border:1px solid var(--brd2);background:var(--bg3);color:var(--txt);font-size:11px;cursor:pointer;font-family:var(--f);transition:all 0.15s;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;}
+.sv-btn:hover{border-color:var(--acc);color:var(--org);}
+.sv-btn.pr{background:rgba(200,169,110,0.1);border-color:var(--acc);color:var(--acc-dark);font-weight:600;}
+.sv-btn:disabled{opacity:0.35;cursor:not-allowed;}
+.reset-btn{padding:5px 12px;border-radius:6px;border:1px solid rgba(200,169,110,0.5);background:transparent;color:var(--acc);font-size:11px;cursor:pointer;font-family:var(--f);transition:all 0.15s;white-space:nowrap;}
+.reset-btn:hover{border-color:var(--acc);color:#ffffff;background:rgba(200,169,110,0.2);}
+
+/* ─── Affinements charte Upside ───────────────────────────────────────────── */
+.ntab:hover{color:var(--navy);}
+.save-item:hover{border-color:var(--acc);background:rgba(200,169,110,0.06);}
+.fb{flex:1;padding:6px 7px;border-radius:7px;border:1px solid var(--brd2);background:var(--bg3);font-size:11px;cursor:pointer;color:var(--muted);transition:all 0.15s;font-family:var(--f);}
+.fb.on{background:var(--navy);border-color:var(--navy);color:var(--acc);font-weight:500;}
+.mb.o:hover{background:var(--acc);color:var(--navy);}
+.sn{font-size:12px;font-weight:600;color:var(--navy);}
+.fok{display:flex;align-items:center;gap:6px;background:var(--grn-bg);border:1px solid var(--grn-bd);border-radius:8px;padding:8px 10px;margin-top:7px;}
+.ks.live{color:var(--grn);font-weight:500;}
+.run-btn:not(:disabled):hover{background:var(--acc);color:var(--navy);border-color:var(--acc);}
+/* Icône empty state plus Upside */
+.empty-icon{font-size:32px;opacity:0.12;}
+/* Map area */
+.map-area{flex:1;position:relative;background:var(--bg3);overflow:hidden;min-height:180px;}
+/* kpi4-lbl */
+.kpi4-lbl{font-size:10px;color:var(--hint);margin-top:4px;letter-spacing:0.02em;}
+/* mcc card */
+.mcc{background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--brd);}
+/* tc-card */
+.tc-card{background:var(--bg3);border-radius:10px;padding:13px;border:1px solid var(--brd);}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="tlogo"><span style="font-family:var(--f);font-weight:600;font-size:13px;color:var(--acc);letter-spacing:0.06em;text-transform:uppercase">Upside</span><span style="font-family:var(--f);font-weight:300;font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:0.08em;text-transform:uppercase">Etude temps de transport</span></div>
+    <div class="idf-wrap">
+      <label class="tog"><input type="checkbox" id="idfToggle" onchange="onIdfToggle()"><span class="tog-sl"></span></label>
+      <span id="idfLabel" style="color:rgba(255,255,255,0.7)">Tous les salaries</span>
+      <span class="idf-badge" id="idfBadge" style="display:none">IDF uniquement</span>
+    </div>
+    <div class="tmeta" id="topMeta">— salaries · Depart 08:00</div>
+    <button class="reset-btn" onclick="resetSession()" title="Réinitialiser — efface le fichier, les clés API et les implantations. Les analyses sauvegardées sont conservées.">↺ Réinitialiser</button>
+  </div>
+  <div class="nav">
+    <div class="ntab active" data-tab="carto" onclick="switchTab(this)">Cartographie salaries</div>
+    <div class="ntab" data-tab="actuelle" onclick="switchTab(this)">Implantation actuelle</div>
+    <div class="ntab" data-tab="futures" onclick="switchTab(this)">Implantations futures</div>
+    <div class="ntab" data-tab="bilan" onclick="switchTab(this)">Bilan comparatif</div>
+    <div class="ntab" data-tab="slides" onclick="switchTab(this)">Slides</div>
+  </div>
+  <div class="body">
+    <div class="left">
+      <div class="ps">
+        <div class="pt">Fichier collaborateurs</div>
+        <div class="upbox">
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+          <div style="font-size:11px;font-weight:500;margin-bottom:2px">Deposer le fichier Excel</div>
+          <div style="font-size:10px;color:var(--hint)">.xlsx · .csv · Upside & Concerto</div>
+        </div>
+        <div id="fileRequired" style="display:flex;align-items:center;gap:6px;background:var(--org-bg);border:1px solid var(--acc);border-radius:6px;padding:7px 9px;margin-top:7px;">
+          <span style="color:var(--org);font-size:12px">⚠</span>
+          <div style="font-size:10px;color:var(--org)">Fichier requis pour lancer l'analyse</div>
+        </div>
+        <div class="fok" id="fileOk" style="display:none">
+          <span style="color:var(--grn)">✓</span>
+          <div style="font-size:10px;color:var(--grn);font-weight:500" id="fileTxt">—</div>
+        </div>
+      </div>
+      <div class="ps">
+        <div class="pt">Filtres</div>
+        <div style="display:flex;gap:5px;margin-bottom:8px">
+          <button class="fb on" id="fMoy" onclick="toggleFilter('moy')">Tps Moyen</button>
+          <button class="fb" id="fMed" onclick="toggleFilter('med')">Tps Median</button>
+        </div>
+        <label class="fl">Heure de depart</label>
+        <input type="time" class="fi" id="arrTime" value="08:00" style="margin-bottom:0">
+      </div>
+      <div class="ps">
+        <div class="pt">Cle API</div>
+        <label class="fl">Google Maps Platform — <a href="https://console.cloud.google.com/apis" target="_blank" style="color:var(--acc);text-decoration:none">console.cloud.google.com</a></label>
+        <div style="font-size:10px;color:var(--hint);margin-bottom:6px;line-height:1.5">Services requis : Geocoding API · Directions API</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="password" class="fi" id="gmKey" placeholder="AIza..." style="margin-bottom:0;flex:1" oninput="onKeyInput('gm')">
+          <button onclick="validateGm()" id="gmValBtn" style="padding:5px 9px;border-radius:5px;border:1px solid var(--brd2);background:var(--bg3);font-size:10px;cursor:pointer;color:var(--muted);white-space:nowrap;font-family:var(--f);flex-shrink:0">Tester</button>
+        </div>
+        <div class="ks demo" id="gmSt" style="margin-top:5px"><span class="ksd"></span> Non renseignee</div>
+      </div>
+      <div class="ps">
+        <div class="pt">Implantations</div>
+        <div style="font-size:10px;color:var(--hint);margin-bottom:5px">Site de depart</div>
+        <div id="originBlock"></div>
+        <div style="font-size:10px;color:var(--hint);margin:8px 0 5px" id="destLabel">Sites d'arrivee</div>
+        <div id="destList"></div>
+        <button class="as" onclick="openDestModal()">+ Ajouter un site d'arrivee</button>
+      </div>
+      <div class="ps">
+        <div class="pt">Analyses sauvegardees</div>
+        <div class="save-list" id="saveList"></div>
+        <button class="sv-btn pr" id="saveBtn" onclick="saveAnalysis()" disabled>
+          <span>💾</span> Sauvegarder l'analyse en cours
+        </button>
+        <div style="margin-top:6px;display:flex;gap:5px">
+          <button class="sv-btn" onclick="document.getElementById('loadFile').click()">
+            <span>📂</span> Charger un fichier
+          </button>
+          <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadAnalysisFile(this)">
+        </div>
+      </div>
+      <div class="ps">
+        <div class="pt">Legende</div>
+        <div class="li"><div class="ld" style="background:var(--blu)"></div>Collaborateurs</div>
+        <div class="li"><div class="lsq" style="background:rgba(76,175,130,0.4)"></div>0–15 min</div>
+        <div class="li"><div class="lsq" style="background:rgba(122,191,110,0.4)"></div>15–30 min</div>
+        <div class="li"><div class="lsq" style="background:rgba(200,169,110,0.4)"></div>30–45 min</div>
+        <div class="li"><div class="lsq" style="background:rgba(224,149,92,0.4)"></div>45–60 min</div>
+      </div>
+      <div class="ps">
+        <button class="run-btn" id="runBtn" onclick="runAnalysis()" disabled title="Chargez un fichier Excel collaborateurs pour lancer l'analyse">Lancer l'analyse</button>
+        <div class="pg" id="prog">
+          <div class="pgb"><div class="pgf" id="progFill" style="width:0%"></div></div>
+          <div class="pgl" id="progLbl">Initialisation...</div>
+        </div>
+      </div>
+      <div class="ps" id="exportBlock" style="display:none">
+        <div class="pt">Export</div>
+        <button class="sv-btn pr" onclick="doExport()" style="margin-bottom:5px">
+          <span>📊</span> Exporter Excel (detail individuel)
+        </button>
+        <button class="sv-btn" onclick="doCSV()">
+          <span>📄</span> Export CSV
+        </button>
+        <button class="sv-btn" id="pptxBtn" onclick="doPPTX()" style="margin-top:5px;border-color:var(--acc);color:var(--acc-dark);font-weight:600">
+          <span>📑</span> Export PowerPoint
+        </button>
+      </div>
+    </div>
+    <div class="right">
+      <div class="tab-panel active" id="tab-carto" style="flex-direction:row;overflow:hidden">
+        <!-- GAUCHE : carte -->
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative;border-right:1px solid var(--brd)">
+          <div class="map-area" style="flex:1">
+            <div class="mph" id="mapPh"><div class="mphi">🗺</div><div class="mpht">Configurez vos implantations<br>puis lancez l'analyse</div></div>
+            <div id="mapEl"></div>
+            <div class="ileg" id="isoLegend">
+              <div style="font-size:10px;font-weight:500;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em">Isochrones</div>
+              <div class="ili"><div class="ilsq" style="background:rgba(76,175,130,0.5)"></div>0–15 min</div>
+              <div class="ili"><div class="ilsq" style="background:rgba(122,191,110,0.5)"></div>15–30 min</div>
+              <div class="ili"><div class="ilsq" style="background:rgba(200,169,110,0.5)"></div>30–45 min</div>
+              <div class="ili"><div class="ilsq" style="background:rgba(224,149,92,0.5)"></div>45–60 min</div>
+            </div>
+          </div>
+          <div id="modeBarCarto" style="display:none" class="mode-bar">
+            <span style="font-size:11px;color:var(--muted)">Modes :</span>
+            <span class="mode-pill tc">🚇 TC — <span id="pctTC">—</span>%</span>
+            <span class="mode-pill car">🚗 Voiture — <span id="pctCar">—</span>%</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--hint)" id="nbSal">—</span>
+          </div>
+        </div>
+        <!-- DROITE : stats -->
+        <div style="width:380px;min-width:320px;overflow-y:auto;background:var(--bg2)">
+          <div class="carto-stats" id="cartoStats" style="border-top:none;padding:16px"></div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-actuelle">
+        <div class="empty-state" id="emptyActuelle"><div class="empty-icon">📍</div><div class="empty-txt">Lancez l'analyse pour afficher<br>les statistiques du site actuel</div></div>
+        <div class="stats-panel" id="statsActuelle" style="display:none"></div>
+      </div>
+      <div class="tab-panel" id="tab-futures">
+        <div class="empty-state" id="emptyFutures"><div class="empty-icon">🏢</div><div class="empty-txt">Lancez l'analyse pour afficher<br>les statistiques des sites cibles</div></div>
+        <div class="stats-panel" id="statsFutures" style="display:none"></div>
+      </div>
+      <div class="tab-panel" id="tab-bilan">
+        <div class="empty-state" id="emptyBilan"><div class="empty-icon">📊</div><div class="empty-txt">Lancez l'analyse pour afficher<br>le bilan comparatif</div></div>
+        <div class="stats-panel" id="statsBilan" style="display:none"></div>
+      </div>
+      <!-- ── ONGLET SLIDES ─────────────────────────────────────────────────── -->
+      <div class="tab-panel" id="tab-slides" style="flex-direction:column;overflow-y:auto;background:#E8EDF2;padding:40px 0;align-items:center;gap:40px">
+        <div class="empty-state" id="emptySlides"><div class="empty-icon">🖼</div><div class="empty-txt">Lancez l'analyse pour générer<br>les slides de présentation</div></div>
+        <div id="slidesContainer" style="display:none;flex-direction:column;align-items:center;gap:40px;width:100%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── ÉTAT GLOBAL ──────────────────────────────────────────────────────────────
+const S={
+  allCollabs:[],
+  idfOnly:false,
+  filterMode:'moy',
+  origin:null,
+  sites:[],
+  rawTimes:{},
+  rawGeo:{},
+  results:null,
+  map:null,
+  currentTab:'carto',
+  pieChart:null,
+  barChart:null,
+  nbHorsIDF:0,
+  stationGeoCache:{}  // cache des coordonnées géocodées par Google Maps : {nomStation:{la,lo}}
+};
+
+const BDEP='ABCDEFGHIJK';
+const SC=['#3B6D11','#185FA5','#854F0B','#A32D2D','#639922'];
+const IDF_CPS=['75','77','78','91','92','93','94','95'];
+const IDF_DEP_NAMES={'75':'Paris 75','77':'Seine-et-Marne 77','78':'Yvelines 78','91':'Essonne 91','92':'Hauts-de-Seine 92','93':'Seine-Saint-Denis 93','94':'Val-de-Marne 94','95':'Val-d\'Oise 95'};
+const PIE_COLORS=['#1a3a5c','#2a5f8f','#3b8fbf','#5abcd8','#7ad4e8','#9de4f0','#bef0f8','#d4f5fc'];
+
+// ─── UTILITAIRES ─────────────────────────────────────────────────────────────
+function isIDF(cp){return IDF_CPS.some(d=>String(cp||'').startsWith(d));}
+function sl(ms){return new Promise(r=>setTimeout(r,ms));}
+function sP(p,l){document.getElementById('progFill').style.width=p+'%';document.getElementById('progLbl').textContent=l;}
+function activeCollabs(){return S.idfOnly?S.allCollabs.filter(c=>isIDF(c.cp)):S.allCollabs;}
+
+// ─── CLÉS API ─────────────────────────────────────────────────────────────────
+function getGmKey(){return document.getElementById('gmKey').value.trim();}
+
+// ─── GÉOCODAGE via Google Geocoding API ──────────────────────────────────────
+async function geocodeAddress(address){
+  try{
+    const key=getGmKey();
+    const url='https://maps.googleapis.com/maps/api/geocode/json?address='+encodeURIComponent(address)+'&region=fr&key='+key;
+    const r=await fetchWithTimeout(url,{},8000);
+    const d=await r.json();
+    if(d.status==='OK'&&d.results&&d.results[0]){
+      const loc=d.results[0].geometry.location;
+      return{lat:loc.lat,lng:loc.lng};
+    }
+  }catch(e){}
+  return null;
+}
+
+// getGeo retourne les coordonnées réelles géocodées, ou null si indisponibles
+function getGeo(c){return S.rawGeo[c.id]||null;}
+
+// ─── FETCH AVEC TIMEOUT ───────────────────────────────────────────────────────
+// Toute requête qui ne répond pas en 8s est abandonnée — évite le blocage infini
+async function fetchWithTimeout(url, options={}, timeoutMs=8000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const r=await fetch(url,{...options,signal:controller.signal});
+    clearTimeout(timer);
+    return r;
+  }catch(e){
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
+// ─── TEMPS TC via Routes API uniquement ──────────────────────────────────────
+// Retourne {tc, walk} en cas de succès, null en cas d'absence d'itinéraire,
+// ou lève une erreur marquée {is429:true} en cas de quota dépassé.
+async function fetchGmTC(fromLat,fromLng,toLat,toLng,key){
+  const dt=new Date();
+  const day=dt.getDay();const daysUntil=(2-day+7)%7||7;
+  dt.setDate(dt.getDate()+daysUntil);
+  // Lire l'heure de départ depuis l'UI (format HH:MM, défaut 08:00)
+  const timeVal=(document.getElementById('arrTime')?.value||'08:00').split(':');
+  dt.setHours(parseInt(timeVal[0])||8,parseInt(timeVal[1])||0,0,0);
+  const body=JSON.stringify({
+    origin:{location:{latLng:{latitude:fromLat,longitude:fromLng}}},
+    destination:{location:{latLng:{latitude:toLat,longitude:toLng}}},
+    travelMode:'TRANSIT',
+    departureTime:dt.toISOString(),
+    computeAlternativeRoutes:false
+  });
+  const r=await fetchWithTimeout('https://routes.googleapis.com/directions/v2:computeRoutes',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'X-Goog-Api-Key':key,
+      'X-Goog-FieldMask':'routes.duration,routes.legs.steps.travelMode,routes.legs.steps.staticDuration'
+    },
+    body
+  },12000);
+  if(r.status===429){const e=new Error('429');e.is429=true;throw e;}
+  if(r.ok){
+    const d=await r.json();
+    // Vérifier erreur Google dans le corps (quota ou permission)
+    if(d.error){
+      if(d.error.code===429||d.error.status==='RESOURCE_EXHAUSTED'){const e=new Error('429');e.is429=true;throw e;}
+      return null;
+    }
+    if(d.routes&&d.routes[0]){
+      const tcSec=parseInt(d.routes[0].duration)||0;
+      const tcMin=Math.round(tcSec/60);
+      if(tcMin>180)return null;
+      const walkSec=(d.routes[0].legs||[]).flatMap(l=>l.steps||[])
+        .filter(s=>s.travelMode==='WALK')
+        .reduce((a,s)=>a+parseInt(s.staticDuration||0),0);
+      const walkMin=Math.round(walkSec/60);
+      return{tc:tcMin,walk:walkMin||Math.round(tcMin*0.2)};
+    }
+  }
+  return null;
+}
+
+// ─── TEMPS VOITURE via Routes API uniquement ──────────────────────────────────
+// Retourne un entier (minutes) ou null. Lève {is429:true} si quota dépassé.
+async function fetchGmCar(fromLat,fromLng,toLat,toLng,key){
+  const dt=new Date();
+  const day=dt.getDay();const daysUntil=(2-day+7)%7||7;
+  dt.setDate(dt.getDate()+daysUntil);
+  const timeVal=(document.getElementById('arrTime')?.value||'08:00').split(':');
+  dt.setHours(parseInt(timeVal[0])||8,parseInt(timeVal[1])||0,0,0);
+  const body=JSON.stringify({
+    origin:{location:{latLng:{latitude:fromLat,longitude:fromLng}}},
+    destination:{location:{latLng:{latitude:toLat,longitude:toLng}}},
+    travelMode:'DRIVE',
+    departureTime:dt.toISOString(),
+    routingPreference:'TRAFFIC_AWARE',
+    computeAlternativeRoutes:false
+  });
+  const r=await fetchWithTimeout('https://routes.googleapis.com/directions/v2:computeRoutes',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'X-Goog-Api-Key':key,
+      'X-Goog-FieldMask':'routes.duration'
+    },
+    body
+  },12000);
+  if(r.status===429){const e=new Error('429');e.is429=true;throw e;}
+  if(r.ok){
+    const d=await r.json();
+    if(d.error){
+      if(d.error.code===429||d.error.status==='RESOURCE_EXHAUSTED'){const e=new Error('429');e.is429=true;throw e;}
+      return null;
+    }
+    if(d.routes&&d.routes[0]){
+      const durSec=parseInt(d.routes[0].duration)||0;
+      return Math.round(durSec/60);
+    }
+  }
+  return null;
+}
+
+function getNextTuesdayAt8Unix(){
+  const d=new Date();const day=d.getDay();
+  const daysUntil=(2-day+7)%7||7;
+  d.setDate(d.getDate()+daysUntil);
+  d.setHours(8,0,0,0);
+  return Math.floor(d.getTime()/1000);
+}
+
+function siteKey(site){return site.name+'|'+site.addr;}
+
+// getTimes retourne null si les données réelles ne sont pas disponibles
+function getTimes(c,site){
+  const key=c.id+'__'+siteKey(site);
+  return S.rawTimes[key]||null;
+}
+
+// ─── HELPERS STATISTIQUES ─────────────────────────────────────────────────────
+
+// ─── FICHIER ──────────────────────────────────────────────────────────────────
+document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])doFile(e.target.files[0]);});
+function doFile(f){
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'binary'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      S.rawTimes={};S.rawGeo={};
+      S.allCollabs=pC(XLSX.utils.sheet_to_json(ws));
+      document.getElementById('fileRequired').style.display='none';
+      document.getElementById('fileOk').style.display='flex';
+      if(S.allCollabs.length===0){
+        document.getElementById('fileTxt').textContent='⚠ Aucun collaborateur detecte — verifiez les colonnes';
+        document.getElementById('fileOk').style.background='var(--red-bg)';
+        document.getElementById('fileOk').style.borderColor='var(--red-bd)';
+        document.getElementById('fileOk').querySelector('span').textContent='⚠';
+        document.getElementById('fileOk').querySelector('span').style.color='var(--red)';
+        document.getElementById('fileOk').querySelector('div').style.color='var(--red)';
+        // Laisser le bouton désactivé si aucun collaborateur détecté
+      } else {
+        document.getElementById('fileTxt').textContent=f.name+' · '+S.allCollabs.length+' collaborateurs';
+        document.getElementById('fileOk').style.background='';
+        document.getElementById('fileOk').style.borderColor='';
+        document.getElementById('runBtn').disabled=false;
+      }
+      updateMeta();
+    }catch(err){alert('Erreur de lecture du fichier : '+err.message);}
+  };
+  r.readAsBinaryString(f);
+}
+// ─── NORMALISATION DES ADRESSES ───────────────────────────────────────────────
+// Remplace les apostrophes typographiques courbes par des apostrophes droites
+// et nettoie les caractères qui peuvent perturber le géocodage
+function normalizeAddr(s){
+  if(!s)return'';
+  return String(s)
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g,"'") // apostrophes courbes → droite
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g,'"')  // guillemets courbes → droits
+    .replace(/[\u2013\u2014]/g,'-')                           // tirets longs → tiret simple
+    .trim();
+}
+
+function pC(data){
+  if(!data||data.length===0)return[];
+  const parsed=data.map((row,i)=>{
+    const ks=Object.keys(row);
+    const aK=ks.find(k=>k.toLowerCase().includes('adresse collab'))
+           ||ks.find(k=>k.toLowerCase().includes('adresse'))
+           ||ks.find(k=>k.toLowerCase().includes('address'))
+           ||ks.find(k=>k.toLowerCase()==='rue');
+    const cK=ks.find(k=>k.toLowerCase().includes('code postal collab'))
+           ||ks.find(k=>k.toLowerCase().includes('code postal'))
+           ||ks.find(k=>k.toLowerCase()==='cp')
+           ||ks.find(k=>k.toLowerCase()==='codepostal')
+           ||ks.find(k=>k.toLowerCase().includes('postal'));
+    const vK=ks.find(k=>k.toLowerCase().includes('ville collab'))
+           ||ks.find(k=>k.toLowerCase().includes('ville'))
+           ||ks.find(k=>k.toLowerCase()==='city')
+           ||ks.find(k=>k.toLowerCase()==='commune');
+    const mK=ks.find(k=>k.toLowerCase()==='mode de transport')
+           ||ks.find(k=>k.toLowerCase().includes('mode de transport'))
+           ||ks.find(k=>k.toLowerCase().includes('mode transport'))
+           ||ks.find(k=>k.toLowerCase().includes('titre de transport'))
+           ||ks.find(k=>k.toLowerCase().includes('titre'))
+           ||ks.find(k=>k.toLowerCase()==='vélo')
+           ||ks.find(k=>k.toLowerCase()==='velo')
+           // Fallback "transport" uniquement si aucune des priorités ci-dessus ne matche
+           // ET que la colonne ne parle pas de remboursement (évite "Remboursement frais de transport")
+           ||ks.find(k=>k.toLowerCase().includes('transport')&&!k.toLowerCase().includes('rembours')&&!k.toLowerCase().includes('frais'));
+
+    const cp=normalizeAddr(cK?String(row[cK]||''):'').replace(/\s/g,'').padStart(5,'0');
+    const ville=normalizeAddr(vK?String(row[vK]||''):'');
+    let adresse=normalizeAddr(aK?String(row[aK]||''):'');
+
+    // CORRECTION 1 : adresse "?" → utiliser uniquement CP + ville pour le géocodage
+    const adresseInvalide=!adresse||adresse==='?'||adresse===''||adresse.replace(/[?.\s-]/g,'').length===0;
+    const addressGeocode=adresseInvalide
+      ? [cp,ville].filter(Boolean).join(' ')   // géocodage par CP+ville uniquement
+      : [adresse,cp,ville].filter(Boolean).join(', ');
+
+    // CORRECTION 3 : marquer si l'adresse est approximative (CP seul)
+    const adresseApprox=adresseInvalide;
+
+    return{
+      id:i+1,
+      address:addressGeocode,
+      adresseApprox,
+      cp,ville,
+      mode:mK?nM(row[mK]):'tc',
+      horsIDF:!isIDF(cp)  // CORRECTION 2 : marquer explicitement hors IDF
+    };
+  }).filter(c=>c.address&&c.address.length>3);
+
+  // CORRECTION 4 : dédoublonnage par adresse exacte
+  // Les vrais doublons (même personne, même adresse) sont conservés une seule fois pour le géocodage
+  // mais comptés individuellement dans les statistiques
+  // → On conserve TOUS les collaborateurs (chacun est un salarié distinct)
+  // mais on partage le rawGeo : deux collaborateurs à la même adresse partagent les mêmes coordonnées
+  // Ce comportement est géré dans l'étape géocodage (cache par adresse, pas par ID)
+  return parsed;
+}
+function nM(v){if(!v)return'tc';const s=String(v).toLowerCase();if(s.includes('voiture')||s.includes('car'))return'car';if(s.includes('velo'))return'bike';return'tc';}
+function updateMeta(){
+  const n=activeCollabs().length||'—';
+  document.getElementById('topMeta').textContent=n+' salaries · Depart 08:00';
+}
+
+// ─── FILTRE IDF ───────────────────────────────────────────────────────────────
+// CORRECTION : le toggle recalcule entièrement S.results avec le nouveau sous-ensemble
+function onIdfToggle(){
+  S.idfOnly=document.getElementById('idfToggle').checked;
+  const lbl=document.getElementById('idfLabel');lbl.textContent=S.idfOnly?'IDF uniquement':'Tous les salaries';
+  document.getElementById('idfBadge').style.display=S.idfOnly?'inline-flex':'none';
+  updateMeta();
+  // Si une analyse existe déjà, la recalculer avec le bon sous-ensemble
+  if(S.origin&&S.sites.length>0&&Object.keys(S.rawTimes).length>0){
+    S.results=buildResults();
+    renderAll();
+  }
+}
+
+// ─── KEYS ─────────────────────────────────────────────────────────────────────
+// ─── PROXY CORS ───────────────────────────────────────────────────────────────
+// Nécessaire quand l'application est ouverte en fichier local (file://)
+// Inutile depuis un serveur https:// (GitHub Pages, Netlify)
+const IS_LOCAL = location.protocol === 'file:';
+function proxify(url){
+  return IS_LOCAL ? 'https://corsproxy.io/?' + encodeURIComponent(url) : url;
+}
+async function apiFetch(url, options={}){
+  // Tentative directe d'abord
+  try{
+    const r = await fetch(url, options);
+    return r;
+  }catch(e){
+    // Si échec CORS en local, passer par le proxy
+    if(IS_LOCAL){
+      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+      return await fetch(proxyUrl, options);
+    }
+    throw e;
+  }
+}
+
+// ─── CLÉS API — VALIDATION ────────────────────────────────────────────────────
+function onKeyInput(which){
+  const key=document.getElementById('gmKey').value.trim();
+  const el=document.getElementById('gmSt');
+  const field=document.getElementById('gmKey');
+  field.style.borderColor='';
+  if(key.length===0){
+    setKeyStatus(el,'neutral','Non renseignee');
+  } else {
+    setKeyStatus(el,'pending','Cle saisie — cliquer Tester pour valider');
+  }
+}
+
+function setKeyStatus(el,state,msg){
+  const colors={neutral:'var(--hint)',pending:'var(--org)',valid:'var(--grn)',invalid:'var(--red)',testing:'var(--org)'};
+  const icons={neutral:'○',pending:'◌',valid:'✓',invalid:'✗',testing:'⟳'};
+  el.style.color=colors[state]||colors.neutral;
+  el.innerHTML=`<span style="font-size:11px;margin-right:3px">${icons[state]}</span>${msg}`;
+}
+
+async function validateGm(){
+  const key=document.getElementById('gmKey').value.trim();
+  const el=document.getElementById('gmSt');
+  const btn=document.getElementById('gmValBtn');
+  if(!key){setKeyStatus(el,'neutral','Saisissez votre cle Google Maps');return;}
+  btn.disabled=true;btn.textContent='...';
+
+  // ── Test 1 : Geocoding API ────────────────────────────────────────────────
+  setKeyStatus(el,'testing','Test Geocoding API...');
+  try{
+    const geoUrl='https://maps.googleapis.com/maps/api/geocode/json?address=75008+Paris&region=fr&key='+key;
+    const rGeo=await fetchWithTimeout(geoUrl,{},8000);
+    const dGeo=await rGeo.json();
+    if(dGeo.status==='REQUEST_DENIED'){
+      setKeyStatus(el,'invalid','Cle invalide ou Geocoding API non activee');
+      document.getElementById('gmKey').style.borderColor='var(--red-bd)';
+      btn.disabled=false;btn.textContent='Tester';return;
+    }
+    if(dGeo.status!=='OK'){
+      setKeyStatus(el,'invalid','Geocoding API : statut '+dGeo.status);
+      btn.disabled=false;btn.textContent='Tester';return;
+    }
+  }catch(e){
+    setKeyStatus(el,'invalid','Echec Geocoding API : '+e.message.substring(0,60));
+    btn.disabled=false;btn.textContent='Tester';return;
+  }
+
+  // ── Test 2 : Routes API ───────────────────────────────────────────────────
+  setKeyStatus(el,'testing','Test Routes API...');
+  try{
+    const dt=new Date();const day=dt.getDay();const daysUntil=(2-day+7)%7||7;
+    dt.setDate(dt.getDate()+daysUntil);dt.setHours(8,0,0,0);
+    const body=JSON.stringify({
+      origin:{location:{latLng:{latitude:48.8566,longitude:2.3522}}},
+      destination:{location:{latLng:{latitude:48.8734,longitude:2.2950}}},
+      travelMode:'DRIVE',
+      departureTime:dt.toISOString(),
+      routingPreference:'TRAFFIC_AWARE',
+      computeAlternativeRoutes:false
+    });
+    const rR=await fetchWithTimeout('https://routes.googleapis.com/directions/v2:computeRoutes',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'X-Goog-Api-Key':key,
+        'X-Goog-FieldMask':'routes.duration'
+      },
+      body
+    },10000);
+    const rawText=await rR.text();
+    let dR;
+    try{dR=JSON.parse(rawText);}catch(pe){
+      setKeyStatus(el,'invalid','Routes API : reponse invalide — '+rawText.substring(0,80));
+      document.getElementById('gmKey').style.borderColor='var(--red-bd)';
+      btn.disabled=false;btn.textContent='Tester';return;
+    }
+    if(dR.error){
+      setKeyStatus(el,'invalid','Routes API erreur '+dR.error.code+' : '+dR.error.message.substring(0,80));
+      document.getElementById('gmKey').style.borderColor='var(--red-bd)';
+      btn.disabled=false;btn.textContent='Tester';return;
+    }
+    if(dR.routes&&dR.routes[0]){
+      const mins=Math.round(parseInt(dR.routes[0].duration)/60);
+      setKeyStatus(el,'valid','Cle valide — Geocoding + Routes API operationnels (test : '+mins+' min) ✓');
+      document.getElementById('gmKey').style.borderColor='var(--grn-bd)';
+      btn.disabled=false;btn.textContent='Tester';return;
+    }
+    setKeyStatus(el,'invalid','Routes API : aucun itineraire — '+JSON.stringify(dR).substring(0,80));
+    document.getElementById('gmKey').style.borderColor='var(--red-bd)';
+  }catch(e){
+    setKeyStatus(el,'invalid','Routes API inaccessible : '+e.message.substring(0,80));
+    document.getElementById('gmKey').style.borderColor='var(--red-bd)';
+  }
+  btn.disabled=false;btn.textContent='Tester';
+}
+
+// ─── FILTRES ──────────────────────────────────────────────────────────────────
+function toggleFilter(m){
+  S.filterMode=m;
+  document.getElementById('fMoy').className='fb'+(m==='moy'?' on':'');
+  document.getElementById('fMed').className='fb'+(m==='med'?' on':'');
+  if(S.results){rActuelle();rFutures();rBilan();}
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(el){
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');S.currentTab=el.dataset.tab;
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+S.currentTab).classList.add('active');
+  if(S.currentTab==='carto'&&S.map)setTimeout(()=>S.map.invalidateSize(),50);
+}
+
+// ─── SITES ────────────────────────────────────────────────────────────────────
+function rOrigin(){
+  const c=document.getElementById('originBlock');
+  if(!S.origin){c.innerHTML='<div class="se" onclick="openOriginModal()"><div style="font-size:16px;opacity:0.15;margin-bottom:3px">+</div><div style="font-size:11px;color:var(--hint)">Cliquer pour renseigner le site de depart</div></div>';}
+  else{c.innerHTML='<div class="sb ok"><div class="stag to">Depart</div><button class="seb" onclick="openOriginModal()">Modifier</button><div class="sn">'+S.origin.name+'</div><div class="sa">'+S.origin.addr.replace('\n','<br>')+'</div></div>';}
+}
+function rDests(){
+  const c=document.getElementById('destList');
+  let h='';S.sites.forEach((s,i)=>{h+='<div class="sb ok"><div class="stag td">Arrivee '+BDEP[i]+'</div><span class="srm" onclick="rmSite('+i+')">&#215;</span><div class="sn">'+s.name+'</div><div class="sa">'+s.addr.replace('\n','<br>')+'</div></div>';});
+  c.innerHTML=h;
+  document.getElementById('destLabel').textContent=S.sites.length>0?S.sites.length+' site'+(S.sites.length>1?'s':'')+' d\'arrivee (max 4)':'Sites d\'arrivee (max 4)';
+  const addBtn=document.querySelector('.as[onclick="openDestModal()"]');
+  if(addBtn){addBtn.style.display=S.sites.length>=4?'none':'block';}
+}
+function rmSite(i){
+  // Effacer le cache des temps pour ce site (ils seront recalculés si le site est ré-ajouté)
+  const key=siteKey(S.sites[i]);
+  Object.keys(S.rawTimes).forEach(k=>{if(k.includes('__'+key))delete S.rawTimes[k];});
+  S.sites.splice(i,1);rDests();
+}
+function openOriginModal(){oSM('Site de depart','Adresse actuelle de vos collaborateurs.',true,S.origin);}
+function openDestModal(){oSM('Ajouter un site d\'arrivee','Site cible a analyser.',false,null);}
+function oSM(title,sub,isOrigin,ex){
+  const old=document.getElementById('mOv');if(old)old.remove();
+  const m=document.createElement('div');m.className='mbg';m.id='mOv';
+  const n=ex?ex.name:'';const a1=ex?ex.addr.split('\n')[0]:'';const a2=ex&&ex.addr.split('\n')[1]?ex.addr.split('\n')[1]:'';
+  m.innerHTML='<div class="mdl"><div class="mh">'+title+'</div><div class="ms">'+sub+'</div><label class="fl">Nom du site</label><input type="text" class="fi" id="mN" placeholder="ex : Wojo Champs-Elysees" value="'+n+'"><label class="fl">Adresse</label><input type="text" class="fi" id="mA1" placeholder="ex : 16 rue Washington" value="'+a1+'"><label class="fl">Code postal et ville</label><input type="text" class="fi" id="mA2" placeholder="ex : 75008 Paris" value="'+a2+'"><div class="mbtns"><button class="mb c" onclick="cModal()">Annuler</button><button class="mb o" onclick="sSite('+isOrigin+')">Confirmer</button></div></div>';
+  m.addEventListener('click',e=>{if(e.target===m)cModal();});
+  document.body.appendChild(m);setTimeout(()=>document.getElementById('mN').focus(),50);
+}
+function cModal(){const m=document.getElementById('mOv');if(m)m.remove();}
+function sSite(isOrigin){
+  const n=document.getElementById('mN').value.trim();
+  const a1=document.getElementById('mA1').value.trim();
+  const a2=document.getElementById('mA2').value.trim();
+  if(!n)return;
+  // Limite à 4 sites d'arrivée (capacité couleurs SC + lisibilité slides)
+  if(!isOrigin&&S.sites.length>=4){
+    alert('Maximum 4 sites d\'arrivee. Supprimez un site existant avant d\'en ajouter un nouveau.');
+    cModal();return;
+  }
+  const addr=[a1,a2].filter(Boolean).join('\n');
+  // Coordonnées initialisées à null — seront géocodées précisément au lancement de l'analyse
+  const site={name:n,addr:addr||n,lat:null,lng:null,_geocoded:false};
+  if(isOrigin){
+    if(S.origin&&siteKey(S.origin)!==siteKey(site)){S.rawTimes={};S.rawGeo={};}
+    S.origin=site;rOrigin();
+  }else{S.sites.push(site);rDests();}
+  cModal();
+}
+
+// ─── ANALYSE ──────────────────────────────────────────────────────────────────
+async function runAnalysis(){
+  if(S.allCollabs.length===0){alert('Aucun collaborateur detecte dans le fichier. Verifiez que les colonnes Adresse, Code Postal et Ville sont bien presentes.');return;}
+  if(!S.origin){alert('Veuillez renseigner le site de depart.');return;}
+  if(S.sites.length===0){alert('Veuillez ajouter au moins un site d\'arrivee.');return;}
+  const btn=document.getElementById('runBtn');const pw=document.getElementById('prog');
+  btn.disabled=true;pw.classList.add('on');
+
+  const gmKey=getGmKey();
+
+  // Blocage strict — la clé Google Maps est obligatoire
+  if(!gmKey){
+    pw.classList.remove('on');btn.disabled=false;
+    alert('La cle Google Maps est obligatoire.\nRenseignez et validez votre cle avant de lancer l\'analyse.');
+    return;
+  }
+
+  const allC=S.allCollabs;
+  const allSites=[S.origin,...S.sites];
+
+  // ── ÉTAPE 1 : Géocodage des adresses ──────────────────────────────────────
+  // Google Maps couvre France entière — tous les collaborateurs sont traités
+  sP(2,'Etape 1/3 — Geocodage des adresses (0/'+allC.length+')...');
+  let geocoded=0;let geocodeErrors=0;
+
+  // Cache partagé par adresse — deux collaborateurs à la même adresse
+  // partagent les mêmes coordonnées sans doubler les requêtes API
+  const geoByAddress={};
+
+  for(const c of allC){
+    if(!S.rawGeo[c.id]){
+      const addrKey=c.address.toLowerCase().trim();
+      if(geoByAddress[addrKey]){
+        S.rawGeo[c.id]=geoByAddress[addrKey];
+      } else if(c.address&&c.address.length>3){
+        const geo=await geocodeAddress(c.address);
+        if(geo){
+          S.rawGeo[c.id]=geo;
+          geoByAddress[addrKey]=geo;
+        } else {
+          geocodeErrors++;
+        }
+        await sl(50);
+      } else {
+        geocodeErrors++;
+      }
+    }
+    geocoded++;
+    if(geocoded%5===0)sP(2+Math.round((geocoded/allC.length)*18),
+      'Etape 1/3 — Geocodage '+geocoded+'/'+allC.length+'...');
+  }
+  if(geocodeErrors>0){
+    sP(20,geocodeErrors+' adresse(s) non geocodee(s) — ces collaborateurs seront exclus...');
+    await sl(800);
+  }
+
+  // Géocodage précis des sites
+  sP(20,'Geocodage des sites...');
+  for(const site of allSites){
+    if(!site._geocoded){
+      const addr=(site.addr||site.name).replace('\n',' ');
+      const geo=await geocodeAddress(addr);
+      if(!geo){
+        pw.classList.remove('on');btn.disabled=false;
+        alert('Impossible de geocoder le site "'+site.name+'".\nVerifiez l\'adresse et relancez.');
+        return;
+      }
+      site.lat=geo.lat;site.lng=geo.lng;site._geocoded=true;
+      await sl(100);
+    }
+  }
+
+  // ── ÉTAPE 2 : Calcul des temps via Google Routes API ─────────────────────
+  // Architecture : file de travail séquentielle (1 paire à la fois = 2 req API).
+  // Gestion QPM : backoff exponentiel sur 1–4 erreurs consécutives,
+  // pause longue de 65 s dès 5 erreurs consécutives (reset du quota Google).
+  // Les paires en erreur 429 sont remises en tête de file et retentées.
+  const collabsToProcess=allC;
+  S.nbHorsIDF = allC.filter(c=>c.horsIDF).length;
+  const pendingQueue=[];
+  for(const site of allSites){
+    for(const c of collabsToProcess){
+      const key=c.id+'__'+siteKey(site);
+      if(!S.rawTimes[key]&&S.rawGeo[c.id])pendingQueue.push({site,c,key});
+    }
+  }
+  const totalPairs=pendingQueue.length;
+  const totalReq=collabsToProcess.length*allSites.length;
+  let done=totalReq-totalPairs; // paires déjà en cache
+  let consecutiveErrors=0;
+  let pauseMs=400;
+  sP(22,'Etape 2/3 — Calcul des trajets ('+done+'/'+totalReq+')...');
+
+  while(pendingQueue.length>0){
+    const {site,c,key}=pendingQueue.shift();
+    const geo=getGeo(c);
+
+    // ── Pause longue si 5 erreurs 429 consécutives ──────────────────────────
+    if(consecutiveErrors>=5){
+      for(let t=65;t>0;t--){
+        sP(22+Math.round((done/totalReq)*68),
+          'Quota atteint — reprise dans '+t+'s... ('+done+'/'+totalReq+')');
+        await sl(1000);
+      }
+      consecutiveErrors=0;
+      pauseMs=600; // reprise prudente
+    }
+
+    let tcRes=null,carTime=null,got429=false;
+    try{
+      tcRes=await fetchGmTC(geo.lat,geo.lng,site.lat,site.lng,gmKey);
+    }catch(e){
+      if(e.is429)got429=true;
+    }
+    if(!got429){
+      try{
+        carTime=await fetchGmCar(geo.lat,geo.lng,site.lat,site.lng,gmKey);
+      }catch(e){
+        if(e.is429)got429=true;
+      }
+    }
+
+    if(got429){
+      // Remettre en tête de file pour retry
+      pendingQueue.unshift({site,c,key});
+      consecutiveErrors++;
+      // Backoff exponentiel léger (1–4 erreurs)
+      const backoff=Math.min(8000,2000*consecutiveErrors);
+      sP(22+Math.round((done/totalReq)*68),
+        'Quota (429) — attente '+Math.round(backoff/1000)+'s... ('+done+'/'+totalReq+')');
+      await sl(backoff);
+      continue;
+    }
+
+    // Succès ou absence d'itinéraire
+    consecutiveErrors=0;
+    if(tcRes){
+      const {tc,walk}=tcRes;
+      S.rawTimes[key]={tc,car:carTime,walk};
+      if(pauseMs>400)pauseMs=Math.max(400,pauseMs-30);
+    } else {
+      // Pas d'itinéraire TC (normal pour certaines origines) — on enregistre quand même voiture
+      S.rawTimes[key]={tc:null,car:carTime,walk:null};
+    }
+    done++;
+    if(done%5===0||done===totalReq){
+      const restants=totalReq-done;
+      const etaSec=Math.round(restants*(pauseMs/1000));
+      sP(22+Math.round((done/totalReq)*68),
+        'Etape 2/3 — '+done+'/'+totalReq+(etaSec>5?' (~'+etaSec+'s)':'')+'...');
+    }
+    await sl(pauseMs);
+  }
+
+  // ── ÉTAPE 3 : Compilation ─────────────────────────────────────────────────
+  sP(92,'Etape 3/3 — Compilation...');await sl(100);
+  S.results=buildResults();
+  if(!S.results||S.results.collabs.length===0){
+    pw.classList.remove('on');btn.disabled=false;sP(0,'');
+    alert('Aucun resultat disponible. Toutes les requetes API ont echoue.\nVerifiez vos cles (bouton Tester) et relancez.');
+    return;
+  }
+  const n=S.results.collabs.length;
+  const missing=S.results.missing||0;
+  sP(100,'Analyse terminee — '+n+' salaries · donnees reelles'+(missing>0?' · '+missing+' exclus (API sans reponse)':''));
+  await sl(300);
+  pw.classList.remove('on');btn.disabled=false;
+  document.getElementById('topMeta').textContent=n+' salaries analyses · Donnees reelles · Depart 08:00'+(missing>0?' ('+missing+' exclus)':'');
+  document.getElementById('saveBtn').disabled=false;
+  document.getElementById('exportBlock').style.display='block';
+  renderAll();
+}
+
+// ─── BUILD RESULTS ────────────────────────────────────────────────────────────
+// Strictement basé sur les données réelles de S.rawTimes.
+// Un collaborateur sans temps calculé est exclu de l'analyse et comptabilisé séparément.
+function buildResults(){
+  const allActive=activeCollabs();
+  if(allActive.length===0)return null;
+
+  // Exclure les collaborateurs sans coordonnées géocodées réelles
+  const withGeo=allActive.filter(c=>S.rawGeo[c.id]);
+  // Exclure ceux sans données TC calculées pour le site d'origine
+  const collabs=withGeo.filter(c=>getTimes(c,S.origin)!==null).map(c=>({...c,...S.rawGeo[c.id]}));
+  const missing=allActive.length-collabs.length;
+
+  if(collabs.length===0)return null;
+  const n=collabs.length;
+
+  function getT(c,site){return getTimes(c,site)||{tc:null,car:null,walk:null};}
+
+  // Stats filtrées par mode — TC uniquement sur collabs TC, voiture uniquement sur collabs voiture
+  const tcCollabs=collabs.filter(c=>c.mode==='tc');
+  const carCollabs=collabs.filter(c=>c.mode==='car');
+  const tcN=tcCollabs.length;
+  const carN=carCollabs.length;
+
+  const oTC=tcCollabs.map(c=>getT(c,S.origin).tc).filter(v=>v!==null).sort((a,b)=>a-b);
+  const oCAR=carCollabs.map(c=>getT(c,S.origin).car).filter(v=>v!==null).sort((a,b)=>a-b);
+  const oWALK=tcCollabs.map(c=>getT(c,S.origin).walk).filter(v=>v!==null);
+
+  const origStats={
+    n,missing,
+    avgTC:oTC.length?Math.round(oTC.reduce((a,b)=>a+b,0)/oTC.length):null,
+    medTC:oTC.length?oTC[Math.floor(oTC.length/2)]:null,
+    minTC:oTC.length?Math.min(...oTC):null,
+    maxTC:oTC.length?Math.max(...oTC):null,
+    avgCar:oCAR.length?Math.round(oCAR.reduce((a,b)=>a+b,0)/oCAR.length):null,
+    medCar:oCAR.length?oCAR[Math.floor(oCAR.length/2)]:null,
+    avgWalk:oWALK.length?Math.round(oWALK.reduce((a,b)=>a+b,0)/oWALK.length):null,
+    crit:oTC.filter(t=>t>60).length,
+    zoneConfort:n>0?Math.round((collabs.filter(c=>{
+      const t=getT(c,S.origin);
+      const v=c.mode==='car'?t.car:t.tc;
+      return v!==null&&v<=45;
+    }).length/n)*100):null,
+    zoneConfortN:collabs.filter(c=>{const t=getT(c,S.origin);const v=c.mode==='car'?t.car:t.tc;return v!==null&&v<=45;}).length,
+    dist:mkD(oTC),
+    tcCount:tcN,carCount:carN,
+    pctTC:Math.round(tcN/n*100),pctCar:Math.round(carN/n*100),
+    depts:deptDistrib(collabs),communes:communeCount(collabs)
+  };
+
+  const sites=S.sites.map(site=>{
+    const sCollabs=collabs.filter(c=>getTimes(c,site)!==null);
+    const sn=sCollabs.length;
+    // Filtrer par mode : allTC sur TC uniquement, allCAR sur voiture uniquement
+    const sTCCollabs=sCollabs.filter(c=>c.mode==='tc');
+    const sCARCollabs=sCollabs.filter(c=>c.mode==='car');
+    const allTC=sTCCollabs.map(c=>getT(c,site).tc).filter(v=>v!==null).sort((a,b)=>a-b);
+    const allCAR=sCARCollabs.map(c=>getT(c,site).car).filter(v=>v!==null).sort((a,b)=>a-b);
+    const allW=sTCCollabs.map(c=>getT(c,site).walk).filter(v=>v!==null);
+    let g=0,p=0,st=0,cr=0;
+    const dl=[],dlTC=[],dlCAR=[];
+    sCollabs.forEach(c=>{
+      const o=getT(c,S.origin);const d=getT(c,site);
+      if(o.tc===null||d.tc===null)return;
+      const mo=c.mode==='car'?o.car:o.tc;
+      const md=c.mode==='car'?d.car:d.tc;
+      if(mo===null||md===null)return;
+      const delta=md-mo;dl.push(delta);
+      if(d.tc>60)cr++;
+      if(Math.abs(delta)<=5)st++;else if(delta<0)g++;else p++;
+    });
+    sCollabs.filter(c=>c.mode==='tc').forEach(c=>{
+      const o=getT(c,S.origin);const d=getT(c,site);
+      if(o.tc!==null&&d.tc!==null)dlTC.push(d.tc-o.tc);
+    });
+    sCollabs.filter(c=>c.mode==='car').forEach(c=>{
+      const o=getT(c,S.origin);const d=getT(c,site);
+      if(o.car!==null&&d.car!==null)dlCAR.push(d.car-o.car);
+    });
+    return{
+      site,gains:g,pertes:p,stables:st,crit:cr,n:sn,
+      avgD:dl.length?Math.round(dl.reduce((a,b)=>a+b,0)/dl.length):null,
+      avgDTC:dlTC.length?Math.round(dlTC.reduce((a,b)=>a+b,0)/dlTC.length):null,
+      avgDCAR:dlCAR.length?Math.round(dlCAR.reduce((a,b)=>a+b,0)/dlCAR.length):null,
+      avgTC:allTC.length?Math.round(allTC.reduce((a,b)=>a+b,0)/allTC.length):null,
+      medTC:allTC.length?allTC[Math.floor(allTC.length/2)]:null,
+      minTC:allTC.length?Math.min(...allTC):null,
+      maxTC:allTC.length?Math.max(...allTC):null,
+      avgCar:allCAR.length?Math.round(allCAR.reduce((a,b)=>a+b,0)/allCAR.length):null,
+      medCar:allCAR.length?allCAR[Math.floor(allCAR.length/2)]:null,
+      avgWalk:allW.length?Math.round(allW.reduce((a,b)=>a+b,0)/allW.length):null,
+      dist:mkD(allTC),
+      zoneConfort:sn>0?Math.round((sCollabs.filter(c=>{const t=getT(c,site);const v=c.mode==='car'?t.car:t.tc;return v!==null&&v<=45;}).length/sn)*100):null,
+      zoneConfortN:sCollabs.filter(c=>{const t=getT(c,site);const v=c.mode==='car'?t.car:t.tc;return v!==null&&v<=45;}).length
+    };
+  });
+
+  const rows=collabs.map(c=>{
+    const oT=getT(c,S.origin);
+    return{...c,origTC:oT.tc,origCar:oT.car,
+      siteData:sites.map(s=>{
+        const t=getT(c,s.site);
+        if(t.tc===null)return null;
+        const mo=c.mode==='car'?oT.car:oT.tc;
+        const md=c.mode==='car'?t.car:t.tc;
+        return{tc:t.tc,car:t.car,delta:(mo!==null&&md!==null)?md-mo:null};
+      })
+    };
+  });
+  return{collabs,sites,origStats,rows,missing};
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function mkD(arr){return[{l:'0–15',c:arr.filter(t=>t<=15).length,col:'#4caf82',bg:'#4caf82'},{l:'15–30',c:arr.filter(t=>t>15&&t<=30).length,col:'#a0c878',bg:'#a0c878'},{l:'30–45',c:arr.filter(t=>t>30&&t<=45).length,col:'#d4b84a',bg:'#d4b84a'},{l:'45–60',c:arr.filter(t=>t>45&&t<=60).length,col:'#e0822a',bg:'#e0822a'},{l:'+60',c:arr.filter(t=>t>60).length,col:'#c0392b',bg:'#c0392b'}];}
+function deptDistrib(collabs){const m={};collabs.forEach(c=>{const d=String(c.cp||'').substring(0,2);m[d]=(m[d]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([d,cnt])=>({dept:d,name:IDF_DEP_NAMES[d]||(d==='14'?'Calvados 14':d==='27'?'Eure 27':d==='59'?'Nord 59':'Dept '+d),cnt,pct:Math.round(cnt/collabs.length*100)}));}
+function communeCount(collabs){return new Set(collabs.map(c=>String(c.cp||'').trim())).size;}
+
+// ─── RENDER ALL ───────────────────────────────────────────────────────────────
+// Chaque fonction est isolée — une exception dans iMap() ne bloque plus les onglets.
+function renderAll(){
+  if(!S.results)return;
+  try{iMap();}catch(e){console.warn('iMap:',e);}
+  try{rCartoStats();}catch(e){console.warn('rCartoStats:',e);}
+  try{rModeBar();}catch(e){console.warn('rModeBar:',e);}
+  try{rActuelle();}catch(e){console.warn('rActuelle:',e);}
+  try{rFutures();}catch(e){console.warn('rFutures:',e);}
+  try{rBilan();}catch(e){console.warn('rBilan:',e);}
+  try{rSlides();}catch(e){console.warn('rSlides:',e);}
+}
+
+// ─── CARTO STATS ──────────────────────────────────────────────────────────────
+function rCartoStats(){
+  if(!S.results)return;
+  const r=S.results;const oS=r.origStats;const n=r.collabs.length;
+  const nbDepts=new Set(r.collabs.map(c=>String(c.cp||'').substring(0,2))).size;
+  const nbHorsIDF=S.nbHorsIDF||0;
+  const nbApprox=r.collabs.filter(c=>c.adresseApprox).length;
+  const el=document.getElementById('cartoStats');
+  el.style.display='block';
+
+  // Bandeau hors IDF
+  let bandeaux='';
+  if(nbHorsIDF>0){
+    bandeaux+=`<div style="display:flex;align-items:center;gap:8px;background:var(--org-bg);border:1px solid var(--acc);border-radius:7px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--org)">
+      <span style="font-size:14px">⚠</span>
+      <div><b>${nbHorsIDF} collaborateur${nbHorsIDF>1?'s':''} hors Île-de-France</b> — inclus dans l'analyse via Google Maps. Activez le filtre IDF pour les masquer sur la carte.</div>
+    </div>`;
+  }
+  if(nbApprox>0){
+    bandeaux+=`<div style="display:flex;align-items:center;gap:8px;background:var(--blu-bg);border:1px solid var(--blu);border-radius:7px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--blu)">
+      <span style="font-size:14px">ℹ</span>
+      <div><b>${nbApprox} adresse${nbApprox>1?'s':''} incomplète${nbApprox>1?'s':''}</b> (champ "?" dans le fichier) — géocodées par code postal uniquement, position approximative.</div>
+    </div>`;
+  }
+
+  el.innerHTML=bandeaux+
+    `<div class="carto-kpis">
+      <div class="ckpi"><div class="ckpi-val">${n}</div><div class="ckpi-lbl">salaries analyses</div></div>
+      <div class="ckpi"><div class="ckpi-val">${nbDepts}</div><div class="ckpi-lbl">departements</div></div>
+      <div class="ckpi"><div class="ckpi-val">${oS.communes}</div><div class="ckpi-lbl">communes</div></div>
+    </div>
+    <div class="dept-section">
+      <div><div class="dept-title">Repartition par departement</div><canvas id="pieChart" width="160" height="160"></canvas></div>
+      <div><div class="dept-title">Detail</div>${oS.depts.map((d,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px"><div style="width:10px;height:10px;border-radius:50%;background:${PIE_COLORS[i]||'#888'};flex-shrink:0"></div><div style="flex:1">${d.name}</div><div style="color:var(--muted)">${d.pct}%</div></div>`).join('')}</div>
+    </div>
+    <div id="metroSection"></div>`;
+  if(S.pieChart){S.pieChart.destroy();S.pieChart=null;}
+  const ctx=document.getElementById('pieChart');
+  if(ctx){S.pieChart=new Chart(ctx,{type:'doughnut',data:{labels:oS.depts.map(d=>d.name),datasets:[{data:oS.depts.map(d=>d.cnt),backgroundColor:PIE_COLORS,borderWidth:1,borderColor:'#fff'}]},options:{responsive:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/n*100)}%)`}}}}});}
+
+  // Charger les lignes de métro accessibles à pied pour chaque site
+  const allSites=[S.origin,...S.sites];
+  allSites.forEach((site,idx)=>{
+    if(site&&site.lat&&site.lng){
+      fetchNearbyMetro(site,idx);
+    }
+  });
+}
+
+// ─── LISTE STATIQUE DES STATIONS MÉTRO/RER/TRAM IDF ─────────────────────────
+// 189 stations couvrant l'ensemble du réseau francilien
+// Source : coordonnées publiques RATP/SNCF — v mai 2025
+const STATIONS_IDF=[
+  // ── GRANDES GARES & HUBS ─────────────────────────────────────────────────
+  {n:"Châtelet",la:48.8601,lo:2.3472,v:"SUBWAY",li:["1","4","7","11","14"]},
+  {n:"Châtelet-Les Halles",la:48.86,lo:2.3473,v:"HEAVY_RAIL",li:["A","B","D"]},
+  {n:"Nation",la:48.8484,lo:2.396,v:"SUBWAY",li:["1","2","6","9","A"]},
+  {n:"Gare du Nord",la:48.8809,lo:2.3553,v:"HEAVY_RAIL",li:["B","D","E","2","5"]},
+  {n:"Gare de Lyon",la:48.845,lo:2.3734,v:"HEAVY_RAIL",li:["A","D","R","1","14"]},
+  {n:"Gare de l'Est",la:48.8768,lo:2.359,v:"HEAVY_RAIL",li:["4","5","7","E"]},
+  {n:"Saint-Lazare",la:48.8758,lo:2.3247,v:"HEAVY_RAIL",li:["E","J","L","3","9","12","13","14"]},
+  {n:"Montparnasse-Bienvenüe",la:48.8419,lo:2.3225,v:"SUBWAY",li:["4","6","12","13"]},
+  {n:"Montparnasse RER C",la:48.8419,lo:2.3225,v:"HEAVY_RAIL",li:["C"]},
+  {n:"Gare d'Austerlitz",la:48.8426,lo:2.3659,v:"HEAVY_RAIL",li:["C","D","5","10"]},
+  {n:"La Défense-Grande Arche",la:48.892,lo:2.2387,v:"HEAVY_RAIL",li:["A","E","1"]},
+  // ── LIGNE 1 ───────────────────────────────────────────────────────────────
+  {n:"Château de Vincennes",la:48.8478,lo:2.4394,v:"SUBWAY",li:["1"]},
+  {n:"Saint-Mandé",la:48.8479,lo:2.4235,v:"SUBWAY",li:["1"]},
+  {n:"Bérault",la:48.849,lo:2.4149,v:"SUBWAY",li:["1"]},
+  {n:"Reuilly-Diderot",la:48.8497,lo:2.3876,v:"SUBWAY",li:["1","8"]},
+  {n:"Bastille",la:48.8533,lo:2.3692,v:"SUBWAY",li:["1","5","8"]},
+  {n:"Concorde",la:48.8654,lo:2.3213,v:"SUBWAY",li:["1","8","12"]},
+  {n:"Champs-Élysées-Clemenceau",la:48.8664,lo:2.3134,v:"SUBWAY",li:["1","13"]},
+  {n:"Charles de Gaulle-Étoile",la:48.8741,lo:2.295,v:"SUBWAY",li:["1","2","6"]},
+  {n:"Étoile RER A",la:48.8741,lo:2.295,v:"HEAVY_RAIL",li:["A"]},
+  {n:"Auber",la:48.8738,lo:2.3316,v:"HEAVY_RAIL",li:["A"]},
+  {n:"Argentine",la:48.8762,lo:2.2844,v:"SUBWAY",li:["1"]},
+  {n:"Pont de Neuilly",la:48.8843,lo:2.2636,v:"SUBWAY",li:["1"]},
+  {n:"Les Sablons",la:48.8859,lo:2.2732,v:"SUBWAY",li:["1"]},
+  {n:"Esplanade de La Défense",la:48.8898,lo:2.2538,v:"SUBWAY",li:["1"]},
+  // ── LIGNE 2 ───────────────────────────────────────────────────────────────
+  {n:"Barbès-Rochechouart",la:48.8833,lo:2.3497,v:"SUBWAY",li:["2","4"]},
+  {n:"Pigalle",la:48.8838,lo:2.333,v:"SUBWAY",li:["2","12"]},
+  {n:"Blanche",la:48.884,lo:2.3315,v:"SUBWAY",li:["2"]},
+  {n:"Anvers",la:48.8842,lo:2.3451,v:"SUBWAY",li:["2"]},
+  {n:"Stalingrad",la:48.8844,lo:2.368,v:"SUBWAY",li:["2","5","7"]},
+  {n:"Jaurès",la:48.883,lo:2.3706,v:"SUBWAY",li:["2","5","7bis"]},
+  {n:"Belleville",la:48.8716,lo:2.3702,v:"SUBWAY",li:["2","11"]},
+  {n:"Père Lachaise",la:48.8612,lo:2.3892,v:"SUBWAY",li:["2","3"]},
+  {n:"Villiers",la:48.8821,lo:2.3166,v:"SUBWAY",li:["2","3"]},
+  {n:"Ménilmontant",la:48.8656,lo:2.3859,v:"SUBWAY",li:["2"]},
+  {n:"Couronnes",la:48.868,lo:2.3793,v:"SUBWAY",li:["2"]},
+  // ── LIGNE 3 ───────────────────────────────────────────────────────────────
+  {n:"Opéra",la:48.8719,lo:2.3316,v:"SUBWAY",li:["3","7","8"]},
+  {n:"République",la:48.8673,lo:2.3638,v:"SUBWAY",li:["3","5","8","9","11"]},
+  {n:"Arts et Métiers",la:48.8654,lo:2.3543,v:"SUBWAY",li:["3","11"]},
+  {n:"Temple",la:48.8655,lo:2.3606,v:"SUBWAY",li:["3"]},
+  {n:"Parmentier",la:48.8653,lo:2.369,v:"SUBWAY",li:["3"]},
+  {n:"Gambetta",la:48.8638,lo:2.3989,v:"SUBWAY",li:["3","3bis"]},
+  {n:"Porte de Bagnolet",la:48.8658,lo:2.4124,v:"SUBWAY",li:["3"]},
+  {n:"Galliéni",la:48.866,lo:2.4155,v:"SUBWAY",li:["3"]},
+  {n:"Havre-Caumartin",la:48.8752,lo:2.3296,v:"SUBWAY",li:["3","9"]},
+  {n:"Quatre-Septembre",la:48.8698,lo:2.338,v:"SUBWAY",li:["3"]},
+  {n:"Réaumur-Sébastopol",la:48.8656,lo:2.3493,v:"SUBWAY",li:["3","4"]},
+  {n:"Strasbourg-Saint-Denis",la:48.8676,lo:2.3547,v:"SUBWAY",li:["4","8","9"]},
+  {n:"Europe",la:48.8789,lo:2.3196,v:"SUBWAY",li:["3"]},
+  {n:"Malesherbes",la:48.8817,lo:2.3105,v:"SUBWAY",li:["3"]},
+  {n:"Wagram",la:48.8838,lo:2.3059,v:"SUBWAY",li:["3"]},
+  {n:"Pereire",la:48.8876,lo:2.2981,v:"SUBWAY",li:["3"]},
+  {n:"Porte de Champerret",la:48.8939,lo:2.2939,v:"SUBWAY",li:["3"]},
+  {n:"Louise Michel",la:48.8973,lo:2.2986,v:"SUBWAY",li:["3"]},
+  {n:"Anatole France",la:48.9005,lo:2.2992,v:"SUBWAY",li:["3"]},
+  {n:"Pont de Levallois-Bécon",la:48.9002,lo:2.2891,v:"SUBWAY",li:["3"]},
+  // ── LIGNE 4 ───────────────────────────────────────────────────────────────
+  {n:"Bagneux-Lucie Aubrac",la:48.8007,lo:2.3103,v:"SUBWAY",li:["4"]},
+  {n:"Mairie de Montrouge",la:48.8079,lo:2.3168,v:"SUBWAY",li:["4"]},
+  {n:"Porte d'Orléans",la:48.8239,lo:2.3254,v:"SUBWAY",li:["4"]},
+  {n:"Alésia",la:48.8292,lo:2.3265,v:"SUBWAY",li:["4"]},
+  {n:"Mouton-Duvernet",la:48.8338,lo:2.3296,v:"SUBWAY",li:["4"]},
+  {n:"Vavin",la:48.8426,lo:2.3293,v:"SUBWAY",li:["4"]},
+  {n:"Odéon",la:48.8528,lo:2.3411,v:"SUBWAY",li:["4","10"]},
+  {n:"Saint-Michel",la:48.8533,lo:2.3479,v:"SUBWAY",li:["4"]},
+  {n:"Cité",la:48.8551,lo:2.3471,v:"SUBWAY",li:["4"]},
+  // ── LIGNE 5 ───────────────────────────────────────────────────────────────
+  {n:"Place d'Italie",la:48.8313,lo:2.3556,v:"SUBWAY",li:["5","6","7"]},
+  {n:"Gare d'Austerlitz M5",la:48.8427,lo:2.366,v:"SUBWAY",li:["5","10"]},
+  {n:"Richard-Lenoir",la:48.8586,lo:2.3716,v:"SUBWAY",li:["5"]},
+  {n:"Breguet-Sabin",la:48.8555,lo:2.3669,v:"SUBWAY",li:["5"]},
+  {n:"Jacques Bonsergent",la:48.8702,lo:2.3601,v:"SUBWAY",li:["5"]},
+  {n:"Oberkampf",la:48.8649,lo:2.366,v:"SUBWAY",li:["5","9"]},
+  {n:"Goncourt",la:48.8701,lo:2.368,v:"SUBWAY",li:["11"]},
+  // ── LIGNE 6 ───────────────────────────────────────────────────────────────
+  {n:"Trocadéro",la:48.8632,lo:2.2892,v:"SUBWAY",li:["6","9"]},
+  {n:"Passy",la:48.8578,lo:2.2863,v:"SUBWAY",li:["6"]},
+  {n:"Bir-Hakeim",la:48.8535,lo:2.2891,v:"SUBWAY",li:["6"]},
+  {n:"La Motte-Picquet-Grenelle",la:48.8495,lo:2.299,v:"SUBWAY",li:["6","8","10"]},
+  {n:"Sèvres-Lecourbe",la:48.845,lo:2.3082,v:"SUBWAY",li:["6"]},
+  {n:"Cambronne",la:48.8479,lo:2.3013,v:"SUBWAY",li:["6"]},
+  {n:"Edgar Quinet",la:48.8412,lo:2.3229,v:"SUBWAY",li:["6"]},
+  {n:"Raspail",la:48.8385,lo:2.3301,v:"SUBWAY",li:["4","6"]},
+  {n:"Denfert-Rochereau",la:48.8341,lo:2.3323,v:"SUBWAY",li:["4","6"]},
+  {n:"Denfert RER B",la:48.8341,lo:2.3323,v:"HEAVY_RAIL",li:["B"]},
+  {n:"Glacière",la:48.8315,lo:2.3443,v:"SUBWAY",li:["6"]},
+  {n:"Corvisart",la:48.8268,lo:2.3527,v:"SUBWAY",li:["6"]},
+  {n:"Chevaleret",la:48.8338,lo:2.3719,v:"SUBWAY",li:["6"]},
+  {n:"Quai de la Gare",la:48.8373,lo:2.3723,v:"SUBWAY",li:["6"]},
+  {n:"Bercy",la:48.8402,lo:2.3794,v:"SUBWAY",li:["6","14"]},
+  {n:"Dugommier",la:48.8428,lo:2.3841,v:"SUBWAY",li:["6"]},
+  {n:"Daumesnil",la:48.8388,lo:2.3954,v:"SUBWAY",li:["6","8"]},
+  {n:"Saint-Jacques",la:48.8363,lo:2.3368,v:"SUBWAY",li:["6"]},
+  // ── LIGNE 7 ───────────────────────────────────────────────────────────────
+  {n:"La Courneuve-8 Mai 1945",la:48.9224,lo:2.3928,v:"SUBWAY",li:["7"]},
+  {n:"Fort d'Aubervilliers",la:48.9135,lo:2.3882,v:"SUBWAY",li:["7"]},
+  {n:"Aubervilliers-Pantin-Quatre Chemins",la:48.9083,lo:2.3843,v:"SUBWAY",li:["7"]},
+  {n:"Porte de la Villette",la:48.8993,lo:2.3796,v:"SUBWAY",li:["7"]},
+  {n:"Corentin Cariou",la:48.8956,lo:2.3749,v:"SUBWAY",li:["7"]},
+  {n:"Crimée",la:48.8913,lo:2.3715,v:"SUBWAY",li:["7"]},
+  {n:"Riquet",la:48.8879,lo:2.3679,v:"SUBWAY",li:["7"]},
+  {n:"Louis Blanc",la:48.8808,lo:2.3654,v:"SUBWAY",li:["7","7bis"]},
+  {n:"Château-Landon",la:48.8757,lo:2.3617,v:"SUBWAY",li:["7"]},
+  {n:"Cadet",la:48.8771,lo:2.3468,v:"SUBWAY",li:["7"]},
+  {n:"Le Peletier",la:48.8738,lo:2.3437,v:"SUBWAY",li:["7"]},
+  {n:"Poissonnière",la:48.8773,lo:2.3505,v:"SUBWAY",li:["7"]},
+  {n:"Chaussée d'Antin-La Fayette",la:48.8735,lo:2.3341,v:"SUBWAY",li:["7","9"]},
+  {n:"Jussieu",la:48.8453,lo:2.355,v:"SUBWAY",li:["7","10"]},
+  {n:"Maubert-Mutualité",la:48.85,lo:2.3515,v:"SUBWAY",li:["10"]},
+  {n:"Maison Blanche",la:48.8181,lo:2.3603,v:"SUBWAY",li:["7"]},
+  {n:"Tolbiac",la:48.823,lo:2.3596,v:"SUBWAY",li:["7"]},
+  {n:"Villejuif-Louis Aragon",la:48.7896,lo:2.3619,v:"SUBWAY",li:["7"]},
+  // ── LIGNE 8 ───────────────────────────────────────────────────────────────
+  {n:"Bonne Nouvelle",la:48.8677,lo:2.3494,v:"SUBWAY",li:["8","9"]},
+  {n:"Grands Boulevards",la:48.8709,lo:2.3453,v:"SUBWAY",li:["8","9"]},
+  {n:"Richelieu-Drouot",la:48.8724,lo:2.3405,v:"SUBWAY",li:["8","9"]},
+  {n:"Invalides",la:48.8613,lo:2.3137,v:"SUBWAY",li:["8","13"]},
+  {n:"Invalides RER C",la:48.8613,lo:2.3137,v:"HEAVY_RAIL",li:["C"]},
+  {n:"Reuilly-Diderot M8",la:48.8497,lo:2.3876,v:"SUBWAY",li:["8"]},
+  {n:"Michel Bizot",la:48.8358,lo:2.4023,v:"SUBWAY",li:["8"]},
+  {n:"Porte Dorée",la:48.8347,lo:2.4093,v:"SUBWAY",li:["8"]},
+  {n:"Charenton-Écoles",la:48.8276,lo:2.4127,v:"SUBWAY",li:["8"]},
+  {n:"École Vétérinaire de Maisons-Alfort",la:48.8172,lo:2.4244,v:"SUBWAY",li:["8"]},
+  {n:"Maisons-Alfort-Alfortville",la:48.8052,lo:2.4244,v:"SUBWAY",li:["8"]},
+  {n:"Créteil-Université",la:48.792,lo:2.4334,v:"SUBWAY",li:["8"]},
+  {n:"Créteil-Préfecture",la:48.7846,lo:2.457,v:"SUBWAY",li:["8"]},
+  {n:"Créteil-Pointe du Lac",la:48.7719,lo:2.4672,v:"SUBWAY",li:["8"]},
+  // ── LIGNE 9 ───────────────────────────────────────────────────────────────
+  {n:"Pont de Sèvres",la:48.8264,lo:2.2259,v:"SUBWAY",li:["9"]},
+  {n:"Billancourt",la:48.8347,lo:2.2377,v:"SUBWAY",li:["9"]},
+  {n:"Marcel Sembat",la:48.836,lo:2.2459,v:"SUBWAY",li:["9"]},
+  {n:"Porte de Saint-Cloud",la:48.8404,lo:2.2553,v:"SUBWAY",li:["9"]},
+  {n:"Michel-Ange-Auteuil",la:48.8463,lo:2.2654,v:"SUBWAY",li:["9","10"]},
+  {n:"Michel-Ange-Molitor",la:48.8493,lo:2.2625,v:"SUBWAY",li:["9"]},
+  {n:"Jasmin",la:48.8527,lo:2.2639,v:"SUBWAY",li:["9"]},
+  {n:"Ranelagh",la:48.8568,lo:2.2761,v:"SUBWAY",li:["9"]},
+  {n:"La Muette",la:48.8603,lo:2.2781,v:"SUBWAY",li:["9"]},
+  {n:"Exelmans",la:48.8421,lo:2.2626,v:"SUBWAY",li:["9"]},
+  // ── LIGNE 10 ──────────────────────────────────────────────────────────────
+  {n:"Boulogne-Jean Jaurès",la:48.8371,lo:2.252,v:"SUBWAY",li:["10"]},
+  {n:"Boulogne-Pont de Saint-Cloud",la:48.8396,lo:2.2287,v:"SUBWAY",li:["10"]},
+  {n:"Saint-Cloud M10",la:48.8447,lo:2.2149,v:"SUBWAY",li:["10"]},
+  {n:"Porte d'Auteuil",la:48.8474,lo:2.2547,v:"SUBWAY",li:["10"]},
+  // ── LIGNE 12 ──────────────────────────────────────────────────────────────
+  {n:"Trinité-d'Estienne d'Orves",la:48.8775,lo:2.333,v:"SUBWAY",li:["12"]},
+  {n:"Saint-Georges",la:48.8802,lo:2.337,v:"SUBWAY",li:["12"]},
+  {n:"Notre-Dame-de-Lorette",la:48.8793,lo:2.3396,v:"SUBWAY",li:["12"]},
+  {n:"Mairie d'Issy",la:48.8281,lo:2.2726,v:"SUBWAY",li:["12"]},
+  {n:"Corentin Celton",la:48.8257,lo:2.2818,v:"SUBWAY",li:["12"]},
+  {n:"Issy-Plaine",la:48.8263,lo:2.2673,v:"SUBWAY",li:["12"]},
+  {n:"Vaugirard",la:48.8336,lo:2.2997,v:"SUBWAY",li:["12"]},
+  // ── LIGNE 13 ──────────────────────────────────────────────────────────────
+  {n:"Châtillon-Montrouge",la:48.8117,lo:2.3012,v:"SUBWAY",li:["13"]},
+  {n:"Malakoff-Plateau de Vanves",la:48.8156,lo:2.2998,v:"SUBWAY",li:["13"]},
+  {n:"Malakoff-Rue Étienne Dolet",la:48.8201,lo:2.299,v:"SUBWAY",li:["13"]},
+  {n:"Porte de Vanves",la:48.825,lo:2.3084,v:"SUBWAY",li:["13"]},
+  {n:"Plaisance",la:48.8296,lo:2.3143,v:"SUBWAY",li:["13"]},
+  {n:"Pernety",la:48.832,lo:2.3183,v:"SUBWAY",li:["13"]},
+  {n:"Gaîté",la:48.838,lo:2.3191,v:"SUBWAY",li:["13"]},
+  {n:"Porte de Clichy",la:48.8981,lo:2.3128,v:"SUBWAY",li:["13","14"]},
+  {n:"Brochant",la:48.8938,lo:2.3196,v:"SUBWAY",li:["13"]},
+  {n:"Garibaldi",la:48.8992,lo:2.329,v:"SUBWAY",li:["13"]},
+  {n:"Saint-Ouen",la:48.906,lo:2.3324,v:"SUBWAY",li:["13","14"]},
+  {n:"Mairie de Saint-Ouen",la:48.9108,lo:2.3338,v:"SUBWAY",li:["13"]},
+  {n:"Saint-Denis-Porte de Paris",la:48.9314,lo:2.3563,v:"SUBWAY",li:["13"]},
+  {n:"Basilique de Saint-Denis",la:48.935,lo:2.3611,v:"SUBWAY",li:["13"]},
+  {n:"Saint-Denis-Université",la:48.9333,lo:2.3588,v:"SUBWAY",li:["13"]},
+  {n:"Gennevilliers",la:48.9234,lo:2.3018,v:"SUBWAY",li:["13"]},
+  {n:"Les Agnettes",la:48.9182,lo:2.3,v:"SUBWAY",li:["13"]},
+  {n:"Gabriel Péri",la:48.914,lo:2.2894,v:"SUBWAY",li:["13"]},
+  {n:"Asnières-Gennevilliers Les Courtilles",la:48.9282,lo:2.2828,v:"SUBWAY",li:["13"]},
+  {n:"Carrefour Pleyel",la:48.9222,lo:2.3468,v:"SUBWAY",li:["13"]},
+  // ── LIGNE 14 ──────────────────────────────────────────────────────────────
+  {n:"Olympiades",la:48.8264,lo:2.3649,v:"SUBWAY",li:["14"]},
+  {n:"Bibliothèque François Mitterrand",la:48.8296,lo:2.3765,v:"SUBWAY",li:["14"]},
+  {n:"Bibliothèque RER C",la:48.8296,lo:2.3765,v:"HEAVY_RAIL",li:["C"]},
+  {n:"Saint-Denis Pleyel",la:48.9247,lo:2.3618,v:"SUBWAY",li:["14","15","16","17"]},
+  {n:"Mairie de Saint-Ouen M14",la:48.9143,lo:2.3288,v:"SUBWAY",li:["14"]},
+  {n:"Aéroport d'Orly M14",la:48.7265,lo:2.365,v:"SUBWAY",li:["14"]},
+  // ── RER & TRANSILIEN ──────────────────────────────────────────────────────
+  {n:"Saint-Michel Notre-Dame",la:48.8533,lo:2.3459,v:"HEAVY_RAIL",li:["B","C"]},
+  {n:"Nanterre-Préfecture",la:48.8915,lo:2.2082,v:"HEAVY_RAIL",li:["A","L"]},
+  {n:"Nanterre-Université",la:48.9005,lo:2.2151,v:"HEAVY_RAIL",li:["A"]},
+  {n:"La Plaine-Stade de France",la:48.9255,lo:2.362,v:"HEAVY_RAIL",li:["D"]},
+  {n:"Stade de France-Saint-Denis",la:48.9241,lo:2.3607,v:"HEAVY_RAIL",li:["B"]},
+  {n:"Saint-Denis",la:48.9378,lo:2.3554,v:"HEAVY_RAIL",li:["D"]},
+  {n:"Épinay-Villetaneuse",la:48.9627,lo:2.319,v:"HEAVY_RAIL",li:["D"]},
+  {n:"Le Bourget",la:48.9472,lo:2.4233,v:"HEAVY_RAIL",li:["B"]},
+  {n:"Clichy-Levallois",la:48.9063,lo:2.302,v:"HEAVY_RAIL",li:["J","L"]},
+  {n:"Asnières-sur-Seine",la:48.9127,lo:2.287,v:"HEAVY_RAIL",li:["J","L"]},
+  {n:"Colombes",la:48.9164,lo:2.2542,v:"HEAVY_RAIL",li:["J","L"]},
+  {n:"Pont Cardinet",la:48.8874,lo:2.3155,v:"HEAVY_RAIL",li:["L"]},
+  {n:"Massy-Palaiseau",la:48.7259,lo:2.2588,v:"HEAVY_RAIL",li:["B","C"]},
+  {n:"Antony",la:48.7546,lo:2.2972,v:"HEAVY_RAIL",li:["B"]},
+  {n:"Robinson",la:48.773,lo:2.2773,v:"HEAVY_RAIL",li:["B"]},
+  {n:"Val-de-Fontenay",la:48.8541,lo:2.4884,v:"HEAVY_RAIL",li:["A","E"]},
+  {n:"Noisy-le-Grand-Mont d'Est",la:48.8437,lo:2.5602,v:"HEAVY_RAIL",li:["A"]},
+  {n:"Juvisy",la:48.6896,lo:2.3741,v:"HEAVY_RAIL",li:["C","D"]},
+  {n:"Versailles-Château-Rive Gauche",la:48.8014,lo:2.1217,v:"HEAVY_RAIL",li:["C"]},
+  {n:"Versailles-Rive Droite",la:48.8084,lo:2.1361,v:"HEAVY_RAIL",li:["L"]},
+  // ── TRAM ──────────────────────────────────────────────────────────────────
+  {n:"Porte de Vincennes T3a",la:48.8487,lo:2.4073,v:"TRAM",li:["T3a"]},
+  {n:"Porte de la Chapelle T3b",la:48.897,lo:2.3604,v:"TRAM",li:["T3b"]},
+  {n:"Rosa Parks T3b",la:48.8956,lo:2.3839,v:"TRAM",li:["T3b"]},
+  {n:"Issy Val de Seine T2",la:48.8281,lo:2.2726,v:"TRAM",li:["T2"]},
+  {n:"T7 Villejuif-Louis Aragon",la:48.7896,lo:2.3619,v:"TRAM",li:["T7"]},
+  {n:"T13 Saint-Germain-en-Laye",la:48.8976,lo:2.0927,v:"TRAM",li:["T13"]}
+];
+
+// ─── CACHE GÉOCODAGE STATIONS (localStorage) ─────────────────────────────────
+// Clé versionnée : un changement de version invalide le cache existant.
+// Cela permet de forcer un re-géocodage si la liste STATIONS_IDF évolue.
+const STATION_CACHE_KEY='upside_station_geo_v2';
+const STATION_CACHE_VERSION=2; // incrémenter pour invalider le cache
+
+// Charge le cache depuis localStorage vers S.stationGeoCache
+function loadStationGeoCache(){
+  try{
+    const raw=localStorage.getItem(STATION_CACHE_KEY);
+    if(!raw)return;
+    const parsed=JSON.parse(raw);
+    // Vérifier version et intégrité minimale
+    if(parsed._v!==STATION_CACHE_VERSION||typeof parsed.stations!=='object')return;
+    S.stationGeoCache=parsed.stations;
+    console.log(`[Stations] Cache chargé depuis localStorage : ${Object.keys(S.stationGeoCache).length} stations géocodées`);
+  }catch(e){
+    console.warn('[Stations] Impossible de charger le cache :',e);
+  }
+}
+
+// Persiste S.stationGeoCache dans localStorage
+function saveStationGeoCache(){
+  try{
+    localStorage.setItem(STATION_CACHE_KEY,JSON.stringify({
+      _v:STATION_CACHE_VERSION,
+      _ts:Date.now(),
+      stations:S.stationGeoCache
+    }));
+  }catch(e){
+    console.warn('[Stations] Impossible de sauvegarder le cache :',e);
+  }
+}
+
+// Géocode une station via l'API Google Geocoding.
+// Retourne {la, lo} certifiés Google Maps ou null en cas d'échec.
+// Résultat mis en cache immédiatement.
+async function geocodeStationCoords(station,key){
+  // Clé de cache : nom complet + type (distingue ex: Invalides M vs Invalides RER)
+  const cacheKey=station.n+'§'+station.v;
+  if(S.stationGeoCache[cacheKey])return S.stationGeoCache[cacheKey];
+
+  // Nom nettoyé : supprimer suffixes de désambiguïsation internes
+  // ex: "Denfert RER B" → "Denfert-Rochereau", "Gare d'Austerlitz M5" → "Gare d'Austerlitz"
+  const cleanName=station.n
+    .replace(/ RER [A-Z]$/i,'')
+    .replace(/ M\d+$/,'')
+    .replace(/ T\d+[a-z]?$/i,'')
+    .trim();
+
+  // Suffixe géographique selon type pour lever les ambiguïtés hors IDF
+  const suffix=station.v==='HEAVY_RAIL'
+    ?'gare Île-de-France'
+    :station.v==='TRAM'
+      ?'tramway Paris'
+      :'métro Paris';
+
+  const query=encodeURIComponent(`${cleanName} ${suffix}`);
+  const url=`https://maps.googleapis.com/maps/api/geocode/json?address=${query}&region=fr&language=fr&key=${key}`;
+
+  try{
+    const r=await fetchWithTimeout(url,{},8000);
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(d.status!=='OK'||!d.results?.[0])return null;
+
+    const geo={
+      la:d.results[0].geometry.location.lat,
+      lo:d.results[0].geometry.location.lng
+    };
+
+    // Mise en cache immédiate + persistance
+    S.stationGeoCache[cacheKey]=geo;
+    saveStationGeoCache();
+    return geo;
+  }catch(e){
+    return null;
+  }
+}
+
+// ─── MÉTRO À MOINS DE 20 MIN À PIED ──────────────────────────────────────────
+// Pipeline :
+// 1. Présélection à vol d'oiseau ≤ 1 600 m sur STATIONS_IDF (instantané)
+// 2. Pour chaque candidat : coordonnées Google Maps (cache localStorage ou géocodage)
+// 3. Requête Routes WALK depuis le bureau → station (temps réel certifié Google)
+// 4. Filtre ≤ 20 min, dédoublonnage, affichage
+async function fetchNearbyMetro(site,siteIdx){
+  const key=getGmKey();
+  if(!key||!site.lat||!site.lng)return;
+  const metroEl=document.getElementById('metroSection');
+  if(!metroEl)return;
+
+  const divId='metro-'+siteIdx;
+  if(!document.getElementById(divId)){
+    const ph=document.createElement('div');ph.id=divId;
+    ph.innerHTML=`<div style="padding:10px 0;font-size:11px;color:var(--hint)">🚇 Calcul des stations proches de <b>${site.name}</b>…</div>`;
+    metroEl.appendChild(ph);
+  }
+
+  try{
+    // ── Étape 1 : présélection à vol d'oiseau ≤ 1 600 m ─────────────────────
+    const candidates=STATIONS_IDF.map(s=>{
+      const dM=Math.sqrt(
+        Math.pow((s.la-site.lat)*111000,2)+
+        Math.pow((s.lo-site.lng)*74000,2)
+      );
+      return{...s,distM:Math.round(dM)};
+    })
+    .filter(s=>s.distM<=1600)
+    .sort((a,b)=>a.distM-b.distM)
+    .slice(0,8);
+
+    if(candidates.length===0){
+      const divEl=document.getElementById(divId);
+      if(divEl)divEl.innerHTML=`<div style="padding:10px 0;border-top:1px solid var(--brd);margin-top:10px">
+        <div style="font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">🚇 Stations &lt; 20 min à pied — ${site.name}</div>
+        <div style="font-size:11px;color:var(--hint)">Aucune station détectée à proximité immédiate</div>
+      </div>`;
+      return;
+    }
+
+    // ── Étape 2 : résolution des coordonnées via Google (cache ou géocodage) ──
+    // Les stations déjà en cache sont résolues instantanément (0 requête API).
+    // Les nouvelles stations sont géocodées, le résultat est persisté.
+    const resolvedCandidates=await Promise.all(candidates.map(async s=>{
+      const cached=await geocodeStationCoords(s,key);
+      // Si le géocodage réussit : on utilise les coordonnées Google certifiées
+      // Si échec : on conserve les coordonnées hardcodées comme fallback
+      return cached?{...s,la:cached.la,lo:cached.lo}:s;
+    }));
+
+    // ── Étape 3 : Routes API WALK (coordonnées Google → temps de marche réel) ─
+    const walkRequests=resolvedCandidates.map(s=>
+      fetchWithTimeout('https://routes.googleapis.com/directions/v2:computeRoutes',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'X-Goog-Api-Key':key,
+          'X-Goog-FieldMask':'routes.duration'
+        },
+        body:JSON.stringify({
+          origin:{location:{latLng:{latitude:site.lat,longitude:site.lng}}},
+          destination:{location:{latLng:{latitude:s.la,longitude:s.lo}}},
+          travelMode:'WALK'
+        })
+      },8000).then(async r=>{
+        if(!r.ok)return{...s,walkMin:null};
+        const d=await r.json();
+        const sec=parseInt(d?.routes?.[0]?.duration)||0;
+        return{...s,walkMin:sec>0?Math.round(sec/60):null};
+      }).catch(()=>({...s,walkMin:null}))
+    );
+
+    const results=await Promise.all(walkRequests);
+
+    // ── Étape 4 : filtrer ≤ 20 min, dédoublonner par station physique, trier ──
+    const seen=new Set();
+    const stations=results
+      .filter(s=>s.walkMin!==null&&s.walkMin<=20)
+      .sort((a,b)=>a.walkMin-b.walkMin)
+      .filter(s=>{
+        const base=s.n
+          .replace(/ RER [A-Z\d]+$/i,'')
+          .replace(/ M\d+$/,'')
+          .replace(/ T\d+[a-z]?$/i,'')
+          .trim();
+        if(seen.has(base))return false;
+        seen.add(base);
+        return true;
+      });
+
+    const divEl=document.getElementById(divId);
+    if(!divEl)return;
+
+    if(stations.length===0){
+      divEl.innerHTML=`<div style="padding:10px 0;border-top:1px solid var(--brd);margin-top:10px">
+        <div style="font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">🚇 Stations &lt; 20 min à pied — ${site.name}</div>
+        <div style="font-size:11px;color:var(--hint)">Aucune station dans un rayon de 20 min à pied</div>
+      </div>`;
+      return;
+    }
+
+    function vIcon(v){return v==='TRAM'?'🚊':v==='HEAVY_RAIL'?'🚆':'🚇';}
+
+    const stationsHtml=stations.map(s=>{
+      const displayName=s.n
+        .replace(/ RER [A-Z\d]+$/i,'')
+        .replace(/ M\d+$/,'')
+        .replace(/ T\d+[a-z]?$/i,'')
+        .trim();
+      const linesHtml=s.li.map(l=>`<span style="font-size:9px;background:var(--blu-bg);color:var(--blu);border:1px solid rgba(26,95,165,0.2);border-radius:3px;padding:1px 5px;font-weight:600;margin-right:2px">${l}</span>`).join('');
+      return `<div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:11px">
+        <span style="font-size:13px;flex-shrink:0">${vIcon(s.v)}</span>
+        <div style="flex:1;min-width:0;line-height:1.6">
+          <div style="font-weight:500;color:var(--txt)">${displayName}</div>
+          <div>${linesHtml}</div>
+        </div>
+        <span style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0">~${s.walkMin} min</span>
+      </div>`;
+    }).join('');
+
+    divEl.innerHTML=`<div style="padding:12px 0;border-top:1px solid var(--brd);margin-top:12px">
+      <div style="font-size:10px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">🚇 Stations &lt; 20 min à pied — ${site.name}</div>
+      ${stationsHtml}
+    </div>`;
+
+  }catch(e){
+    const divEl=document.getElementById(divId);
+    if(divEl)divEl.innerHTML='';
+  }
+}
+// ─── ONGLET SLIDES ────────────────────────────────────────────────────────────
+// 6 slides reproduites à l'identique du template PowerPoint Upside.
+// Format : 960×720px (ratio 4:3, 10"×7.5" @ 96dpi).
+// Palette : fond #FFFFFF, texte #07162D, gris #4A5568,
+//           bleu #2B5FA5, vert #2D7A3A, rouge #C0392B, or #B57F35.
+// Seuls les éléments graphiques sont repris (pas de titre ni pagination).
+// Les données sont issues de S.results calculé par l'analyse.
+function rSlides(){
+  if(!S.results)return;
+  const r=S.results;
+  const oS=r.origStats;
+  const n=r.collabs.length;
+
+  document.getElementById('emptySlides').style.display='none';
+  const container=document.getElementById('slidesContainer');
+  container.style.display='flex';
+  container.innerHTML='';
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const SLIDE_W=960,SLIDE_H=720;
+  const C={
+    txt:'#07162D', muted:'#4A5568', light:'#8896A9', brd:'#D1D9E0',
+    blu:'#2B5FA5', bluBg:'#EBF2FC', bluLight:'#4F81BD',
+    grn:'#2D7A3A', grnBg:'#EBF5EE', grnLight:'#9BBB59',
+    red:'#C0392B', redBg:'#FDECEA',
+    org:'#B57F35', orgBg:'#FEF3E2',
+    bar1:'#4F81BD', bar2:'#9BBB59', bar3:'#C0504D',
+    gold:'#B57F35', white:'#FFFFFF', bg:'#FAFBFC'
+  };
+
+  function slide(id,content){
+    const w=document.createElement('div');
+    w.style.cssText=`position:relative;width:${SLIDE_W}px;height:${SLIDE_H}px;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,0.18);border-radius:4px;overflow:hidden;flex-shrink:0;font-family:'Aptos','Segoe UI',system-ui,-apple-system,sans-serif`;
+    w.id='slide-'+id;
+    w.innerHTML=content;
+    container.appendChild(w);
+    return w;
+  }
+
+  // Badge de ligne métro/RER
+  function lineBadge(line){
+    const colors={
+      '1':'#FFCD00','2':'#003CA6','3':'#837902','3bis':'#6EC4E8','4':'#CF009E',
+      '5':'#FF7E2E','6':'#6ECA97','7':'#FA9ABA','7bis':'#6ECA97','8':'#E19BDF',
+      '9':'#B6BD00','10':'#C9910D','11':'#704B1C','12':'#007852','13':'#6EC4E8',
+      '14':'#62259D','15':'#B90845','16':'#F3A4BA','17':'#D5C900','18':'#00814F',
+      'A':'#E2231A','B':'#477DCA','C':'#FFCD00','D':'#009A3D','E':'#6731B2',
+      'J':'#CE681F','L':'#7B7B7B','N':'#00814F','P':'#E05206','R':'#E05206',
+      'T2':'#B90845','T3a':'#C8AA00','T3b':'#C8AA00','T7':'#C8AA00','T11':'#C8AA00',
+      'T13':'#477DCA'
+    };
+    const bg=colors[line]||'#4A5568';
+    const textColor=['1','C','J','L','N','P','R'].includes(line)?'#000':'#fff';
+    return `<span style="display:inline-block;background:${bg};color:${textColor};border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;margin-right:3px;line-height:1.5">${line}</span>`;
+  }
+
+  // Barre de distribution (histogramme simplifié)
+  function distBar(times, maxY, barColor){
+    // times = array of minutes values
+    const buckets=[0,0,0,0,0]; // 0-15, 15-30, 30-45, 45-60, >60
+    times.forEach(t=>{
+      if(t<=15)buckets[0]++;
+      else if(t<=30)buckets[1]++;
+      else if(t<=45)buckets[2]++;
+      else if(t<=60)buckets[3]++;
+      else buckets[4]++;
+    });
+    const max=Math.max(...buckets,1);
+    const labels=['0–15','15–30','30–45','45–60','>60'];
+    const barColors=[C.grnLight,C.grnLight,'#F5C842',C.bar3,C.red];
+    let bars='';
+    buckets.forEach((v,i)=>{
+      const pct=Math.round(v/max*100);
+      bars+=`<div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px">
+        <div style="font-size:10px;color:${C.muted};font-weight:500">${v||''}</div>
+        <div style="width:100%;height:${pct}%;background:${barColors[i]};border-radius:3px 3px 0 0;min-height:${v?3:0}px"></div>
+        <div style="font-size:9px;color:${C.light};text-align:center;white-space:nowrap">${labels[i]}</div>
+      </div>`;
+    });
+    return `<div style="display:flex;align-items:flex-end;gap:6px;height:100%;width:100%">${bars}</div>`;
+  }
+
+  // KPI box
+  function kpi(value, label, color=C.txt){
+    return `<div style="text-align:center">
+      <div style="font-size:36px;font-weight:700;color:${color};line-height:1">${value}</div>
+      <div style="font-size:11px;color:${C.muted};margin-top:4px;line-height:1.3">${label}</div>
+    </div>`;
+  }
+
+  // Section label
+  function secLabel(txt){
+    return `<div style="font-size:10px;font-weight:600;color:${C.muted};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">${txt}</div>`;
+  }
+
+  // ── SLIDE 1 : Cartographie des implantations ───────────────────────────────
+  // Map screenshot + liste des sites avec adresses
+  (()=>{
+    const sites=[{site:S.origin,label:'SITE ACTUEL',color:C.gold,letter:'A'},...S.sites.map((s,i)=>({site:s,label:`SITE ${BDEP[i+1]}`,color:SC[i],letter:BDEP[i+1]}))];
+
+    let siteCards='';
+    sites.forEach(({site,label,color,letter})=>{
+      const addrLines=site.addr.split('\n');
+      siteCards+=`<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px">
+        <div style="width:28px;height:28px;border-radius:50%;background:${color};color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">${letter}</div>
+        <div>
+          <div style="font-size:9px;font-weight:600;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">${label}</div>
+          <div style="font-size:13px;font-weight:600;color:${C.txt}">${site.name}</div>
+          ${addrLines.map(l=>`<div style="font-size:11px;color:${C.muted}">${l}</div>`).join('')}
+        </div>
+      </div>`;
+    });
+
+    // Map embed via Leaflet static screenshot approach — use the live map snapshot
+    // We capture the current map state as an image using the map container
+    const mapHtml=`<div id="slide1-map" style="width:100%;height:100%;background:#e8edf2;display:flex;align-items:center;justify-content:center">
+      <div style="font-size:12px;color:${C.muted}">Carte en cours de chargement…</div>
+    </div>`;
+
+    slide(1,`
+      <div style="display:flex;height:100%">
+        <!-- Carte -->
+        <div style="flex:1;position:relative;border-right:1px solid ${C.brd}">
+          ${mapHtml}
+        </div>
+        <!-- Panneau droit -->
+        <div style="width:300px;padding:28px 24px;display:flex;flex-direction:column;justify-content:center">
+          <div style="font-size:10px;font-weight:600;color:${C.muted};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px">IMPLANTATIONS ÉTUDIÉES</div>
+          ${siteCards}
+        </div>
+      </div>
+    `);
+
+    // Injecter la carte Leaflet dans la slide 1 après rendu
+    setTimeout(()=>injectSlide1Map(),300);
+  })();
+
+  // ── SLIDE 2 : Répartition géographique ────────────────────────────────────
+  (()=>{
+    const nbHorsIDF=S.nbHorsIDF||0;
+    const nbIDF=n-nbHorsIDF;
+    const pctTC=oS.pctTC||100;
+
+    // Zones Paris / Petite couronne / Grande couronne
+    const paris=r.collabs.filter(c=>String(c.cp||'').startsWith('75')).length;
+    const petite=r.collabs.filter(c=>['92','93','94'].includes(String(c.cp||'').substring(0,2))).length;
+    const grande=r.collabs.filter(c=>['77','78','91','95'].includes(String(c.cp||'').substring(0,2))).length;
+    const parisPct=Math.round(paris/n*100);
+    const petitePct=Math.round(petite/n*100);
+    const grandePct=Math.round(grande/n*100);
+
+    // Tableau par département
+    const deptRows=oS.depts.slice(0,8).map(d=>`
+      <tr>
+        <td style="padding:5px 8px;font-size:11px;color:${C.txt};border-bottom:1px solid ${C.brd}">${d.name}</td>
+        <td style="padding:5px 8px;font-size:11px;color:${C.muted};text-align:center;border-bottom:1px solid ${C.brd}">${d.cnt}</td>
+        <td style="padding:5px 8px;font-size:11px;color:${C.muted};text-align:right;border-bottom:1px solid ${C.brd}">${d.pct}%</td>
+      </tr>`).join('');
+
+    slide(2,`
+      <div style="padding:40px 44px;height:100%;box-sizing:border-box;display:flex;flex-direction:column">
+        <!-- KPIs -->
+        <div style="display:flex;gap:20px;margin-bottom:32px">
+          <div style="flex:1;background:${C.bg};border:1px solid ${C.brd};border-radius:8px;padding:18px;text-align:center">
+            <div style="font-size:40px;font-weight:700;color:${C.blu};line-height:1">${nbIDF}</div>
+            <div style="font-size:10px;color:${C.muted};margin-top:5px;line-height:1.4">collaborateurs<br>en Île-de-France</div>
+          </div>
+          <div style="flex:1;background:${C.bg};border:1px solid ${C.brd};border-radius:8px;padding:18px;text-align:center">
+            <div style="font-size:40px;font-weight:700;color:${C.blu};line-height:1">${oS.depts.length}</div>
+            <div style="font-size:10px;color:${C.muted};margin-top:5px;line-height:1.4">départements<br>représentés</div>
+          </div>
+          <div style="flex:1;background:${C.bg};border:1px solid ${C.brd};border-radius:8px;padding:18px;text-align:center">
+            <div style="font-size:40px;font-weight:700;color:${C.blu};line-height:1">${pctTC}%</div>
+            <div style="font-size:10px;color:${C.muted};margin-top:5px;line-height:1.4">transports<br>en commun</div>
+          </div>
+          ${nbHorsIDF>0?`<div style="flex:1;background:${C.orgBg};border:1px solid ${C.org};border-radius:8px;padding:18px;text-align:center">
+            <div style="font-size:40px;font-weight:700;color:${C.org};line-height:1">${nbHorsIDF}</div>
+            <div style="font-size:10px;color:${C.muted};margin-top:5px;line-height:1.4">collaborateurs<br>hors Île-de-France</div>
+          </div>`:''}
+        </div>
+        <!-- Corps -->
+        <div style="display:flex;gap:32px;flex:1;min-height:0">
+          <!-- Tableau -->
+          <div style="flex:1;min-width:0">
+            ${secLabel('RÉPARTITION PAR DÉPARTEMENT')}
+            <table style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr style="border-bottom:2px solid ${C.brd}">
+                  <th style="padding:5px 8px;font-size:10px;color:${C.muted};font-weight:600;text-align:left">Département</th>
+                  <th style="padding:5px 8px;font-size:10px;color:${C.muted};font-weight:600;text-align:center">Collab.</th>
+                  <th style="padding:5px 8px;font-size:10px;color:${C.muted};font-weight:600;text-align:right">Part</th>
+                </tr>
+              </thead>
+              <tbody>${deptRows}</tbody>
+            </table>
+          </div>
+          <!-- Zones -->
+          <div style="width:220px;flex-shrink:0">
+            ${secLabel('RÉPARTITION PAR ZONE')}
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="background:${C.bg};border:1px solid ${C.brd};border-radius:8px;padding:12px">
+                <div style="font-size:12px;font-weight:600;color:${C.txt};margin-bottom:2px">Paris (75)</div>
+                <div style="font-size:20px;font-weight:700;color:${C.bluLight}">${paris} <span style="font-size:13px;font-weight:400;color:${C.muted}">• ${parisPct}%</span></div>
+              </div>
+              <div style="background:${C.bg};border:1px solid ${C.brd};border-radius:8px;padding:12px">
+                <div style="font-size:12px;font-weight:600;color:${C.txt};margin-bottom:2px">Petite couronne</div>
+                <div style="font-size:20px;font-weight:700;color:${C.bluLight}">${petite} <span style="font-size:13px;font-weight:400;color:${C.muted}">• ${petitePct}%</span></div>
+                <div style="font-size:10px;color:${C.light};margin-top:2px">Hauts-de-Seine, Seine-Saint-Denis, Val-de-Marne</div>
+              </div>
+              <div style="background:${C.bg};border:1px solid ${C.brd};border-radius:8px;padding:12px">
+                <div style="font-size:12px;font-weight:600;color:${C.txt};margin-bottom:2px">Grande couronne</div>
+                <div style="font-size:20px;font-weight:700;color:${C.bluLight}">${grande} <span style="font-size:13px;font-weight:400;color:${C.muted}">• ${grandePct}%</span></div>
+                <div style="font-size:10px;color:${C.light};margin-top:2px">Seine-et-Marne, Yvelines, Essonne, Val-d'Oise</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+  })();
+
+  // ── SLIDES 3 à N+2 : une slide par site (actuel + futurs) ─────────────────
+  function siteSlide(siteData, slideIdx, isOrigin){
+    // getTimes(c, site) retourne {tc, car, walk} — on respecte c.mode comme buildResults
+    const times=r.collabs.map(c=>{
+      const t=isOrigin?getTimes(c,S.origin):getTimes(c,siteData.site);
+      if(!t)return null;
+      return c.mode==='car'?t.car:t.tc;
+    }).filter(t=>t!==null);
+    const sorted=[...times].sort((a,b)=>a-b);
+    const avg=sorted.length?Math.round(sorted.reduce((a,b)=>a+b,0)/sorted.length):0;
+    const med=sorted.length?sorted[Math.floor(sorted.length/2)]:0;
+    const gt60=sorted.filter(t=>t>60).length;
+    const le45=sorted.filter(t=>t<=45).length;
+    const pctConfort=sorted.length?Math.round(le45/sorted.length*100):0;
+    const tMin=sorted[0]||0;
+    const tMax=sorted[sorted.length-1]||0;
+    const siteName=isOrigin?`Site Actuel – ${siteData.site.name}`:`Site ${BDEP[slideIdx]} – ${siteData.site.name}`;
+
+    // Impact vs origine (pour sites futurs)
+    let impactHtml='';
+    if(!isOrigin){
+      const origTimes=r.collabs.map(c=>{
+        const t=getTimes(c,S.origin);
+        if(!t)return null;
+        return c.mode==='car'?t.car:t.tc;
+      });
+      const destTimes=r.collabs.map(c=>{
+        const t=getTimes(c,siteData.site);
+        if(!t)return null;
+        return c.mode==='car'?t.car:t.tc;
+      });
+      const gains=r.collabs.filter((_,i)=>{const o=origTimes[i],d=destTimes[i];return o!==null&&d!==null&&(o-d)>5;}).length;
+      const stables=r.collabs.filter((_,i)=>{const o=origTimes[i],d=destTimes[i];return o!==null&&d!==null&&Math.abs(o-d)<=5;}).length;
+      const pertes=r.collabs.filter((_,i)=>{const o=origTimes[i],d=destTimes[i];return o!==null&&d!==null&&(d-o)>5;}).length;
+      const origAvg=r.origStats.avgTC||0;
+      const delta=avg-origAvg;
+      const deltaStr=delta===0?'0 min':(delta<0?delta+' min':'+'+delta+' min');
+      const deltaColor=delta<0?C.grn:delta>0?C.red:C.muted;
+      const deltaLabel=delta<0?'← amélioration':delta>0?'→ dégradation':'stable';
+      impactHtml=`
+        <div style="flex:1">
+          ${secLabel('IMPACT vs IMPLANTATION ACTUELLE')}
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;background:${C.grnBg};border-radius:6px;padding:10px 14px">
+              <span style="font-size:12px;color:${C.grn}">Gains (> 5 min)</span>
+              <span style="font-size:24px;font-weight:700;color:${C.grn}">${gains}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;background:${C.bg};border:1px solid ${C.brd};border-radius:6px;padding:10px 14px">
+              <span style="font-size:12px;color:${C.muted}">Stables (±5 min)</span>
+              <span style="font-size:24px;font-weight:700;color:${C.muted}">${stables}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;background:${C.redBg};border-radius:6px;padding:10px 14px">
+              <span style="font-size:12px;color:${C.red}">Pertes (> 5 min)</span>
+              <span style="font-size:24px;font-weight:700;color:${C.red}">${pertes}</span>
+            </div>
+            <div style="background:${C.bg};border:1px solid ${C.brd};border-radius:6px;padding:10px 14px;margin-top:4px">
+              <div style="font-size:11px;color:${C.muted};margin-bottom:2px">Delta moyen</div>
+              <div style="font-size:22px;font-weight:700;color:${deltaColor}">${deltaStr}</div>
+              <div style="font-size:10px;color:${deltaColor}">${deltaLabel}</div>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      impactHtml=`
+        <div style="flex:1">
+          ${secLabel('INDICATEURS CLÉS')}
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid ${C.brd}">
+              <span style="font-size:12px;color:${C.muted}">Trajet le plus court</span>
+              <span style="font-size:13px;font-weight:600;color:${C.grn}">${tMin} min</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid ${C.brd}">
+              <span style="font-size:12px;color:${C.muted}">Trajet le plus long</span>
+              <span style="font-size:13px;font-weight:600;color:${C.red}">${tMax} min</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid ${C.brd}">
+              <span style="font-size:12px;color:${C.muted}">Temps moyen TC</span>
+              <span style="font-size:13px;font-weight:600;color:${C.txt}">${avg} min</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid ${C.brd}">
+              <span style="font-size:12px;color:${C.muted}">Temps médian TC</span>
+              <span style="font-size:13px;font-weight:600;color:${C.txt}">${med} min</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid ${C.brd}">
+              <span style="font-size:12px;color:${C.muted}">Cas sensibles > 1h</span>
+              <span style="font-size:13px;font-weight:600;color:${C.red}">${gt60} collaborateurs</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0">
+              <span style="font-size:12px;color:${C.muted}">Zone confort ≤ 45 min</span>
+              <span style="font-size:13px;font-weight:600;color:${C.grn}">${pctConfort}%</span>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    slide(slideIdx,`
+      <div style="padding:36px 44px;height:100%;box-sizing:border-box;display:flex;flex-direction:column">
+        <!-- KPIs header -->
+        <div style="display:flex;gap:20px;margin-bottom:28px;align-items:flex-start">
+          <div>
+            <div style="font-size:38px;font-weight:700;color:${C.blu};line-height:1">${avg} <span style="font-size:14px;font-weight:400;color:${C.muted}">min</span></div>
+            <div style="font-size:10px;color:${C.muted};margin-top:3px">temps moyen TC</div>
+          </div>
+          <div style="width:1px;height:48px;background:${C.brd};margin-top:4px"></div>
+          <div>
+            <div style="font-size:38px;font-weight:700;color:${C.blu};line-height:1">${med} <span style="font-size:14px;font-weight:400;color:${C.muted}">min</span></div>
+            <div style="font-size:10px;color:${C.muted};margin-top:3px">temps médian TC</div>
+          </div>
+          <div style="width:1px;height:48px;background:${C.brd};margin-top:4px"></div>
+          <div>
+            <div style="font-size:38px;font-weight:700;color:${C.red};line-height:1">${gt60}</div>
+            <div style="font-size:10px;color:${C.muted};margin-top:3px">collaborateurs<br>&gt; 1h de trajet</div>
+          </div>
+          <div style="width:1px;height:48px;background:${C.brd};margin-top:4px"></div>
+          <div>
+            <div style="font-size:38px;font-weight:700;color:${C.grn};line-height:1">${pctConfort}<span style="font-size:20px">%</span></div>
+            <div style="font-size:10px;color:${C.muted};margin-top:3px">en zone confort<br>≤ 45 min</div>
+          </div>
+        </div>
+        <!-- Corps -->
+        <div style="display:flex;gap:28px;flex:1;min-height:0">
+          <!-- Histogramme -->
+          <div style="flex:1.2;display:flex;flex-direction:column">
+            ${secLabel('DISTRIBUTION DES TEMPS DE TRAJET TC')}
+            <div style="flex:1;min-height:0">
+              ${distBar(times, 0, C.bar1)}
+            </div>
+          </div>
+          <!-- Impact / Indicateurs -->
+          ${impactHtml}
+        </div>
+      </div>
+    `);
+  }
+
+  // Slide 3 : site actuel (origine)
+  siteSlide({site:S.origin}, 3, true);
+
+  // Slides 4…N : sites futurs
+  S.sites.forEach((s,i)=>{
+    siteSlide({site:s}, 4+i, false);
+  });
+
+  // ── SLIDE BILAN (dernière) ─────────────────────────────────────────────────
+  (()=>{
+    const slideIdx=4+S.sites.length;
+
+    // Construire les colonnes
+    const allSites=[{site:S.origin,label:`Site A\n${S.origin.name}\n(Site actuel)`,isOrigin:true},...S.sites.map((s,i)=>({site:s,label:`Site ${BDEP[i+1]}\n${s.name}`,isOrigin:false}))];
+
+    function siteStats(siteRef){
+      if(siteRef.isOrigin){
+        const times=r.collabs.map(c=>{
+          const t=getTimes(c,S.origin);
+          if(!t)return null;
+          return c.mode==='car'?t.car:t.tc;
+        }).filter(t=>t!==null);
+        const sorted=[...times].sort((a,b)=>a-b);
+        const avg=sorted.length?Math.round(sorted.reduce((a,b)=>a+b,0)/sorted.length):0;
+        const med=sorted.length?sorted[Math.floor(sorted.length/2)]:0;
+        const gt60=times.filter(t=>t>60).length;
+        const le45=times.filter(t=>t<=45).length;
+        return{avg,med,gt60,pctConfort:sorted.length?Math.round(le45/sorted.length*100):0,gains:null,pertes:null};
+      } else {
+        const origTimes=r.collabs.map(c=>{
+          const t=getTimes(c,S.origin);
+          if(!t)return null;
+          return c.mode==='car'?t.car:t.tc;
+        });
+        const destTimes=r.collabs.map(c=>{
+          const t=getTimes(c,siteRef.site);
+          if(!t)return null;
+          return c.mode==='car'?t.car:t.tc;
+        });
+        const valid=r.collabs.map((c,i)=>({t:destTimes[i],o:origTimes[i]})).filter(x=>x.t!==null&&x.o!==null);
+        const sorted=valid.map(x=>x.t).sort((a,b)=>a-b);
+        const avg=sorted.length?Math.round(sorted.reduce((a,b)=>a+b,0)/sorted.length):0;
+        const med=sorted.length?sorted[Math.floor(sorted.length/2)]:0;
+        const gt60=valid.filter(x=>x.t>60).length;
+        const le45=valid.filter(x=>x.t<=45).length;
+        const gains=valid.filter(x=>(x.o-x.t)>5).length;
+        const pertes=valid.filter(x=>(x.t-x.o)>5).length;
+        const origAvg=valid.length?Math.round(valid.map(x=>x.o).reduce((a,b)=>a+b,0)/valid.length):0;
+        return{avg,med,gt60,pctConfort:sorted.length?Math.round(le45/sorted.length*100):0,gains,pertes,delta:avg-origAvg};
+      }
+    }
+
+    const stats=allSites.map(s=>siteStats(s));
+
+    // Trouver le meilleur site futur (delta le plus négatif parmi les futurs)
+    let bestIdx=-1;
+    let bestDelta=0;
+    S.sites.forEach((s,i)=>{
+      const d=stats[i+1].delta||0;
+      if(d<bestDelta){bestDelta=d;bestIdx=i+1;}
+    });
+    // Si aucun meilleur, choisir celui avec le plus petit avg
+    if(bestIdx<0&&S.sites.length>0){
+      let minAvg=Infinity;
+      S.sites.forEach((s,i)=>{if(stats[i+1].avg<minAvg){minAvg=stats[i+1].avg;bestIdx=i+1;}});
+    }
+
+    // Construire les colonnes du tableau de synthèse
+    const cols=allSites.length;
+    const colWidth=Math.floor(100/cols);
+
+    let headerCols='';
+    allSites.forEach(({site,label,isOrigin},i)=>{
+      const nameLines=label.split('\n');
+      const isBest=i===bestIdx;
+      headerCols+=`<td style="padding:10px 12px;background:${isBest?C.bluBg:C.bg};border-right:1px solid ${C.brd};text-align:center;${isBest?`border-top:3px solid ${C.blu};`:''}">
+        <div style="font-size:10px;font-weight:600;color:${C.muted};text-transform:uppercase;letter-spacing:0.07em">${nameLines[0]}</div>
+        <div style="font-size:12px;font-weight:600;color:${C.txt};margin-top:2px">${nameLines[1]||''}</div>
+        ${nameLines[2]?`<div style="font-size:10px;color:${C.light}">${nameLines[2]}</div>`:''}
+      </td>`;
+    });
+
+    function bilanRow(label, getter, isLast=false){
+      let cells='';
+      allSites.forEach(({isOrigin},i)=>{
+        const st=stats[i];
+        const isBest=i===bestIdx;
+        const {val,color}=getter(st,isOrigin,i);
+        cells+=`<td style="padding:10px 12px;background:${isBest?C.bluBg:C.white};border-right:1px solid ${C.brd};text-align:center;font-size:13px;font-weight:600;color:${color||C.txt};${isLast?'':''}">${val}</td>`;
+      });
+      return `<tr>
+        <td style="padding:10px 12px;font-size:12px;color:${C.muted};border-right:1px solid ${C.brd};border-bottom:1px solid ${C.brd};background:${C.bg}">${label}</td>
+        ${cells}
+      </tr>`;
+    }
+
+    const origAvg=stats[0].avg;
+    const origMed=stats[0].med;
+    const origGt60=stats[0].gt60;
+    const origPct=stats[0].pctConfort;
+
+    const rows=[
+      bilanRow('Temps moyen TC',  (s,isO)=>({val:isO?`${s.avg} min`:`${s.avg} min ${s.delta<0?`<span style="color:${C.grn};font-size:11px"> ${s.delta}</span>`:`<span style="color:${C.red};font-size:11px"> +${s.delta}</span>`}`, color:C.txt})),
+      bilanRow('Temps médian TC', (s,isO)=>({val:`${s.med} min`,color:C.txt})),
+      bilanRow('Cas sensibles > 1h',(s,isO)=>{const d=s.gt60-origGt60;return{val:isO?`${s.gt60}`:`${s.gt60} ${d<0?`<span style="color:${C.grn};font-size:11px"> ${d}</span>`:`<span style="color:${C.red};font-size:11px"> +${d}</span>`}`,color:s.gt60>origGt60?C.red:s.gt60<origGt60?C.grn:C.txt};}),
+      bilanRow('Zone confort ≤ 45 min',(s,isO)=>{const d=s.pctConfort-origPct;return{val:isO?`${s.pctConfort}%`:`${s.pctConfort}% ${d>=0?`<span style="color:${C.grn};font-size:11px"> +${d} pts</span>`:`<span style="color:${C.red};font-size:11px"> ${d} pts</span>`}`,color:s.pctConfort<origPct?C.red:s.pctConfort>origPct?C.grn:C.txt};}),
+      bilanRow('Gains de temps',(s,isO)=>({val:isO?'—':`${s.gains||0} collaborateurs`,color:s.gains>0?C.grn:C.muted})),
+      bilanRow('Pertes de temps',(s,isO)=>({val:isO?'—':`${s.pertes||0} collaborateurs`,color:s.pertes>0?C.red:C.muted})),
+    ];
+
+    // Ligne meilleur scénario
+    let bestRow='<tr><td style="padding:10px 12px;font-size:12px;color:'+C.muted+';background:'+C.bg+';border-right:1px solid '+C.brd+'">Meilleur scénario</td>';
+    allSites.forEach((_,i)=>{
+      const isBest=i===bestIdx;
+      bestRow+=`<td style="padding:10px 12px;background:${isBest?C.bluBg:C.white};border-right:1px solid ${C.brd};text-align:center">${isBest?`<span style="font-size:11px;font-weight:700;color:${C.blu};background:${C.blu};color:#fff;padding:2px 10px;border-radius:12px">✓ RECOMMANDÉ</span>`:'—'}</td>`;
+    });
+    bestRow+='</tr>';
+
+    // Recommandation texte
+    let recomm='';
+    if(bestIdx>0){
+      const bs=allSites[bestIdx];
+      const bst=stats[bestIdx];
+      const d=bst.delta||0;
+      recomm=`<div style="background:${C.bluBg};border:1px solid ${C.blu};border-radius:8px;padding:14px 18px;margin-top:16px;font-size:11px;color:${C.txt};line-height:1.6">
+        <span style="font-weight:600;color:${C.blu}">RECOMMANDATION — ${bs.site.name}</span> : meilleur scénario global — ${d<0?Math.abs(d)+' min d\'amélioration en moyenne TC':d+' min de variation en moyenne TC'}, ${bst.gt60} cas sensibles > 1h, ${bst.gains||0} gagnants vs ${bst.pertes||0} perdants.
+      </div>`;
+    }
+
+    slide(slideIdx,`
+      <div style="padding:32px 40px;height:100%;box-sizing:border-box;display:flex;flex-direction:column">
+        ${secLabel('SYNTHÈSE DES DIFFÉRENTS SCÉNARIOS')}
+        <div style="flex:1;min-height:0;overflow:hidden">
+          <table style="width:100%;border-collapse:collapse;border:1px solid ${C.brd};border-radius:8px;overflow:hidden">
+            <thead>
+              <tr style="border-bottom:2px solid ${C.brd}">
+                <td style="padding:10px 12px;background:${C.bg};border-right:1px solid ${C.brd};font-size:11px;font-weight:600;color:${C.muted};text-transform:uppercase;letter-spacing:0.06em">Indicateur</td>
+                ${headerCols}
+              </tr>
+            </thead>
+            <tbody>${rows.join('')}${bestRow}</tbody>
+          </table>
+        </div>
+        ${recomm}
+      </div>
+    `);
+  })();
+
+  // Afficher l'onglet slides s'il est actif
+  if(S.currentTab==='slides'){
+    // noop — déjà visible
+  }
+}
+
+// ── Injection de la carte Leaflet dans la slide 1 ────────────────────────────
+function injectSlide1Map(){
+  const mapContainer=document.getElementById('slide1-map');
+  if(!mapContainer||!S.results)return;
+
+  // Créer une mini-carte Leaflet centrée sur les sites
+  const allSiteCoords=[S.origin,...S.sites].filter(s=>s&&s.lat&&s.lng);
+  if(allSiteCoords.length===0)return;
+
+  const miniMap=L.map(mapContainer,{
+    zoomControl:false,attributionControl:true,
+    dragging:false,scrollWheelZoom:false,
+    doubleClickZoom:false,keyboard:false,touchZoom:false
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© CartoDB',maxZoom:14
+  }).addTo(miniMap);
+
+  // Ajouter les points collaborateurs
+  if(S.results&&S.results.collabs){
+    S.results.collabs.forEach(c=>{
+      if(c.lat&&c.lng){
+        L.circleMarker([c.lat,c.lng],{
+          radius:4,fillColor:'#185FA5',color:'white',weight:1,fillOpacity:0.8
+        }).addTo(miniMap);
+      }
+    });
+  }
+
+  // Ajouter les marqueurs de sites
+  const siteColors=[C.gold,...SC];
+  [S.origin,...S.sites].forEach((s,i)=>{
+    if(!s||!s.lat||!s.lng)return;
+    L.marker([s.lat,s.lng],{
+      icon:L.divIcon({
+        html:`<div style="background:${siteColors[i]};color:white;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.3)">${BDEP[i]}</div>`,
+        className:'',iconSize:[24,24],iconAnchor:[12,12]
+      })
+    }).addTo(miniMap);
+  });
+
+  // Ajuster le zoom
+  const bounds=L.latLngBounds(allSiteCoords.map(s=>[s.lat,s.lng]));
+  if(S.results&&S.results.collabs){
+    S.results.collabs.forEach(c=>{if(c.lat&&c.lng)bounds.extend([c.lat,c.lng]);});
+  }
+  miniMap.fitBounds(bounds,{padding:[30,30],maxZoom:12});
+}
+function rModeBar(){
+  if(!S.results)return;
+  const r=S.results;
+  document.getElementById('modeBarCarto').style.display='flex';
+  document.getElementById('pctTC').textContent=r.origStats.pctTC;
+  document.getElementById('pctCar').textContent=r.origStats.pctCar;
+  document.getElementById('nbSal').textContent=r.collabs.length+' salaries analyses';
+}
+
+// ─── TAB ACTUELLE ─────────────────────────────────────────────────────────────
+function rActuelle(){
+  if(!S.results)return;
+  const r=S.results;const n=r.collabs.length;const uM=S.filterMode==='med';const oS=r.origStats;
+  document.getElementById('emptyActuelle').style.display='none';
+  const el=document.getElementById('statsActuelle');el.style.display='block';
+  let h=`<div class="shdr">${S.origin.name} — Statistiques du site actuel</div>`;
+  // Déterminer les modes présents
+  const hasTC=oS.tcCount>0;
+  const hasCar=oS.carCount>0;
+  h+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--brd);border:1px solid var(--brd);border-radius:8px;overflow:hidden;margin-bottom:14px">`;
+  if(hasTC){
+    h+=`<div style="background:var(--bg2);padding:14px 16px;text-align:center"><div style="font-size:28px;font-weight:500">${uM?oS.medTC:oS.avgTC}<span style="font-size:13px;color:var(--hint)"> min</span></div><div style="font-size:11px;color:var(--muted);margin-top:3px">🚇 Tps ${uM?'median':'moyen'} TC<br><span style="font-size:10px">${oS.avgWalk!==null?'dont '+oS.avgWalk+'min de marche':''}</span></div><div style="font-size:11px;color:var(--hint);margin-top:2px">${oS.medTC}min median</div></div>`;
+  }
+  if(hasCar){
+    h+=`<div style="background:var(--bg2);padding:14px 16px;text-align:center"><div style="font-size:28px;font-weight:500">${uM?oS.medCar:oS.avgCar}<span style="font-size:13px;color:var(--hint)"> min</span></div><div style="font-size:11px;color:var(--muted);margin-top:3px">🚗 Tps ${uM?'median':'moyen'} Voiture</div></div>`;
+  }
+  h+=`<div style="background:var(--bg2);padding:14px 16px;text-align:center"><div style="font-size:28px;font-weight:500;color:var(--red)">${oS.crit}</div><div style="font-size:11px;color:var(--muted);margin-top:3px">cas sensibles<br><span style="font-size:10px">Trajet superieur a 1h</span></div></div>`;
+  h+=`</div>`;
+  // Zone de confort — bandeau visuel distinct
+  if(oS.zoneConfort!==null){
+    const zc=oS.zoneConfort;const zcN=oS.zoneConfortN;
+    const zcColor=zc>=70?'var(--grn)':zc>=50?'var(--org)':'var(--red)';
+    h+=`<div style="display:flex;align-items:center;gap:12px;background:var(--bg3);border:1px solid var(--brd);border-radius:8px;padding:12px 16px;margin-bottom:14px">
+      <div style="text-align:center;min-width:64px">
+        <div style="font-size:26px;font-weight:500;color:${zcColor}">${zc}%</div>
+        <div style="font-size:9px;color:var(--hint);margin-top:1px">${zcN} sal.</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:500;color:var(--txt);margin-bottom:3px">🟢 Zone de confort ≤ 45 min</div>
+        <div style="font-size:10px;color:var(--muted);line-height:1.5">Part des salaries atteignant le site en 45 min ou moins.<br>Seuil de confort généralement associé à la satisfaction et à la rétention.</div>
+      </div>
+      <div style="width:80px;height:8px;background:var(--bg2);border-radius:4px;border:1px solid var(--brd);overflow:hidden">
+        <div style="width:${zc}%;height:100%;background:${zcColor};border-radius:4px;transition:width 0.5s"></div>
+      </div>
+    </div>`;
+  }
+  h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;font-weight:500;color:var(--txt)">🧑 ${n} salaries</div></div>`;
+  const maxC=Math.max(...oS.dist.map(d=>d.c),1);
+  oS.dist.forEach(d=>{const pct=Math.round(d.c/n*100);
+    // Largeur proportionnelle mais avec minimum 8% pour toujours afficher le libellé
+    const wPct=Math.max(8,Math.round(d.c/maxC*100));
+    h+=`<div style="display:flex;align-items:center;margin-bottom:6px;gap:0">
+      <div style="font-size:11px;font-weight:500;width:90px;flex-shrink:0;text-align:right;padding-right:10px;color:var(--txt)">${pct}% – ${d.c} 🧑</div>
+      <div style="flex:1;height:32px;background:var(--bg3);border-radius:0 5px 5px 0;overflow:visible;position:relative">
+        <div style="width:${wPct}%;min-width:90px;height:100%;background:${d.bg};border-radius:0 5px 5px 0;display:flex;align-items:center;padding:0 10px;position:relative">
+          <span style="font-size:11px;font-weight:600;color:#fff;white-space:nowrap">${d.l} min</span>
+        </div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=h;
+}
+
+// ─── TAB FUTURES ──────────────────────────────────────────────────────────────
+
+function rFutures(){
+  if(!S.results)return;
+  const r=S.results;const n=r.collabs.length;const uM=S.filterMode==='med';
+  document.getElementById('emptyFutures').style.display='none';
+  const el=document.getElementById('statsFutures');el.style.display='block';
+  if(!r.sites||r.sites.length===0){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">⚠</div><div class="empty-txt">Aucune donnee disponible pour les sites cibles.<br>Verifiez vos cles API et relancez l\'analyse.</div></div>';
+    return;
+  }
+  const fmt=v=>v!==null&&v!==undefined?v:'—';
+  let h='';
+  r.sites.forEach((s,i)=>{
+    const col=SC[i]||SC[0];
+    const oAvgTC=r.origStats.avgTC;const oMedTC=r.origStats.medTC;
+    const oAvgW=r.origStats.avgWalk;const oCrit=r.origStats.crit;
+    const refTC=uM?s.medTC:s.avgTC;const oRefTC=uM?oMedTC:oAvgTC;
+    const diffTC=refTC!==null&&oRefTC!==null?refTC-oRefTC:null;
+    const diffW=s.avgWalk!==null&&oAvgW!==null?s.avgWalk-oAvgW:null;
+    const diffCrit=s.crit!==null&&oCrit!==null?s.crit-oCrit:null;
+    h+=`<div class="site-stat-card">
+      <div class="ssc-header">
+        <div class="ssc-badge" style="background:${col}20;color:${col}">${BDEP[i]}</div>
+        <div><div style="font-size:12px;font-weight:500">${s.site.name}</div>
+        <div style="font-size:10px;color:var(--hint)">${s.site.addr.replace('\n',' · ')}</div></div>
+        ${s.n<n?`<div style="font-size:10px;color:var(--org);margin-left:auto">${s.n}/${n} sal.</div>`:''}
+      </div>
+      <div class="ssc-body">
+        <div class="kpi-row4">
+          <div class="kpi4"><div class="kpi4-val">${fmt(refTC)}<span style="font-size:12px;color:var(--hint)">m</span></div><div class="kpi4-lbl">Tps ${uM?'med':'moy'} TC</div>${diffTC!==null?`<div class="kpi4-sub" style="color:${diffTC<=0?'var(--grn)':'var(--red)'}">${diffTC>0?'+':''}${diffTC} m</div>`:''}</div>
+          <div class="kpi4"><div class="kpi4-val" style="color:var(--red)">${fmt(s.crit)}</div><div class="kpi4-lbl">Cas sensibles</div>${diffCrit!==null?`<div class="kpi4-sub" style="color:${diffCrit<=0?'var(--grn)':'var(--red)'}">${diffCrit>0?'+':''}${diffCrit}</div>`:''}</div>
+          <div class="kpi4"><div class="kpi4-val">${fmt(s.avgWalk)}<span style="font-size:12px;color:var(--hint)">m</span></div><div class="kpi4-lbl">Marche moy.</div>${diffW!==null?`<div class="kpi4-sub" style="color:${diffW<=0?'var(--grn)':'var(--red)'}">${diffW>0?'+':''}${diffW} m</div>`:''}</div>
+          ${r.origStats.carCount>0?`<div class="kpi4"><div class="kpi4-val">${fmt(uM?s.medCar:s.avgCar)}<span style="font-size:12px;color:var(--hint)">m</span></div><div class="kpi4-lbl">Tps ${uM?'med':'moy'} Voiture</div></div>`:''}
+        </div>
+        <!-- Zone de confort -->
+        ${s.zoneConfort!==null?(()=>{
+          const zc=s.zoneConfort;const zcRef=r.origStats.zoneConfort;
+          const diff=zcRef!==null?zc-zcRef:null;
+          const zcColor=zc>=70?'var(--grn)':zc>=50?'var(--org)':'var(--red)';
+          return `<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:7px;padding:9px 12px;margin-bottom:10px">
+            <div style="text-align:center;min-width:52px">
+              <div style="font-size:20px;font-weight:500;color:${zcColor}">${zc}%</div>
+              <div style="font-size:9px;color:var(--hint)">${s.zoneConfortN} sal.</div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:11px;font-weight:500;color:var(--txt)">🟢 Zone de confort ≤ 45 min</div>
+              ${diff!==null?`<div style="font-size:10px;margin-top:2px;color:${diff>=0?'var(--grn)':'var(--red)'}">
+                ${diff>=0?'▲':'▼'} ${Math.abs(diff)} pts vs site actuel (${zcRef}%)
+              </div>`:''}
+            </div>
+            <div style="width:60px;height:6px;background:var(--bg2);border-radius:3px;border:1px solid var(--brd);overflow:hidden">
+              <div style="width:${zc}%;height:100%;background:${zcColor};border-radius:3px"></div>
+            </div>
+          </div>`;
+        })():''}
+        </div>
+        <div class="mc2">
+          <div class="mcc"><div class="mch" style="color:var(--blu)">🚇 Impact TC</div>
+            <div style="font-size:10px;color:var(--muted)">Delta moy : <b style="color:${s.avgDTC!==null&&s.avgDTC<=0?'var(--grn)':'var(--red)'}">${s.avgDTC!==null?(s.avgDTC>0?'+':'')+s.avgDTC+' min':'—'}</b></div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px">Tps moy : <b>${fmt(s.avgTC)} min</b> (actuel : ${fmt(oAvgTC)} min)</div>
+          </div>
+          ${r.origStats.carCount>0?`<div class="mcc"><div class="mch" style="color:var(--grn)">🚗 Impact Voiture</div><div style="font-size:10px;color:var(--muted)">Delta moy : <b style="color:${s.avgDCAR!==null&&s.avgDCAR<=0?'var(--grn)':'var(--red)'}">${s.avgDCAR!==null?(s.avgDCAR>0?'+':'')+s.avgDCAR+' min':'—'}</b></div><div style="font-size:10px;color:var(--muted);margin-top:2px">Tps moy : <b>${fmt(s.avgCar)} min</b> (actuel : ${fmt(r.origStats.avgCar)} min)</div></div>`:''}
+        </div>
+        <div class="distrib-title">Repartition des temps de trajet (TC)</div>`;
+    const sN=s.n||n;const mx=Math.max(...s.dist.map(d=>d.c),1);
+    s.dist.forEach(d=>{const pct=sN>0?Math.round(d.c/sN*100):0;
+      const wPct=Math.max(8,Math.round(d.c/mx*100));
+      h+=`<div style="display:flex;align-items:center;margin-bottom:5px;gap:0">
+        <div style="font-size:10px;font-weight:500;width:80px;flex-shrink:0;text-align:right;padding-right:8px">${pct}% – ${d.c}</div>
+        <div style="flex:1;height:28px;background:var(--bg3);border-radius:0 4px 4px 0;overflow:visible">
+          <div style="width:${wPct}%;min-width:80px;height:100%;background:${d.bg};border-radius:0 4px 4px 0;display:flex;align-items:center;padding:0 8px">
+            <span style="font-size:10px;font-weight:600;color:#fff;white-space:nowrap">${d.l} min</span>
+          </div>
+        </div>
+      </div>`;
+    });
+    h+=`</div></div>`;
+  });
+  el.innerHTML=h;
+}
+function rBilan(){
+  if(!S.results)return;
+  const r=S.results;const uM=S.filterMode==='med';
+  document.getElementById('emptyBilan').style.display='none';
+  const el=document.getElementById('statsBilan');el.style.display='block';
+
+  const fmt=v=>(v!==null&&v!==undefined)?v:'—';
+  const oTC=uM?r.origStats.medTC:r.origStats.avgTC;
+  const oCar=uM?r.origStats.medCar:r.origStats.avgCar;
+
+  // ── Meilleur scénario : score composite incluant le site de départ ────────
+  // Le site de départ est candidat au même titre que les sites futurs.
+  // Si tous les sites futurs dégradent la situation, c'est le départ qui gagne.
+  function scoreSite(s){
+    const gainsPertesNet = (s.gains||0) - (s.pertes||0);
+    const ameliorationTC = (oTC!==null&&(uM?s.medTC:s.avgTC)!==null) ? oTC-(uM?s.medTC:s.avgTC) : 0;
+    const ameliorationCrit = (r.origStats.crit!==null&&s.crit!==null) ? r.origStats.crit-s.crit : 0;
+    return gainsPertesNet*0.6 + ameliorationTC*0.3 + ameliorationCrit*0.1;
+  }
+  // Pseudo-objet représentant le site de départ dans la même structure que les sites futurs
+  const originAsSite={
+    site:S.origin,
+    isOrigin:true,
+    gains:0,pertes:0,stables:r.collabs.length,
+    avgTC:r.origStats.avgTC,medTC:r.origStats.medTC,
+    avgCar:r.origStats.avgCar,medCar:r.origStats.medCar,
+    crit:r.origStats.crit,
+    avgDTC:0,avgDCAR:0,
+    zoneConfort:r.origStats.zoneConfort
+  };
+  function scoreOrigin(){
+    // Le site actuel est le référentiel : son score est 0 par définition.
+    // Un site futur doit avoir un score > 0 pour être préféré.
+    return 0;
+  }
+  const bestSite = r.sites.length > 0
+    ? r.sites.reduce((best,s) => scoreSite(s) > scoreSite(best) ? s : best)
+    : null;
+  // Si le meilleur site futur n'améliore pas la situation (score ≤ 0), le départ est optimal
+  const bestIsOrigin = !bestSite || scoreSite(bestSite) <= 0;
+  const bestLabel = bestIsOrigin ? S.origin.name+' (site actuel)' : bestSite.site.name;
+
+  // ── Meilleur sur chaque indicateur (avec protection null, départ inclus) ──
+  const tcValOrigin=uM?r.origStats.medTC:r.origStats.avgTC;
+  const siteWithBestTC = r.sites.filter(s=>(uM?s.medTC:s.avgTC)!==null)
+    .reduce((b,s)=>{
+      const v=uM?s.medTC:s.avgTC;const bv=uM?b?.medTC:b?.avgTC;
+      return(!b||v<bv)?s:b;
+    },null);
+  // Si le site de départ est meilleur que tous les futurs sur TC
+  const bestTCLabel=(()=>{
+    if(!siteWithBestTC)return S.origin.name+' (actuel)';
+    const bestFutureTC=uM?siteWithBestTC.medTC:siteWithBestTC.avgTC;
+    return(tcValOrigin!==null&&tcValOrigin<=bestFutureTC)?S.origin.name+' (actuel)':siteWithBestTC.site.name;
+  })();
+
+  const siteWithBestCrit = r.sites.filter(s=>s.crit!==null)
+    .reduce((b,s)=>(!b||s.crit<b.crit)?s:b,null);
+  const bestCritLabel=(()=>{
+    if(!siteWithBestCrit)return S.origin.name+' (actuel)';
+    return(r.origStats.crit!==null&&r.origStats.crit<=siteWithBestCrit.crit)?S.origin.name+' (actuel)':siteWithBestCrit.site.name;
+  })();
+
+  let h=`<div class="shdr">Tableau comparatif des temps de trajet</div>`;
+  h+=`<div style="overflow-x:auto;margin-bottom:14px"><table class="bilan-table"><thead><tr>`;
+  h+=`<th class="l" style="width:155px">INDICATEUR</th>`;
+  h+=`<th>DEPART<br><small style="font-weight:400;font-size:9px;text-transform:none">${S.origin.name}</small></th>`;
+  r.sites.forEach((s,i)=>{h+=`<th>SITE ${BDEP[i]}<br><small style="font-weight:400;font-size:9px;text-transform:none">${s.site.name}</small></th>`;});
+  if(r.sites.length)h+=`<th>MEILLEUR<br>SCENARIO</th>`;
+  h+=`</tr></thead><tbody>`;
+
+  // Temps TC
+  h+=`<tr><td class="lb">Tps ${uM?'median':'moyen'} TC</td><td class="vl">${fmt(oTC)} min</td>`;
+  r.sites.forEach(s=>{
+    const v=uM?s.medTC:s.avgTC;
+    if(v===null){h+=`<td style="color:var(--hint)">—</td>`;return;}
+    const d=oTC!==null?v-oTC:null;
+    h+=`<td class="vl">${v} min${d!==null?` <span style="font-size:10px;color:${d<=0?'var(--grn)':'var(--red)'}">${d>0?'+':''}${d}</span>`:''}`;
+    h+=`</td>`;
+  });
+  h+=r.sites.length?`<td class="pos">${bestTCLabel}</td>`:'';
+  h+=`</tr>`;
+
+  // Temps Voiture — masqué si aucun collaborateur en voiture
+  if(r.origStats.carCount>0){
+    h+=`<tr><td class="lb">Tps ${uM?'median':'moyen'} Voiture</td><td class="vl">${fmt(oCar)} min</td>`;
+    r.sites.forEach(s=>{
+      const v=uM?s.medCar:s.avgCar;
+      if(v===null){h+=`<td style="color:var(--hint)">—</td>`;return;}
+      const d=oCar!==null?v-oCar:null;
+      h+=`<td class="vl">${v} min${d!==null?` <span style="font-size:10px;color:${d<=0?'var(--grn)':'var(--red)'}">${d>0?'+':''}${d}</span>`:''}`;
+      h+=`</td>`;
+    });
+    h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
+  }
+
+  // Min / Max TC
+  h+=`<tr><td class="lb">Le plus proche TC</td><td class="vl">${fmt(r.origStats.minTC)} min</td>`;
+  r.sites.forEach(s=>{h+=`<td class="vl">${fmt(s.minTC)} min</td>`;});
+  h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
+
+  h+=`<tr><td class="lb">Le plus loin TC</td><td class="vl">${fmt(r.origStats.maxTC)} min</td>`;
+  r.sites.forEach(s=>{h+=`<td class="vl">${fmt(s.maxTC)} min</td>`;});
+  h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
+
+  // Marche — masquée si aucun collaborateur en TC
+  if(r.origStats.tcCount>0)
+  h+=`<tr><td class="lb">Marche moy. TC</td><td class="vl">${fmt(r.origStats.avgWalk)} min</td>`;
+  r.sites.forEach(s=>{
+    const v=s.avgWalk;const ref=r.origStats.avgWalk;
+    if(v===null){h+=`<td style="color:var(--hint)">—</td>`;return;}
+    h+=`<td class="${ref!==null&&v<=ref?'pos':'neg'} vl">${v} min</td>`;
+  });
+  if(r.origStats.tcCount>0){h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;}
+
+  // Cas sensibles
+  h+=`<tr><td class="lb" style="color:var(--red)">Cas sensibles &gt;1h</td><td class="neg">${fmt(r.origStats.crit)}</td>`;
+  r.sites.forEach(s=>{
+    const d=s.crit!==null&&r.origStats.crit!==null?s.crit-r.origStats.crit:null;
+    h+=`<td class="${d!==null&&d<=0?'pos':'neg vl'}">${fmt(s.crit)}${d!==null?` (${d>0?'+':''}${d})`:''}</td>`;
+  });
+  h+=r.sites.length?`<td class="pos">${bestCritLabel}</td>`:'';h+=`</tr>`;
+
+  // Zone de confort
+  const bestZC=r.sites.filter(s=>s.zoneConfort!==null).reduce((b,s)=>(!b||s.zoneConfort>b.zoneConfort)?s:b,null);
+  const bestZCLabel=(()=>{
+    if(!bestZC)return S.origin.name+' (actuel)';
+    return(r.origStats.zoneConfort!==null&&r.origStats.zoneConfort>=bestZC.zoneConfort)?S.origin.name+' (actuel)':bestZC.site.name;
+  })();
+  h+=`<tr><td class="lb">🟢 Zone confort ≤45min</td><td class="vl">${r.origStats.zoneConfort!==null?r.origStats.zoneConfort+'%':'—'}</td>`;
+  r.sites.forEach(s=>{
+    if(s.zoneConfort===null){h+=`<td style="color:var(--hint)">—</td>`;return;}
+    const d=r.origStats.zoneConfort!==null?s.zoneConfort-r.origStats.zoneConfort:null;
+    h+=`<td class="${d!==null&&d>=0?'pos':'neg'} vl">${s.zoneConfort}%${d!==null?` <span style="font-size:10px">${d>=0?'+':''}${d} pts</span>`:''}`;
+    h+=`</td>`;
+  });
+  h+=r.sites.length?`<td class="pos">${bestZCLabel}</td>`:'';h+=`</tr>`;
+
+  // Gains / Pertes
+  h+=`<tr><td class="lb">&#9650; Gains salaries</td><td class="vl">—</td>`;
+  r.sites.forEach(s=>{h+=`<td class="pos vl">${fmt(s.gains)}</td>`;});
+  h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
+
+  h+=`<tr><td class="lb">&#9660; Pertes salaries</td><td class="vl">—</td>`;
+  r.sites.forEach(s=>{h+=`<td class="neg vl">${fmt(s.pertes)}</td>`;});
+  h+=r.sites.length?`<td></td>`:'';h+=`</tr>`;
+
+  // Ligne meilleur scénario global — le site de départ peut être le meilleur
+  h+=`<tr style="background:var(--grn-bg)"><td class="lb" style="font-weight:500">Meilleur scenario global</td>`;
+  // Colonne départ : cocher si bestIsOrigin
+  h+=`<td class="${bestIsOrigin?'pos':''}" style="${bestIsOrigin?'font-weight:600':''}">${bestIsOrigin?'✓ Site actuel':'—'}</td>`;
+  r.sites.forEach(s=>{
+    const isBest=!bestIsOrigin&&bestSite&&s.site.name===bestSite.site.name&&scoreSite(s)>0;
+    h+=`<td class="${isBest?'pos':''}" style="${isBest?'font-weight:600':''}">${isBest?'✓':'—'}</td>`;
+  });
+  h+=r.sites.length?`<td class="pos" style="font-weight:600">${bestLabel}</td>`:'';
+  h+=`</tr></tbody></table></div>`;
+
+  // Section gains/pertes
+  h+=`<div class="shdr">Gains et pertes de temps par site <span style="font-size:10px;font-weight:400;color:var(--hint)">— Seuil de stabilite : ±10 min</span></div>`;
+  r.sites.forEach((s,i)=>{
+    const isBest=!bestIsOrigin&&bestSite&&s.site.name===bestSite.site.name&&scoreSite(s)>0;
+    h+=`<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;border:1px solid ${isBest?'var(--grn-bd)':'var(--brd)'};background:${isBest?'var(--grn-bg)':'transparent'}">`;
+    h+=`<div style="font-size:11px;font-weight:500;margin-bottom:5px;color:${SC[i]};display:flex;align-items:center;gap:7px">&#9632; Site ${BDEP[i]} — ${s.site.name}${isBest?`<span style="background:var(--grn);color:#fff;font-size:9px;padding:1px 7px;border-radius:3px">Recommande</span>`:''}`;
+    h+=`</div>`;
+    h+=`<div class="impact-row"><div class="il-lbl">Impact</div><div style="display:flex;gap:5px"><span class="ip p">&#9660; Pertes ${fmt(s.pertes)}</span><span class="ip s">&#8212; Stables ${fmt(s.stables)}</span><span class="ip g">&#9650; Gains ${fmt(s.gains)}</span></div></div>`;
+    let deltaLine='';
+    if(r.origStats.tcCount>0&&s.avgDTC!==null)deltaLine+=`TC : <b style="color:${s.avgDTC<=0?'var(--grn)':'var(--red)'}">${s.avgDTC>0?'+':''}${s.avgDTC} min</b>`;
+    if(r.origStats.carCount>0&&s.avgDCAR!==null){if(deltaLine)deltaLine+=' &nbsp;·&nbsp; ';deltaLine+=`Voiture : <b style="color:${s.avgDCAR<=0?'var(--grn)':'var(--red)'}">${s.avgDCAR>0?'+':''}${s.avgDCAR} min</b>`;}
+    if(deltaLine)h+=`<div style="font-size:11px;color:var(--muted)">${deltaLine}</div>`;
+    h+=`</div>`;
+  });
+
+  h+=`<div class="eb"><button class="ebtn pr" onclick="doExport()">&#8595; Exporter Excel</button><button class="ebtn" onclick="doCSV()">&#8595; Export CSV</button></div>`;
+  el.innerHTML=h;
+}
+
+// ─── MAP ──────────────────────────────────────────────────────────────────────
+function iMap(){
+  if(!S.results)return;
+  const r=S.results;
+  const el=document.getElementById('mapEl');
+  if(!el)return;
+  document.getElementById('mapPh').style.display='none';el.style.display='block';document.getElementById('isoLegend').style.display='block';
+  if(S.map){try{S.map.remove();}catch(e){}S.map=null;}
+  // Vérifier que le conteneur a une taille avant d'initialiser Leaflet
+  if(el.offsetWidth===0||el.offsetHeight===0){
+    // La div n'est pas encore visible — réessayer après un court délai
+    setTimeout(()=>iMap(),150);
+    return;
+  }
+  const map=L.map('mapEl',{zoomControl:true}).setView([48.87,2.33],11);S.map=map;
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© CartoDB',maxZoom:19}).addTo(map);
+  S.sites.forEach(s=>{if(!s.lat||!s.lng)return;[3000,6000,9000,12000].forEach((rad,i)=>L.circle([s.lat,s.lng],{radius:rad,fillColor:['rgba(76,175,130,0.12)','rgba(122,191,110,0.10)','rgba(200,169,110,0.08)','rgba(224,149,92,0.07)'][i],fillOpacity:1,color:['rgba(76,175,130,0.3)','rgba(122,191,110,0.3)','rgba(200,169,110,0.3)','rgba(224,149,92,0.3)'][i],weight:1}).addTo(map));});
+  r.collabs.forEach(c=>{
+    if(!c.lat||!c.lng)return;
+    const row=r.rows.find(x=>x.id===c.id);
+    const delta=row&&row.siteData[0]?row.siteData[0].delta:0;
+
+    // ── Couleur du point : bleu uniforme (toujours) ──────────────────────────
+    const dotColor='#185FA5';
+
+    // ── Construction du contenu de la popup ──────────────────────────────────
+    const origTC=row?.origTC;
+    const origCar=row?.origCar;
+    const isSensible=origTC!==null&&origTC>60;
+    const modeIcon=c.mode==='car'?'🚗':'🚇';
+    const addrDisplay=c.ville?(c.cp+' '+c.ville):'CP '+c.cp;
+
+    // Ligne "Cas sensible" uniquement si trajet actuel > 1h
+    const casTag=isSensible
+      ?`<div style="background:#c0392b;color:#fff;text-align:center;padding:3px 0;font-size:10px;font-weight:600;letter-spacing:0.04em;border-radius:3px;margin:6px 0">CAS SENSIBLE</div>`
+      :'<div style="margin:6px 0"></div>';
+
+    // Temps actuel : on affiche TC si mode TC, voiture si mode voiture
+    const tActuel=c.mode==='car'?(origCar!==null?origCar+'min':'—'):(origTC!==null?origTC+'min':'—');
+
+    // Lignes futures — une par site
+    let rowsFutures='';
+    if(row&&row.siteData){
+      row.siteData.forEach((sd,i)=>{
+        if(!S.sites[i])return;
+        const tFut=c.mode==='car'?(sd?.car!==null?sd.car+'min':'—'):(sd?.tc!==null?sd.tc+'min':'—');
+        const d=sd?.delta;
+        const coulFut=d!==null?(d<=-5?'#3B6D11':d>=5?'#c0392b':'#185FA5'):'#555';
+        rowsFutures+=`<tr>
+          <td style="padding:4px 8px;border-top:1px solid #eee;color:#555;font-size:11px">${S.sites[i].name}</td>
+          <td style="padding:4px 8px;border-top:1px solid #eee;text-align:center;font-weight:600;font-size:11px;color:${coulFut}">${tFut}</td>
+        </tr>`;
+      });
+    }
+
+    const popupHTML=`
+      <div style="font-family:'Aptos','Segoe UI',system-ui,-apple-system,sans-serif;width:200px;padding:2px">
+        <div style="text-align:center;margin-bottom:4px">
+          <div style="font-size:20px">${modeIcon}</div>
+          <div style="font-size:11px;font-weight:600;color:#1a1a18;line-height:1.4">N°${c.id}<br><span style="font-weight:400;color:#6b6b65">${c.ville||''}</span></div>
+        </div>
+        ${casTag}
+        <div style="font-size:10px;color:#6b6b65;text-align:center;margin-bottom:6px;line-height:1.5">${addrDisplay}</div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e0e0e0;border-radius:5px;overflow:hidden">
+          <thead>
+            <tr style="background:#2a2a28">
+              <th style="padding:4px 8px;text-align:left;color:#fff;font-size:10px;font-weight:500">Adresse</th>
+              <th style="padding:4px 8px;text-align:center;color:#fff;font-size:10px;font-weight:500">Durée</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:4px 8px;color:#555;font-size:11px">Actuelle</td>
+              <td style="padding:4px 8px;text-align:center;font-weight:600;font-size:11px">${tActuel}</td>
+            </tr>
+            ${rowsFutures}
+          </tbody>
+        </table>
+      </div>`;
+
+    L.circleMarker([c.lat,c.lng],{radius:5,fillColor:dotColor,color:'white',weight:1.5,fillOpacity:0.9})
+      .addTo(map)
+      .bindPopup(popupHTML,{maxWidth:220,className:'upside-popup'});
+  });
+  if(S.origin?.lat)L.marker([S.origin.lat,S.origin.lng],{icon:L.divIcon({html:'<div style="width:13px;height:13px;background:#c8a96e;border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>',iconSize:[13,13],className:''})}).addTo(map).bindPopup('<b>'+S.origin.name+'</b>');
+  r.sites.forEach((s,i)=>{if(!s.site.lat||!s.site.lng)return;L.marker([s.site.lat,s.site.lng],{icon:L.divIcon({html:'<div style="background:'+SC[i]+';color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:Aptos,Segoe UI,system-ui,-apple-system,sans-serif">'+BDEP[i]+'</div>',className:''})}).addTo(map).bindPopup('<b>'+s.site.name+'</b>');});
+}
+
+// ─── SAUVEGARDE / CHARGEMENT D'ANALYSES ──────────────────────────────────────
+// Les analyses sont stockées dans localStorage (persistant entre sessions)
+// ET exportables/importables en fichier .json
+
+const SAVE_KEY = 'upside_analyses';
+
+function getSavedAnalyses(){
+  try{ return JSON.parse(localStorage.getItem(SAVE_KEY)||'[]'); }
+  catch(e){ return []; }
+}
+
+function setSavedAnalyses(list){
+  try{ localStorage.setItem(SAVE_KEY,JSON.stringify(list)); }
+  catch(e){ alert('Espace de stockage insuffisant. Supprimez des analyses anciennes.'); }
+}
+
+function saveAnalysis(){
+  if(!S.results||!S.origin)return;
+  const name=prompt('Nom de cette analyse :',
+    S.origin.name+' — '+new Date().toLocaleDateString('fr-FR'));
+  if(!name)return;
+
+  const snapshot={
+    id: Date.now(),
+    name,
+    date: new Date().toISOString(),
+    origin: S.origin,
+    sites: S.sites,
+    allCollabs: S.allCollabs,
+    rawGeo: S.rawGeo,
+    rawTimes: S.rawTimes,
+    idfOnly: S.idfOnly,
+    filterMode: S.filterMode,
+    results: S.results
+  };
+
+  // Taille estimée — localStorage est limité à ~5MB
+  const size=JSON.stringify(snapshot).length;
+  if(size>4*1024*1024){
+    // Trop volumineux pour localStorage — proposer uniquement le fichier
+    if(confirm('Cette analyse est volumineuse ('+Math.round(size/1024)+'KB).\nElle ne peut pas être stockée localement.\nTélécharger en fichier .json ?')){
+      downloadAnalysis(snapshot);
+    }
+    return;
+  }
+
+  const list=getSavedAnalyses();
+  // Limite à 10 analyses en localStorage
+  if(list.length>=10){
+    if(!confirm('Vous avez atteint la limite de 10 analyses sauvegardees.\nSupprimer la plus ancienne ?'))return;
+    list.shift();
+  }
+  list.push(snapshot);
+  setSavedAnalyses(list);
+  renderSaveList();
+
+  // Proposer aussi le téléchargement fichier
+  if(confirm('Analyse sauvegardée ✓\nTélécharger aussi en fichier .json (recommandé pour archivage) ?')){
+    downloadAnalysis(snapshot);
+  }
+}
+
+function downloadAnalysis(snapshot){
+  const blob=new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='Upside_'+snapshot.name.replace(/[^a-zA-Z0-9]/g,'_')+'_'+
+    new Date(snapshot.date).toISOString().slice(0,10)+'.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function loadSavedAnalysis(id){
+  const list=getSavedAnalyses();
+  const snap=list.find(s=>s.id===id);
+  if(!snap){alert('Analyse introuvable.');return;}
+  applySnapshot(snap);
+}
+
+function deleteSavedAnalysis(id,e){
+  e.stopPropagation();
+  if(!confirm('Supprimer cette analyse ?'))return;
+  const list=getSavedAnalyses().filter(s=>s.id!==id);
+  setSavedAnalyses(list);
+  renderSaveList();
+}
+
+function loadAnalysisFile(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const snap=JSON.parse(e.target.result);
+      if(!snap.results||!snap.origin){
+        alert('Fichier invalide — ce n\'est pas un fichier d\'analyse Upside.');
+        return;
+      }
+      // Option : sauvegarder en localStorage pour les prochaines sessions
+      if(confirm('Analyse chargee : "'+snap.name+'"\nL\'ajouter aux analyses sauvegardees ?')){
+        const list=getSavedAnalyses();
+        if(!list.find(s=>s.id===snap.id)){
+          if(list.length>=10)list.shift();
+          list.push(snap);
+          setSavedAnalyses(list);
+        }
+        renderSaveList();
+      }
+      applySnapshot(snap);
+    }catch(err){
+      alert('Erreur de lecture du fichier : '+err.message);
+    }
+  };
+  r.readAsText(f);
+  input.value=''; // reset pour permettre recharger le même fichier
+}
+
+function applySnapshot(snap){
+  // Restaurer l'état complet
+  S.allCollabs = snap.allCollabs||[];
+  S.rawGeo     = snap.rawGeo||{};
+  S.rawTimes   = snap.rawTimes||{};
+  S.origin     = snap.origin||null;
+  S.sites      = snap.sites||[];
+  S.idfOnly    = snap.idfOnly||false;
+  S.filterMode = snap.filterMode||'moy';
+  S.results    = snap.results||null;
+
+
+  // Mettre à jour l'UI
+  rOrigin();rDests();
+  document.getElementById('idfToggle').checked=S.idfOnly;
+  const lbl=document.getElementById('idfLabel');lbl.textContent=S.idfOnly?'IDF uniquement':'Tous les salaries';
+  document.getElementById('idfBadge').style.display=S.idfOnly?'inline-flex':'none';
+
+  if(S.allCollabs.length>0){
+    document.getElementById('fileRequired').style.display='none';
+    document.getElementById('fileOk').style.display='flex';
+    document.getElementById('fileTxt').textContent=S.allCollabs.length+' collaborateurs (analyse chargee)';
+    document.getElementById('fileOk').style.background='';
+    document.getElementById('fileOk').style.borderColor='';
+    document.getElementById('runBtn').disabled=false;
+  }
+
+  if(S.results){
+    document.getElementById('saveBtn').disabled=false;
+    document.getElementById('exportBlock').style.display='block';
+    document.getElementById('topMeta').textContent=
+      (S.results.collabs?.length||0)+' salaries · Analyse chargee · '+
+      new Date(snap.date).toLocaleDateString('fr-FR');
+    // Délai 200ms pour laisser le DOM se stabiliser avant le rendu
+    // (évite l'exception silencieuse de Leaflet qui bloquait tous les onglets)
+    setTimeout(()=>{
+      renderAll();
+      alert('Analyse "'+snap.name+'" chargee avec succes.\nAucun recalcul necessaire.');
+    },200);
+  }
+}
+
+function renderSaveList(){
+  const list=getSavedAnalyses();
+  const el=document.getElementById('saveList');
+  if(list.length===0){
+    el.innerHTML='<div class="save-empty">Aucune analyse sauvegardee</div>';
+    return;
+  }
+  el.innerHTML=list.slice().reverse().map(s=>`
+    <div class="save-item" onclick="loadSavedAnalysis(${s.id})">
+      <span class="save-item-icon">📊</span>
+      <div class="save-item-body">
+        <div class="save-item-name">${s.name}</div>
+        <div class="save-item-meta">${new Date(s.date).toLocaleDateString('fr-FR')} · ${s.results?.collabs?.length||'?'} sal. · ${(s.sites?.length||0)+1} sites</div>
+      </div>
+      <button class="save-item-del" onclick="deleteSavedAnalysis(${s.id},event)" title="Supprimer">&#215;</button>
+    </div>
+  `).join('');
+}
+function doExport(){
+  if(!S.results||typeof XLSX==='undefined')return;
+  const r=S.results;
+  const wb=XLSX.utils.book_new();
+
+  // ── Feuille 1 : Détail individuel ─────────────────────────────────────────
+  // En-têtes : ID · CP · Ville · Mode · puis pour chaque site (départ + arrivées) : TC et Voiture
+  const allSites=[{name:S.origin.name,isOrigin:true},...S.sites.map(s=>({name:s.name,isOrigin:false}))];
+  const header=['ID','CP','Ville','Mode'];
+  allSites.forEach((s,i)=>{
+    const label=s.isOrigin?'Départ — '+s.name:'Site '+BDEP[i-1]+' — '+s.name;
+    header.push(label+' (TC min)',label+' (Voiture min)');
+    if(!s.isOrigin)header.push(label+' (Delta min)');
+  });
+  const detailRows=[header];
+  r.rows.forEach(row=>{
+    const line=[row.id,row.cp,row.ville||'',row.mode==='car'?'Voiture':'TC'];
+    // Site de départ
+    line.push(row.origTC!==null?row.origTC:'',row.origCar!==null?row.origCar:'');
+    // Sites d'arrivée
+    (row.siteData||[]).forEach(sd=>{
+      if(!sd){line.push('','','');return;}
+      line.push(sd.tc!==null?sd.tc:'',sd.car!==null?sd.car:'',sd.delta!==null?sd.delta:'');
+    });
+    detailRows.push(line);
+  });
+  const wsDetail=XLSX.utils.aoa_to_sheet(detailRows);
+  // Largeurs colonnes
+  wsDetail['!cols']=[{wch:6},{wch:7},{wch:16},{wch:9},...allSites.flatMap(s=>s.isOrigin?[{wch:18},{wch:18}]:[{wch:18},{wch:18},{wch:12}])];
+  XLSX.utils.book_append_sheet(wb,wsDetail,'Detail collaborateurs');
+
+  // ── Feuille 2 : Synthèse ──────────────────────────────────────────────────
+  const sumHeader=['Site','Tps moy TC (min)','Médiane TC (min)','Tps moy Voiture (min)','Cas >1h','Gains','Stables','Pertes','Delta TC moy','Delta Voiture moy'];
+  const sumRows=[sumHeader];
+  sumRows.push([
+    S.origin.name+' (Départ)',
+    r.origStats.avgTC??'—',r.origStats.medTC??'—',r.origStats.avgCar??'—',
+    r.origStats.crit??'—','—','—','—','—','—'
+  ]);
+  r.sites.forEach((s,i)=>{
+    sumRows.push([
+      'Site '+BDEP[i]+' — '+s.site.name,
+      s.avgTC??'—',s.medTC??'—',s.avgCar??'—',
+      s.crit??'—',s.gains??'—',s.stables??'—',s.pertes??'—',
+      s.avgDTC!==null?(s.avgDTC>0?'+':'')+s.avgDTC:'—',
+      s.avgDCAR!==null?(s.avgDCAR>0?'+':'')+s.avgDCAR:'—'
+    ]);
+  });
+  const wsSum=XLSX.utils.aoa_to_sheet(sumRows);
+  wsSum['!cols']=[{wch:28},{wch:18},{wch:16},{wch:22},{wch:10},{wch:8},{wch:8},{wch:8},{wch:14},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,wsSum,'Synthèse');
+
+  XLSX.writeFile(wb,'Upside_Transport_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+// ─── EXPORT POWERPOINT ────────────────────────────────────────────────────────
+// Approche : manipuler le template PPTX Upside directement via JSZip.
+// Remplace les textes et valeurs de charts dans les XMLs — mise en forme préservée.
+// Slide 8 (doublon) supprimée. Chart1 (camembert) intentionnellement non modifié.
+const _PPTX_TPL = "";
+
+async function doPPTX(){
+  if(!S.results){alert('Lancez une analyse avant d\'exporter.');return;}
+  if(typeof JSZip==='undefined'){alert('JSZip non chargé, vérifiez la connexion.');return;}
+  if(!_PPTX_TPL){alert('Le template PowerPoint n\'est pas embarqué dans ce fichier.\nExportez vos résultats via Excel ou CSV.');return;}
+
+  const btn=document.getElementById('pptxBtn');
+  const origLabel=btn.innerHTML;
+  btn.disabled=true;btn.innerHTML='<span>⏳</span> Génération en cours...';
+
+  try{
+    const r=S.results, o=r.origStats;
+    const today=new Date().toLocaleDateString('fr-FR');
+
+    // ── Charger le template ────────────────────────────────────────────────
+    const raw=atob(_PPTX_TPL);
+    const u8=new Uint8Array(raw.length);
+    for(let i=0;i<raw.length;i++)u8[i]=raw.charCodeAt(i);
+    const zip=await JSZip.loadAsync(u8.buffer);
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    // Remplace un texte en gérant l'encodage XML
+    function rt(xml,a,b){
+      const enc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const ea=enc(a), eb=enc(b);
+      if(xml.includes(ea)) return xml.split(ea).join(eb);
+      if(xml.includes(a))  return xml.split(a).join(eb);
+      return xml;
+    }
+    // Met à jour les valeurs numériques d'un chart (ordre séquentiel)
+    function updChart(xml,vals){
+      let i=0;
+      return xml.replace(/<c:v>(\d+)<\/c:v>/g,(_,v)=>{
+        const nv=i<vals.length?vals[i++]:v;
+        return '<c:v>'+nv+'<\/c:v>';
+      });
+    }
+    const fmt=v=>v!=null?String(v):'—';
+    const fmtM=v=>v!=null?v+' min':'—';
+    const fmtD=(v,ref)=>{
+      if(v==null||ref==null)return '—';
+      const d=v-ref; return (d>0?'+':'')+d+' min';
+    };
+    const fmtDN=(v,ref)=>{
+      if(v==null||ref==null)return '—';
+      const d=v-ref;
+      // Caractère − Unicode pour négatif (comme dans le template)
+      return d<0?'\u2212'+Math.abs(d):'+'+d;
+    };
+
+    // ── Calcul meilleur site ───────────────────────────────────────────────
+    function scoreSite(s){
+      const amelTC=(o.avgTC!=null&&s.avgTC!=null)?o.avgTC-s.avgTC:0;
+      const amelCrit=(o.crit!=null&&s.crit!=null)?o.crit-s.crit:0;
+      return((s.gains||0)-(s.pertes||0))*0.6+amelTC*0.3+amelCrit*0.1;
+    }
+    let bestIdx=-1;
+    if(r.sites.length>0){
+      const scores=r.sites.map(scoreSite);
+      const best=Math.max(...scores);
+      if(best>0)bestIdx=scores.indexOf(best);
+    }
+
+    // ── SLIDE 1 — date ────────────────────────────────────────────────────
+    let s1=await zip.file('ppt/slides/slide1.xml').async('string');
+    s1=rt(s1,'JJ-MM-AAA',today);
+    zip.file('ppt/slides/slide1.xml',s1);
+
+    // ── SLIDE 2 — noms et adresses des implantations ─────────────────────
+    let s2=await zip.file('ppt/slides/slide2.xml').async('string');
+    // Site actuel (split en 2 lignes dans le template)
+    const on=S.origin.name||'';
+    const oa=(S.origin.addr||'').replace(/\n/g,' ');
+    const oa1=(S.origin.addr||'').split(/\n/)[0]||oa;
+    const oa2=(S.origin.addr||'').split(/\n/)[1]||'';
+    s2=rt(s2,'Wojo Champs-Élysées',on);
+    s2=rt(s2,'16 rue Washington',oa1);
+    s2=rt(s2,'75008 Paris',oa2);
+    // Site B (index 0 dans S.sites)
+    if(S.sites[0]){
+      const sn=S.sites[0].name||'';
+      const sa=(S.sites[0].addr||'');
+      const sa1=sa.split(/\n/)[0]||sa;
+      const sa2=sa.split(/\n/)[1]||'';
+      // Nom splitté en 2 runs dans le XML — on met tout sur la 1re ligne
+      s2=rt(s2,'Grande Arche',sn);
+      s2=rt(s2,'de la Défense','');
+      s2=rt(s2,'1 Parvis de la Défense',sa1);
+      s2=rt(s2,'92800 Puteaux',sa2);
+    }
+    // Site C (index 1 dans S.sites)
+    if(S.sites[1]){
+      const sn=S.sites[1].name||'';
+      const sa=(S.sites[1].addr||'');
+      const sa1=sa.split(/\n/)[0]||sa;
+      const sa2=sa.split(/\n/)[1]||'';
+      s2=rt(s2,'REIWA',sn);
+      s2=rt(s2,'67 rue Arago',sa1);
+      s2=rt(s2,'93400 Saint-Ouen',sa2);
+    }
+    zip.file('ppt/slides/slide2.xml',s2);
+
+    // ── SLIDE 3 — répartition géographique (textes seuls, chart1 intact) ──
+    let s3=await zip.file('ppt/slides/slide3.xml').async('string');
+    s3=rt(s3,'154',fmt(o.n));
+    s3=rt(s3,'8',fmt(o.depts&&o.depts.length||'—'));
+    s3=rt(s3,'100%',o.pctTC!=null?o.pctTC+'%':'—');
+    s3=rt(s3,'3',fmt(o.missing));
+    // Tableau des 8 départements
+    const origD=[
+      ['Paris (75)','30','19%'],['Hauts-de-Seine (92)','24','16%'],
+      ['Yvelines (78)','21','14%'],['Seine-et-Marne (77)','19','12%'],
+      ['Val-de-Marne (94)','16','10%'],["Val-d'Oise (95)",'15','10%'],
+      ['Seine-Saint-Denis (93)','14','9%'],['Essonne (91)','6','4%'],
+    ];
+    const newD=o.depts||[];
+    origD.forEach(([nm,cnt,pct],i)=>{
+      const nd=newD[i];
+      if(nd){
+        s3=rt(s3,nm,nd.name||nm);
+        s3=rt(s3,cnt,fmt(nd.cnt));
+        s3=rt(s3,pct,(nd.pct||0)+'%');
+      }
+    });
+    zip.file('ppt/slides/slide3.xml',s3);
+
+    // ── SLIDE 4 — site actuel ─────────────────────────────────────────────
+    let s4=await zip.file('ppt/slides/slide4.xml').async('string');
+    // Nom splitté en 2 runs : 'Wojo' + ' Champs-Elysées'
+    const on0=on.indexOf(' ')>0?on.substring(0,on.indexOf(' ')):on;
+    const on1=on.indexOf(' ')>0?' '+on.substring(on.indexOf(' ')+1):'';
+    s4=rt(s4,'Wojo',on0);
+    s4=rt(s4,' Champs-Elysées',on1);
+    s4=rt(s4,'59 min',fmtM(o.avgTC));
+    s4=rt(s4,'53 min',fmtM(o.medTC));
+    s4=rt(s4,'54',fmt(o.crit));
+    s4=rt(s4,'41%',o.zoneConfort!=null?o.zoneConfort+'%':'—');
+    s4=rt(s4,'18 min',fmtM(o.minTC));
+    s4=rt(s4,'231 min',fmtM(o.maxTC));
+    s4=rt(s4,'54 collaborateurs',(o.crit||0)+' collaborateurs');
+    zip.file('ppt/slides/slide4.xml',s4);
+    // chart2 — histogramme site actuel [0-15,15-30,30-45,45-60,>60]
+    let c2=await zip.file('ppt/charts/chart2.xml').async('string');
+    c2=updChart(c2,o.dist.map(d=>d.c));
+    zip.file('ppt/charts/chart2.xml',c2);
+
+    // ── SLIDES 5 & 6 — sites cibles ───────────────────────────────────────
+    const slideMap=[
+      {sNum:5,origTitle:'Site B – Grande Arche de la Défense',
+       origVals:['56 min','48 min','48','45%','51','85','18','-3 min','← amélioration'],
+       chartNum:3},
+      {sNum:6,origTitle:'Site C – REIWA Saint Ouen ',
+       origVals:['63 min','57 min','66','32%','22','73','59','+4 min','→ dégradation'],
+       chartNum:4},
+    ];
+    for(let si=0;si<slideMap.length;si++){
+      if(!S.sites[si])continue;
+      const {sNum,origTitle,origVals,chartNum}=slideMap[si];
+      const siteObj=S.sites[si];
+      const st=r.sites[si];
+      const sLet='ABCDE'[si];
+      let sx=await zip.file(`ppt/slides/slide${sNum}.xml`).async('string');
+      // Titre
+      sx=rt(sx,origTitle,`Site ${sLet} \u2013 ${siteObj.name}`);
+      // KPIs
+      sx=rt(sx,origVals[0],fmtM(st.avgTC));
+      sx=rt(sx,origVals[1],fmtM(st.medTC));
+      sx=rt(sx,origVals[2],fmt(st.crit));
+      sx=rt(sx,origVals[3],st.zoneConfort!=null?st.zoneConfort+'%':'—');
+      // Gains / Stables / Pertes
+      sx=rt(sx,origVals[4],fmt(st.gains));
+      sx=rt(sx,origVals[5],fmt(st.stables));
+      sx=rt(sx,origVals[6],fmt(st.pertes));
+      // Delta + direction
+      const dv=st.avgDTC;
+      const deltaStr=dv!=null?(dv<0?dv+' min':'+'+dv+' min'):'—';
+      const deltaDir=dv!=null?(dv<0?'\u2190 am\u00e9lioration':'\u2192 d\u00e9gradation'):'';
+      sx=rt(sx,origVals[7],deltaStr);
+      sx=rt(sx,origVals[8],deltaDir);
+      zip.file(`ppt/slides/slide${sNum}.xml`,sx);
+      // Chart histogramme
+      let cx=await zip.file(`ppt/charts/chart${chartNum}.xml`).async('string');
+      cx=updChart(cx,st.dist.map(d=>d.c));
+      zip.file(`ppt/charts/chart${chartNum}.xml`,cx);
+    }
+
+    // ── SLIDE 7 — bilan comparatif ────────────────────────────────────────
+    let s7=await zip.file('ppt/slides/slide7.xml').async('string');
+    // Colonne site actuel
+    s7=rt(s7,'59 min',fmtM(o.avgTC));
+    s7=rt(s7,'53 min',fmtM(o.medTC));
+    s7=rt(s7,'54',fmt(o.crit));
+    s7=rt(s7,'41%',o.zoneConfort!=null?o.zoneConfort+'%':'—');
+    // Colonne site B
+    if(r.sites[0]){
+      const sb=r.sites[0];
+      const dB=sb.avgDTC;
+      s7=rt(s7,'56 min  \u22123',`${fmtM(sb.avgTC)}  ${fmtDN(sb.avgTC,o.avgTC)}`);
+      s7=rt(s7,'48 min',fmtM(sb.medTC));
+      s7=rt(s7,'48  \u22126',`${fmt(sb.crit)}  ${fmtDN(sb.crit,o.crit)}`);
+      s7=rt(s7,'45%  +4 pts',`${sb.zoneConfort!=null?sb.zoneConfort+'%':'—'}  ${o.zoneConfort!=null&&sb.zoneConfort!=null?(sb.zoneConfort-o.zoneConfort>=0?'+':'')+(sb.zoneConfort-o.zoneConfort)+' pts':'—'}`);
+      s7=rt(s7,'51 collaborateurs',`${fmt(sb.gains)} collaborateurs`);
+      s7=rt(s7,'18 collaborateurs',`${fmt(sb.pertes)} collaborateurs`);
+    }
+    // Colonne site C
+    if(r.sites[1]){
+      const sc=r.sites[1];
+      s7=rt(s7,'63 min  +4',`${fmtM(sc.avgTC)}  ${fmtDN(sc.avgTC,o.avgTC)}`);
+      s7=rt(s7,'57 min',fmtM(sc.medTC));
+      s7=rt(s7,'66  +12',`${fmt(sc.crit)}  ${fmtDN(sc.crit,o.crit)}`);
+      s7=rt(s7,'32%  \u22129 pts',`${sc.zoneConfort!=null?sc.zoneConfort+'%':'—'}  ${o.zoneConfort!=null&&sc.zoneConfort!=null?(sc.zoneConfort-o.zoneConfort>=0?'+':'')+(sc.zoneConfort-o.zoneConfort)+' pts':'—'}`);
+      s7=rt(s7,'22 collaborateurs',`${fmt(sc.gains)} collaborateurs`);
+      s7=rt(s7,'59 collaborateurs',`${fmt(sc.pertes)} collaborateurs`);
+    }
+    // Recommandation
+    const bestSt=bestIdx>=0?r.sites[bestIdx]:null;
+    const reco=bestSt
+      ?`RECOMMANDATION \u2014 ${bestSt.site.name} : meilleur sc\u00e9nario global \u2014 ${bestSt.avgDTC!=null?(bestSt.avgDTC<0?bestSt.avgDTC:'+'+bestSt.avgDTC):''} min en moyenne TC, ${bestSt.gains} gagnants vs ${bestSt.pertes} perdants.`
+      :`RECOMMANDATION \u2014 Site actuel (${S.origin.name}) : aucune implantation cible n\u2019am\u00e9liore la situation.`;
+    s7=rt(s7,'RECOMMANDATION \u2014 Site A (Grande Arche de la D\u00e9fense) : meilleur sc\u00e9nario global \u2014 \u22123 min en moyenne TC, r\u00e9duction des cas sensibles de 54 \u00e0 48, 51 gagnants vs 18 perdants.',reco);
+    zip.file('ppt/slides/slide7.xml',s7);
+
+    // ── Supprimer slide 8 (doublon) — conserver slide 9 intacte ──────────
+    let prs=await zip.file('ppt/presentation.xml').async('string');
+    let prsRels=await zip.file('ppt/_rels/presentation.xml.rels').async('string');
+    const m8=prsRels.match(/Id="(rId\d+)"[^>]*Target="slides\/slide8\.xml"/);
+    if(m8){
+      const rid=m8[1];
+      prs=prs.replace(new RegExp('<p:sldId[^>]+r:id="'+rid+'"[^/]*/>','g'),'');
+      prsRels=prsRels.replace(new RegExp('<Relationship[^>]+Id="'+rid+'"[^/]*/>','g'),'');
+      zip.file('ppt/presentation.xml',prs);
+      zip.file('ppt/_rels/presentation.xml.rels',prsRels);
+    }
+    let ct=await zip.file('[Content_Types].xml').async('string');
+    ct=ct.replace(/<Override[^>]+PartName="\/ppt\/slides\/slide8\.xml"[^/]*\/>/g,'');
+    zip.file('[Content_Types].xml',ct);
+    // Supprimer slide8 + ses rels + notesSlide qui la référence
+    const toRemove=['ppt/slides/slide8.xml','ppt/slides/_rels/slide8.xml.rels'];
+    const ns1f=zip.file('ppt/notesSlides/_rels/notesSlide1.xml.rels');
+    if(ns1f){
+      const nsc=await ns1f.async('string');
+      if(nsc.includes('slide8.xml')){
+        toRemove.push('ppt/notesSlides/notesSlide1.xml','ppt/notesSlides/_rels/notesSlide1.xml.rels');
+        ct=ct.replace(/<Override[^>]+PartName="\/ppt\/notesSlides\/notesSlide1\.xml"[^/]*\/>/g,'');
+        zip.file('[Content_Types].xml',ct);
+      }
+    }
+    toRemove.forEach(p=>{try{zip.remove(p);}catch(_){}});
+
+    // ── Télécharger ───────────────────────────────────────────────────────
+    const blob=await zip.generateAsync({
+      type:'blob',
+      mimeType:'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      compression:'DEFLATE',compressionOptions:{level:6}
+    });
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='Upside_Etude_Transport_'+new Date().toISOString().slice(0,10)+'.pptx';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+
+  }catch(e){
+    console.error('Erreur PPTX:',e);
+    alert('Erreur lors de la génération PowerPoint :\n'+e.message);
+  }finally{
+    btn.disabled=false;btn.innerHTML=origLabel;
+  }
+}
+
+function doCSV(){if(!S.results)return;const h=['ID','CP','Ville','Mode','TC_actuel','Voiture_actuel'].concat(S.results.sites.flatMap((s,i)=>['Site_'+BDEP[i]+'_TC','Site_'+BDEP[i]+'_Voiture','Delta_'+BDEP[i]]));const csv=[h,...S.results.rows.map(r=>[r.id,r.cp,r.ville||'',r.mode,r.origTC||'',r.origCar||'',...r.siteData.flatMap(sd=>sd?[sd.tc,sd.car,sd.delta]:['','',''])])].map(r=>r.join(';')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='Upside_Transport_'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
+
+// ─── RÉINITIALISATION SESSION ─────────────────────────────────────────────────
+// Efface fichier, clés API, implantations, résultats et carte.
+// Les analyses sauvegardées en localStorage sont explicitement préservées.
+function resetSession(){
+  if(!confirm('Réinitialiser la session ?\n\nLe fichier collaborateurs, les clés API, les implantations et les résultats seront effacés.\nLes analyses sauvegardées sont conservées.'))return;
+
+  // ── État global ────────────────────────────────────────────────────────────
+  S.allCollabs=[];
+  S.rawGeo={};
+  S.rawTimes={};
+  S.origin=null;
+  S.sites=[];
+  S.results=null;
+  S.idfOnly=false;
+  S.filterMode='moy';
+  S.nbHorsIDF=0;
+
+  // ── Carte ──────────────────────────────────────────────────────────────────
+  if(S.map){S.map.remove();S.map=null;}
+
+  // ── Fichier collaborateurs ─────────────────────────────────────────────────
+  document.getElementById('fileInput').value='';
+  document.getElementById('fileRequired').style.display='flex';
+  document.getElementById('fileOk').style.display='none';
+  document.getElementById('fileTxt').textContent='—';
+
+  // ── Clé API ───────────────────────────────────────────────────────────────
+  document.getElementById('gmKey').value='';
+  document.getElementById('gmKey').style.borderColor='';
+  setKeyStatus(document.getElementById('gmSt'),'neutral','Non renseignee');
+
+  // ── Filtres ────────────────────────────────────────────────────────────────
+  S.filterMode='moy';
+  document.getElementById('fMoy').className='fb on';
+  document.getElementById('fMed').className='fb';
+  document.getElementById('idfToggle').checked=false;
+  document.getElementById('idfLabel').textContent='Tous les salaries';
+  document.getElementById('idfBadge').style.display='none';
+
+  // ── Implantations ──────────────────────────────────────────────────────────
+  rOrigin();
+  rDests();
+
+  // ── Boutons et meta ────────────────────────────────────────────────────────
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('saveBtn').disabled=true;
+  document.getElementById('exportBlock').style.display='none';
+  document.getElementById('topMeta').textContent='— salaries · Depart 08:00';
+  document.getElementById('prog').classList.remove('on');
+
+  // ── Onglets — retour à Cartographie ───────────────────────────────────────
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));
+  document.querySelector('.ntab[data-tab="carto"]').classList.add('active');
+  S.currentTab='carto';
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-carto').classList.add('active');
+
+  // ── Réinitialisation des vues ──────────────────────────────────────────────
+  document.getElementById('mapEl').style.display='none';
+  document.getElementById('mapPh').style.display='flex';
+  document.getElementById('isoLegend').style.display='none';
+  document.getElementById('cartoStats').style.display='none';
+  document.getElementById('modeBarCarto').style.display='none';
+  document.getElementById('emptyActuelle').style.display='flex';
+  document.getElementById('statsActuelle').style.display='none';
+  document.getElementById('emptyFutures').style.display='flex';
+  document.getElementById('statsFutures').style.display='none';
+  document.getElementById('emptyBilan').style.display='flex';
+  document.getElementById('statsBilan').style.display='none';
+  document.getElementById('emptySlides').style.display='flex';
+  document.getElementById('slidesContainer').style.display='none';
+  document.getElementById('slidesContainer').innerHTML='';
+
+  // ── Graphiques ─────────────────────────────────────────────────────────────
+  if(S.pieChart){S.pieChart.destroy();S.pieChart=null;}
+  if(S.barChart){S.barChart.destroy();S.barChart=null;}
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+rOrigin();rDests();renderSaveList();
+loadStationGeoCache(); // charge le cache de géocodage des stations depuis localStorage
+</script>
+</body>
+</html>

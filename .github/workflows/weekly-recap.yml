@@ -1,0 +1,325 @@
+name: Récapitulatif hebdomadaire Staffing
+
+on:
+  schedule:
+    # Chaque lundi à 08:00 UTC = 09:00 Paris (heure d'été)
+    - cron: '0 8 * * 1'
+  # Permet aussi un déclenchement manuel depuis l'onglet Actions
+  workflow_dispatch:
+
+jobs:
+  send-recap:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Envoyer le récapitulatif hebdomadaire
+        uses: actions/github-script@v7
+        env:
+          AZURE_TENANT_ID:     ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID:     ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
+        with:
+          script: |
+            const https = require('https');
+
+            // ── Helpers HTTP ────────────────────────────────────────────────
+            function httpPost(url, headers, body) {
+              return new Promise((resolve, reject) => {
+                const u = new URL(url);
+                const data = typeof body === 'string' ? body : JSON.stringify(body);
+                const req = https.request({
+                  hostname: u.hostname,
+                  path: u.pathname + u.search,
+                  method: 'POST',
+                  headers: { ...headers, 'Content-Length': Buffer.byteLength(data) }
+                }, res => {
+                  let raw = '';
+                  res.on('data', c => raw += c);
+                  res.on('end', () => resolve({ status: res.statusCode, body: raw }));
+                });
+                req.on('error', reject);
+                req.write(data);
+                req.end();
+              });
+            }
+
+            function httpGet(url, headers) {
+              return new Promise((resolve, reject) => {
+                const u = new URL(url);
+                const req = https.request({
+                  hostname: u.hostname,
+                  path: u.pathname + u.search,
+                  method: 'GET',
+                  headers
+                }, res => {
+                  let raw = '';
+                  res.on('data', c => raw += c);
+                  res.on('end', () => resolve({ status: res.statusCode, body: raw }));
+                });
+                req.on('error', reject);
+                req.end();
+              });
+            }
+
+            // ── 1. Token Microsoft Graph ────────────────────────────────────
+            console.log('Récupération du token Microsoft Graph…');
+            const tokenRes = await httpPost(
+              `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/oauth2/v2.0/token`,
+              { 'Content-Type': 'application/x-www-form-urlencoded' },
+              `client_id=${encodeURIComponent(process.env.AZURE_CLIENT_ID)}`
+              + `&client_secret=${encodeURIComponent(process.env.AZURE_CLIENT_SECRET)}`
+              + `&scope=${encodeURIComponent('https://graph.microsoft.com/.default')}`
+              + `&grant_type=client_credentials`
+            );
+            if (tokenRes.status !== 200) {
+              throw new Error(`Erreur token Microsoft: ${tokenRes.body}`);
+            }
+            const { access_token } = JSON.parse(tokenRes.body);
+            console.log('Token obtenu.');
+
+            // ── 2. Données Supabase ─────────────────────────────────────────
+            console.log('Récupération des données Supabase…');
+            const sbHeaders = {
+              'apikey': process.env.SUPABASE_KEY,
+              'Authorization': `Bearer ${process.env.SUPABASE_KEY}`
+            };
+            const base = process.env.SUPABASE_URL + '/rest/v1';
+
+            const [usersRes, missionsRes, entriesRes, prioritiesRes] = await Promise.all([
+              httpGet(`${base}/users?select=*&order=last_name`, sbHeaders),
+              httpGet(`${base}/missions?select=*&order=client`, sbHeaders),
+              httpGet(`${base}/entries?select=*&week_key=eq.${lastWeekKey()}`, sbHeaders),
+              httpGet(`${base}/priorities?select=*&order=due_date`, sbHeaders),
+            ]);
+
+            const users      = JSON.parse(usersRes.body);
+            const missions   = JSON.parse(missionsRes.body);
+            const entries    = JSON.parse(entriesRes.body);
+            const priorities = JSON.parse(prioritiesRes.body);
+
+            console.log(`Données: ${users.length} users, ${missions.length} missions, ${entries.length} entries, ${priorities.length} priorities`);
+
+            // ── 3. Utilitaires date ─────────────────────────────────────────
+            function isoWeek(d) {
+              const t = new Date(d); t.setHours(0,0,0,0);
+              t.setDate(t.getDate() + 4 - (t.getDay() || 7));
+              const y = new Date(t.getFullYear(), 0, 1);
+              return Math.ceil(((t - y) / 86400000 + 1) / 7);
+            }
+
+            function lastWeekKey() {
+              const n = new Date();
+              const dow = n.getDay() || 7;
+              const mo = new Date(n);
+              mo.setDate(n.getDate() - dow + 1 - 7);
+              mo.setHours(0,0,0,0);
+              return `${mo.getFullYear()}-W${String(isoWeek(mo)).padStart(2,'0')}`;
+            }
+
+            function lastWeekLabel() {
+              const n = new Date();
+              const dow = n.getDay() || 7;
+              const mo = new Date(n); mo.setDate(n.getDate() - dow + 1 - 7); mo.setHours(0,0,0,0);
+              const fr = new Date(mo); fr.setDate(mo.getDate() + 4);
+              const M = ['jan.','fév.','mar.','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
+              return `Sem. ${isoWeek(mo)} — ${mo.getDate()} ${M[mo.getMonth()]} au ${fr.getDate()} ${M[fr.getMonth()]} ${mo.getFullYear()}`;
+            }
+
+            const PUBLIC_HOLIDAYS = {
+              '2026-W01':1,'2026-W15':1,'2026-W18':1,'2026-W19':1,'2026-W20':1,
+              '2026-W22':1,'2026-W29':1,'2026-W46':1,'2026-W52':1,'2026-W53':1,
+              '2027-W13':1,'2027-W18':1,'2027-W20':1,'2027-W28':1,'2027-W44':1,'2027-W45':1,
+              '2028-W16':1,'2028-W18':1,'2028-W19':1,'2028-W21':1,'2028-W23':1,
+              '2028-W28':1,'2028-W33':1,'2028-W44':1,'2028-W52':1,
+            };
+
+            function holidayPct(wk) { return (PUBLIC_HOLIDAYS[wk] || 0) * 0.2; }
+
+            // ── 4. Construction du corps texte ──────────────────────────────
+            const wk    = lastWeekKey();
+            const wkLbl = lastWeekLabel();
+            const co    = users.filter(u => u.role === 'collaborateur' && !u.archived);
+            const hp    = holidayPct(wk);
+            const sep   = '─'.repeat(50);
+
+            // Section 1 : Missions facturables
+            const missionTotals  = {};
+            const missionDetails = {};
+            for (const e of entries) {
+              if (e.is_absence || !e.mission_id) continue;
+              const m = missions.find(m => m.id === e.mission_id);
+              if (!m || m.category !== 'billable') continue;
+              missionTotals[e.mission_id]  = (missionTotals[e.mission_id]  || 0) + e.pct;
+              if (!missionDetails[e.mission_id]) missionDetails[e.mission_id] = [];
+              const u = users.find(u => u.id === e.user_id);
+              if (u) missionDetails[e.mission_id].push({ name: `${u.first_name} ${u.last_name}`, pct: e.pct });
+            }
+            const sorted = Object.entries(missionTotals).sort(([,a],[,b]) => b - a);
+
+            let sec1 = '';
+            if (!sorted.length) {
+              sec1 = 'Aucune saisie facturable pour la semaine.\n';
+            } else {
+              for (const [mid, total] of sorted) {
+                const m = missions.find(m => m.id === mid);
+                if (!m) continue;
+                const label = m.task ? `${m.client} — ${m.task}` : m.client;
+                sec1 += `• ${label} : ${Math.round(total * 100)}%\n`;
+                const det = (missionDetails[mid] || [])
+                  .sort((a,b) => b.pct - a.pct)
+                  .map(d => `${d.name} (${Math.round(d.pct * 100)}%)`)
+                  .join(', ');
+                sec1 += `  ${det}\n\n`;
+              }
+            }
+
+            // Section 2 : Détail par collaborateur
+            let sec2 = '';
+            for (const u of co) {
+              const ue  = entries.filter(e => e.user_id === u.id);
+              const bil = ue.filter(e => { const m = missions.find(m => m.id === e.mission_id); return m && m.category === 'billable'; });
+              const int = ue.filter(e => { const m = missions.find(m => m.id === e.mission_id); return m && m.category === 'internal'; });
+              const abs = ue.filter(e => e.is_absence);
+              const total = [...bil,...int,...abs].reduce((s,e) => s + e.pct, 0) + hp;
+
+              sec2 += `${u.first_name} ${u.last_name} : ${Math.round(total * 100)}%\n`;
+              if (!ue.length && hp === 0) {
+                sec2 += `  Pas de staffing renseigné cette semaine\n`;
+              } else {
+                for (const e of [...bil].sort((a,b) => b.pct - a.pct)) {
+                  const m = missions.find(m => m.id === e.mission_id);
+                  if (!m) continue;
+                  sec2 += `  ${m.task ? `${m.client} — ${m.task}` : m.client} : ${Math.round(e.pct * 100)}%\n`;
+                }
+                for (const e of [...int].sort((a,b) => b.pct - a.pct)) {
+                  const m = missions.find(m => m.id === e.mission_id);
+                  if (!m) continue;
+                  sec2 += `  ${m.task ? `${m.client} — ${m.task}` : m.client} : ${Math.round(e.pct * 100)}%\n`;
+                }
+                for (const e of abs) sec2 += `  Congés / Absences : ${Math.round(e.pct * 100)}%\n`;
+                if (hp > 0) sec2 += `  Jours fériés : ${Math.round(hp * 100)}%\n`;
+              }
+              sec2 += '\n';
+            }
+
+            // Section 3 : Priorités 2 semaines à venir
+            const today = new Date(); today.setHours(0,0,0,0);
+            const limit = new Date(today.getTime() + 14 * 86400000);
+            const JOURS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+            const MOIS  = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+            const upcoming = priorities
+              .filter(p => { const d = new Date(p.due_date); d.setHours(0,0,0,0); return d >= today && d <= limit; })
+              .sort((a,b) => new Date(a.due_date) - new Date(b.due_date));
+
+            let sec3 = '';
+            if (!upcoming.length) {
+              sec3 = 'Aucune priorité renseignée pour les deux prochaines semaines.\n';
+            } else {
+              for (const p of upcoming) {
+                const d = new Date(p.due_date);
+                const dateFr = `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]} ${d.getFullYear()}`;
+                const m = missions.find(m => m.id === p.mission_id);
+                const mLabel = m ? (m.task ? `${m.client} — ${m.task}` : m.client) : '';
+                sec3 += `${dateFr} : ${mLabel ? `${p.name} (${mLabel})` : p.name}\n`;
+                const assignees = (p.assignees || [])
+                  .map(uid => users.find(u => u.id === uid))
+                  .filter(Boolean)
+                  .map(u => `${u.first_name} ${u.last_name}`)
+                  .join(', ');
+                if (assignees) sec3 += `  Collaborateurs concernés : ${assignees}\n`;
+                sec3 += '\n';
+              }
+            }
+
+            const textBody =
+              `RÉCAPITULATIF HEBDOMADAIRE DE STAFFING\n`
+            + `Semaine : ${wkLbl}\n`
+            + `${sep}\n\n`
+            + `1. MISSIONS\n\n` + sec1
+            + `${sep}\n\n`
+            + `2. DÉTAIL PAR COLLABORATEUR\n\n` + sec2
+            + `${sep}\n\n`
+            + `3. GESTION DES PRIORITÉS (2 semaines à venir)\n\n` + sec3
+            + `${sep}\n`
+            + `Email généré automatiquement par Upside Staffing`;
+
+            // ── 5. HTML email ───────────────────────────────────────────────
+            function buildHtml(text) {
+              const lines = text.split('\n');
+              let html = '';
+              for (const line of lines) {
+                if (line.startsWith('RÉCAPITULATIF')) {
+                  html += `<h1 style="color:#1a2234;font-size:18px;margin:0 0 4px;">${line}</h1>`;
+                } else if (line.startsWith('Semaine :')) {
+                  html += `<p style="color:#6b7280;font-size:13px;margin:0 0 16px;">${line}</p>`;
+                } else if (/^─+$/.test(line)) {
+                  html += `<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;">`;
+                } else if (/^\d+\. /.test(line)) {
+                  html += `<h2 style="color:#1a2234;font-size:15px;margin:20px 0 10px;">${line}</h2>`;
+                } else if (line.startsWith('•')) {
+                  html += `<p style="margin:6px 0 2px;font-weight:700;">${line}</p>`;
+                } else if (line.startsWith('  ') && line.trim()) {
+                  html += `<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">${line.trim()}</p>`;
+                } else if (line.trim()) {
+                  // Ligne collaborateur (Prénom Nom : X%)
+                  if (/^[A-ZÀÂÄÉÈÊËÎÏÔÙÛÜ]/.test(line) && line.includes(' : ')) {
+                    const [name, pct] = line.split(' : ');
+                    html += `<p style="margin:10px 0 2px;font-weight:700;">${name} : <span style="color:#c9a84c;">${pct}</span></p>`;
+                  } else {
+                    html += `<p style="margin:2px 0;font-size:13px;">${line}</p>`;
+                  }
+                } else {
+                  html += `<br>`;
+                }
+              }
+              return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>
+              <body style="margin:0;padding:0;background:#f0f0ee;font-family:'Segoe UI',Calibri,sans-serif;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0ee;padding:32px 16px;">
+                <tr><td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+                    <tr><td style="background:#1a2234;padding:24px 32px;">
+                      <span style="color:#c9a84c;font-size:20px;font-weight:700;">UPSIDE</span>
+                      <span style="color:rgba(255,255,255,.4);font-size:12px;letter-spacing:.1em;margin-left:12px;text-transform:uppercase;">Conseil & Transactions</span>
+                    </td></tr>
+                    <tr><td style="padding:32px;font-size:14px;line-height:1.7;color:#1a2234;">${html}</td></tr>
+                    <tr><td style="background:#f9f9f7;padding:16px 32px;border-top:1px solid #e5e7eb;">
+                      <p style="margin:0;font-size:11px;color:#9ca3af;">Email généré automatiquement par l'outil de staffing Upside.</p>
+                    </td></tr>
+                  </table>
+                </td></tr>
+              </table></body></html>`;
+            }
+
+            // ── 6. Envoi via Microsoft Graph ────────────────────────────────
+            console.log('Envoi de l\'email via Microsoft Graph…');
+            const emailPayload = {
+              message: {
+                subject: `Récapitulatif hebdomadaire de Staffing — ${wkLbl}`,
+                body: {
+                  contentType: 'HTML',
+                  content: buildHtml(textBody)
+                },
+                toRecipients: [
+                  { emailAddress: { address: 'mroux@upside.paris' } }
+                ]
+              },
+              saveToSentItems: false
+            };
+
+            const sendRes = await httpPost(
+              'https://graph.microsoft.com/v1.0/users/envoi-auto@upside.paris/sendMail',
+              {
+                'Authorization': `Bearer ${access_token}`,
+                'Content-Type': 'application/json'
+              },
+              emailPayload
+            );
+
+            if (sendRes.status === 202) {
+              console.log('✅ Email envoyé avec succès à mroux@upside.paris');
+            } else {
+              throw new Error(`Erreur envoi email (${sendRes.status}): ${sendRes.body}`);
+            }

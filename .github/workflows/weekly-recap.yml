@@ -29,7 +29,7 @@ jobs:
             const AZURE_CLIENT_SECRET = process.env.AZURE_CLIENT_SECRET;
             const FROM_ADDRESS        = 'envoi-auto@upside.paris';
             const TO_ADDRESS          = 'mroux@upside.paris';
-            const LOGO_SRC            = 'data:image/jpeg;base64,' + process.env.LOGO_BASE64;
+            const LOGO_SRC            = 'data:image/png;base64,' + process.env.LOGO_BASE64;
 
             function isoMonday(date) {
               const d = new Date(date);
@@ -52,18 +52,6 @@ jobs:
               const w = String(isoWeekNumber(lastMon)).padStart(2, '0');
               return y + '-W' + w;
             }
-            function lastWeekLabel() {
-              const wk = lastWeekKey();
-              const parts = wk.split('-W');
-              const y = parseInt(parts[0], 10);
-              const wNum = parseInt(parts[1], 10);
-              const jan4 = new Date(Date.UTC(y, 0, 4));
-              const jan4Day = jan4.getUTCDay() || 7;
-              const monday = new Date(jan4.getTime() + (wNum * 7 - jan4Day - 2) * 86400000);
-              const friday = new Date(monday.getTime() + 4 * 86400000);
-              const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-              return friday.getUTCDate() + ' ' + MOIS[friday.getUTCMonth()] + ' ' + friday.getUTCFullYear();
-            }
             function lastWeekRange() {
               const wk = lastWeekKey();
               const parts = wk.split('-W');
@@ -73,7 +61,7 @@ jobs:
               const jan4Day = jan4.getUTCDay() || 7;
               const monday = new Date(jan4.getTime() + (wNum * 7 - jan4Day - 2) * 86400000);
               const friday = new Date(monday.getTime() + 4 * 86400000);
-              const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+              const MOIS = ['janvier','f\u00e9vrier','mars','avril','mai','juin','juillet','ao\u00fbt','septembre','octobre','novembre','d\u00e9cembre'];
               return monday.getUTCDate() + ' ' + MOIS[monday.getUTCMonth()] + ' au ' + friday.getUTCDate() + ' ' + MOIS[friday.getUTCMonth()] + ' ' + friday.getUTCFullYear();
             }
 
@@ -164,7 +152,8 @@ jobs:
               const totalAbs = abs.reduce(function(s, e) { return s + e.pct; }, 0);
               const total    = totalBil + totalInt + Math.max(totalAbs, hp);
               const pctColor = total >= 1 ? '#c9a84c' : '#1a2234';
-              collabRows += '<p style="margin:10px 0 2px;font-weight:700;">' + u.first_name + ' ' + u.last_name + ' : <span style="color:' + pctColor + ';">' + Math.round(total * 100) + '%</span></p>';
+              const pctStr   = Math.round(total * 100) + '%';
+              collabRows += '<p style="margin:10px 0 2px;font-weight:700;">' + u.first_name + ' ' + u.last_name + ' : <span style="color:' + pctColor + ';">' + pctStr + '</span></p>';
               if (!ue.length && hp === 0) {
                 collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">Pas de staffing renseign\u00e9 cette semaine</p>';
               } else {
@@ -227,7 +216,7 @@ jobs:
               '<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">',
               '<tbody>',
               '<tr><td style="background:#1a2234;padding:20px 32px;">',
-              '<img src="' + LOGO_SRC + '" alt="Upside" style="height:32px;width:auto;filter:invert(1);">',
+              '<img src="' + LOGO_SRC + '" alt="Upside" style="height:32px;width:auto;">',
               '</td></tr>',
               '<tr><td style="padding:32px;font-size:14px;line-height:1.7;color:#1a2234;">',
               '<h1 style="color:#1a2234;font-size:18px;margin:0 0 4px;">R\u00c9CAPITULATIF HEBDOMADAIRE DE STAFFING</h1>',

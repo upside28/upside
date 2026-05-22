@@ -135,7 +135,7 @@ jobs:
                   .sort(function(a, b) { return b.pct - a.pct; })
                   .map(function(d) { return d.user.first_name + ' ' + d.user.last_name + ' (' + Math.round(d.pct * 100) + '%)'; })
                   .join(', ');
-                missionRows += '<p style="margin:6px 0 2px;font-weight:700;">\u2022 ' + label + ' : ' + Math.round(total * 100) + '%</p>';
+                missionRows += '<p style="margin:6px 0 2px;font-weight:700;color:#1a2234;">\u2022 ' + label + ' : ' + Math.round(total * 100) + '%</p>';
                 missionRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">' + details + '</p><br>';
               }
             }

@@ -131,7 +131,7 @@ jobs:
               for (const [mid, total] of missionsSorted) {
                 const m = missions.find(function(m) { return m.id === mid; });
                 if (!m) continue;
-                const label = m.task ? m.client + ' \u2014 ' + m.task : m.client;
+                const label = m.task ? m.client + ' : ' + m.task : m.client;
                 const details = (missionDetails[mid] || [])
                   .sort(function(a, b) { return b.pct - a.pct; })
                   .map(function(d) { return d.user.first_name + ' ' + d.user.last_name + ' (' + Math.round(d.pct * 100) + '%)'; })
@@ -160,13 +160,13 @@ jobs:
                 for (const e of bil.sort(function(a, b) { return b.pct - a.pct; })) {
                   const m = missions.find(function(m) { return m.id === e.mission_id; });
                   if (!m) continue;
-                  const label = m.task ? m.client + ' \u2014 ' + m.task : m.client;
+                  const label = m.task ? m.client + ' : ' + m.task : m.client;
                   collabRows += '<p style="margin:0 0 2px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">' + label + ' : ' + Math.round(e.pct * 100) + '%</p>';
                 }
                 for (const e of int.sort(function(a, b) { return b.pct - a.pct; })) {
                   const m = missions.find(function(m) { return m.id === e.mission_id; });
                   if (!m) continue;
-                  const label = m.task ? m.client + ' \u2014 ' + m.task : m.client;
+                  const label = m.task ? m.client + ' : ' + m.task : m.client;
                   collabRows += '<p style="margin:0 0 2px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">' + label + ' : ' + Math.round(e.pct * 100) + '%</p>';
                 }
                 for (const e of abs) {
@@ -194,7 +194,7 @@ jobs:
                 const d      = new Date(p.due_date);
                 const dateFr = JOURS_LONG[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MOIS_LONG[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
                 const m      = missions.find(function(m) { return m.id === p.mission_id; });
-                const mLabel = m ? (m.task ? m.client + ' \u2014 ' + m.task : m.client) : '';
+                const mLabel = m ? (m.task ? m.client + ' : ' + m.task : m.client) : '';
                 const nameLabel = mLabel ? p.name + ' (' + mLabel + ')' : p.name;
                 const assignees = (p.assignees || [])
                   .map(function(uid) { return users.find(function(u) { return u.id === uid; }); })
@@ -222,13 +222,13 @@ jobs:
               '<h1 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:16px;font-weight:700;color:#1a2234;margin:0 0 4px;letter-spacing:.02em;">R\u00c9CAPITULATIF HEBDOMADAIRE DE STAFFING</h1>',
               '<p style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:13px;color:#6b7280;margin:0 0 16px;">' + wkLbl + '</p>',
               '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;"><br>',
-              '<h2 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:11px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;">1. MISSIONS</h2><br>',
+              '<h2 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:15px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;">1. MISSIONS</h2><br>',
               missionRows,
               '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;"><br>',
-              '<h2 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:11px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;">2. D\u00c9TAIL PAR COLLABORATEUR</h2><br>',
+              '<h2 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:15px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;">2. D\u00c9TAIL PAR COLLABORATEUR</h2><br>',
               collabRows,
               '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;"><br>',
-              '<h2 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:11px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;">3. GESTION DES PRIORIT\u00c9S (2 semaines \u00e0 venir)</h2><br>',
+              '<h2 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:15px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;">3. GESTION DES PRIORIT\u00c9S (2 semaines \u00e0 venir)</h2><br>',
               prioRows,
               '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;">',
               '</td></tr>',

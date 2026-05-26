@@ -201,8 +201,8 @@ jobs:
                   .filter(Boolean)
                   .map(function(u) { return u.first_name + ' ' + u.last_name; })
                   .join(', ');
-                prioRows += '<p style="margin:2px 0;font-family:' + FONT + ';font-size:14px;font-weight:700;color:#1a2234;">' + dateFr + ' : ' + nameLabel + '</p>';
-                if (assignees) prioRows += '<p style="margin:0 0 6px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">Collaborateurs : ' + assignees + '</p>';
+                prioRows += '<p style="margin:6px 0 2px;font-family:' + FONT + ';font-size:14px;font-weight:700;color:#1a2234;">' + dateFr + ' : ' + nameLabel + '</p>';
+                prioRows += '<p style="margin:0 0 8px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">Collaborateurs : ' + (assignees || 'Non renseign\u00e9') + '</p>';
               }
             }
 
@@ -219,7 +219,7 @@ jobs:
               '<img src="' + LOGO_SRC + '" alt="Upside" style="height:32px;width:auto;">',
               '</td></tr>',
               '<tr><td style="padding:32px;font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:14px;line-height:1.7;color:#1a2234;">',
-              '<h1 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:16px;font-weight:700;color:#1a2234;margin:0 0 4px;letter-spacing:.02em;">R\u00c9CAPITULATIF HEBDOMADAIRE DE STAFFING</h1>',
+              '<h1 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:16px;font-weight:700;color:#1a2234;margin:0 0 4px;letter-spacing:.02em;">R\u00c9CAPITULATIF HEBDOMADAIRE DU STAFFING</h1>',
               '<p style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:13px;color:#6b7280;margin:0 0 16px;">' + wkLbl + '</p>',
               '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;"><br>',
               '<h2 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:15px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;">1. MISSIONS</h2><br>',

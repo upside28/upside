@@ -1,8 +1,10 @@
 name: Weekly Staffing Recap
 
 on:
-  schedule:
-    - cron: '0 7 * * 1'
+  # Déclenchement assuré par un ordonnanceur externe (cron-job.org) qui appelle
+  # l'API GitHub à 8h00 Europe/Paris, fuseau géré côté ordonnanceur.
+  # Le déclenchement programmé GitHub (schedule) a été retiré : sa file d'attente
+  # ne garantit pas la ponctualité. workflow_dispatch reste utilisable à la main.
   workflow_dispatch:
 
 jobs:
@@ -123,21 +125,20 @@ jobs:
             }
             const missionsSorted = Object.entries(missionTotals).sort(function(a, b) { return b[1] - a[1]; });
 
-            const FONT = "Aptos,'Segoe UI',Calibri,sans-serif";
             let missionRows = '';
             if (!missionsSorted.length) {
-              missionRows = '<p style="margin:2px 0;font-family:' + FONT + ';font-size:13px;color:#374151;">Aucune saisie facturable pour la semaine.</p>';
+              missionRows = '<p style="margin:2px 0;font-size:13px;">Aucune saisie facturable pour la semaine.</p>';
             } else {
               for (const [mid, total] of missionsSorted) {
                 const m = missions.find(function(m) { return m.id === mid; });
                 if (!m) continue;
-                const label = m.task ? m.client + ' : ' + m.task : m.client;
+                const label = m.task ? m.client + ' \u2014 ' + m.task : m.client;
                 const details = (missionDetails[mid] || [])
                   .sort(function(a, b) { return b.pct - a.pct; })
                   .map(function(d) { return d.user.first_name + ' ' + d.user.last_name + ' (' + Math.round(d.pct * 100) + '%)'; })
                   .join(', ');
-                missionRows += '<p style="margin:6px 0 2px;font-family:' + FONT + ';font-size:14px;font-weight:700;color:#1a2234;">\u2022 ' + label + ' : ' + Math.round(total * 100) + '%</p>';
-                missionRows += '<p style="margin:0 0 2px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">' + details + '</p><br>';
+                missionRows += '<p style="margin:6px 0 2px;font-weight:700;color:#1a2234;">\u2022 ' + label + ' : ' + Math.round(total * 100) + '%</p>';
+                missionRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">' + details + '</p><br>';
               }
             }
 
@@ -152,28 +153,29 @@ jobs:
               const totalInt = int.reduce(function(s, e) { return s + e.pct; }, 0);
               const totalAbs = abs.reduce(function(s, e) { return s + e.pct; }, 0);
               const total    = totalBil + totalInt + Math.max(totalAbs, hp);
+              const pctColor = total >= 1 ? '#c9a84c' : '#1a2234';
               const pctStr   = Math.round(total * 100) + '%';
-              collabRows += '<p style="margin:10px 0 2px;font-family:' + FONT + ';font-size:14px;font-weight:700;color:#1a2234;">' + u.first_name + ' ' + u.last_name + ' : ' + pctStr + '</p>';
+              collabRows += '<p style="margin:10px 0 2px;font-weight:700;">' + u.first_name + ' ' + u.last_name + ' : <span style="color:' + pctColor + ';">' + pctStr + '</span></p>';
               if (!ue.length && hp === 0) {
-                collabRows += '<p style="margin:0 0 2px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">Pas de staffing renseign\u00e9 cette semaine</p>';
+                collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">Pas de staffing renseign\u00e9 cette semaine</p>';
               } else {
                 for (const e of bil.sort(function(a, b) { return b.pct - a.pct; })) {
                   const m = missions.find(function(m) { return m.id === e.mission_id; });
                   if (!m) continue;
-                  const label = m.task ? m.client + ' : ' + m.task : m.client;
-                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">' + label + ' : ' + Math.round(e.pct * 100) + '%</p>';
+                  const label = m.task ? m.client + ' \u2014 ' + m.task : m.client;
+                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">' + label + ' : ' + Math.round(e.pct * 100) + '%</p>';
                 }
                 for (const e of int.sort(function(a, b) { return b.pct - a.pct; })) {
                   const m = missions.find(function(m) { return m.id === e.mission_id; });
                   if (!m) continue;
-                  const label = m.task ? m.client + ' : ' + m.task : m.client;
-                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">' + label + ' : ' + Math.round(e.pct * 100) + '%</p>';
+                  const label = m.task ? m.client + ' \u2014 ' + m.task : m.client;
+                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">' + label + ' : ' + Math.round(e.pct * 100) + '%</p>';
                 }
                 for (const e of abs) {
-                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">Cong\u00e9s / Absences : ' + Math.round(e.pct * 100) + '%</p>';
+                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">Cong\u00e9s / Absences : ' + Math.round(e.pct * 100) + '%</p>';
                 }
                 if (hp > 0) {
-                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">Jours f\u00e9ri\u00e9s : ' + Math.round(hp * 100) + '%</p>';
+                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">Jours f\u00e9ri\u00e9s : ' + Math.round(hp * 100) + '%</p>';
                 }
               }
             }
@@ -188,21 +190,21 @@ jobs:
               .sort(function(a, b) { return new Date(a.due_date) - new Date(b.due_date); });
             let prioRows = '';
             if (!upcomingPrios.length) {
-              prioRows = '<p style="margin:2px 0;font-family:' + FONT + ';font-size:13px;color:#374151;">Aucune priorit\u00e9 renseign\u00e9e pour les deux prochaines semaines.</p>';
+              prioRows = '<p style="margin:2px 0;font-size:13px;">Aucune priorit\u00e9 renseign\u00e9e pour les deux prochaines semaines.</p>';
             } else {
               for (const p of upcomingPrios) {
                 const d      = new Date(p.due_date);
                 const dateFr = JOURS_LONG[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MOIS_LONG[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
                 const m      = missions.find(function(m) { return m.id === p.mission_id; });
-                const mLabel = m ? (m.task ? m.client + ' : ' + m.task : m.client) : '';
+                const mLabel = m ? (m.task ? m.client + ' \u2014 ' + m.task : m.client) : '';
                 const nameLabel = mLabel ? p.name + ' (' + mLabel + ')' : p.name;
                 const assignees = (p.assignees || [])
                   .map(function(uid) { return users.find(function(u) { return u.id === uid; }); })
                   .filter(Boolean)
                   .map(function(u) { return u.first_name + ' ' + u.last_name; })
                   .join(', ');
-                prioRows += '<p style="margin:6px 0 2px;font-family:' + FONT + ';font-size:14px;font-weight:700;color:#1a2234;">' + dateFr + ' : ' + nameLabel + '</p>';
-                prioRows += '<p style="margin:0 0 8px;padding-left:16px;font-family:' + FONT + ';font-size:13px;color:#374151;">Collaborateurs : ' + (assignees || 'Non renseign\u00e9') + '</p>';
+                prioRows += '<p style="margin:2px 0;font-size:13px;"><strong>' + dateFr + '</strong> : ' + nameLabel + '</p>';
+                if (assignees) prioRows += '<p style="margin:0 0 6px;padding-left:16px;font-size:12px;color:#6b7280;">Collaborateurs : ' + assignees + '</p>';
               }
             }
 
@@ -210,7 +212,7 @@ jobs:
             const wkLbl = lastWeekRange();
             const H = [
               '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>',
-              '<body style="margin:0;padding:0;background:#f0f0ee;font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;">',
+              '<body style="margin:0;padding:0;background:#f0f0ee;font-family:\'Segoe UI\',Calibri,sans-serif;">',
               '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0ee;padding:32px 16px;">',
               '<tbody><tr><td align="center">',
               '<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">',
@@ -218,22 +220,22 @@ jobs:
               '<tr><td style="background:#1a2234;padding:20px 32px;">',
               '<img src="' + LOGO_SRC + '" alt="Upside" style="height:32px;width:auto;">',
               '</td></tr>',
-              '<tr><td style="padding:32px;font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:14px;line-height:1.7;color:#1a2234;">',
-              '<h1 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:16px;font-weight:700;color:#1a2234;margin:0 0 4px;letter-spacing:.02em;">R\u00c9CAPITULATIF HEBDOMADAIRE DU STAFFING</h1>',
-              '<p style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:13px;color:#6b7280;margin:0 0 16px;">' + wkLbl + '</p>',
+              '<tr><td style="padding:32px;font-size:14px;line-height:1.7;color:#1a2234;">',
+              '<h1 style="color:#1a2234;font-size:18px;margin:0 0 4px;">R\u00c9CAPITULATIF HEBDOMADAIRE DE STAFFING</h1>',
+              '<p style="color:#6b7280;font-size:13px;margin:0 0 16px;">' + wkLbl + '</p>',
               '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;"><br>',
-              '<h2 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:15px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;">1. MISSIONS</h2><br>',
+              '<h2 style="color:#1a2234;font-size:15px;margin:20px 0 10px;">1. MISSIONS</h2><br>',
               missionRows,
               '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;"><br>',
-              '<h2 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:15px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;">2. D\u00c9TAIL PAR COLLABORATEUR</h2><br>',
+              '<h2 style="color:#1a2234;font-size:15px;margin:20px 0 10px;">2. D\u00c9TAIL PAR COLLABORATEUR</h2><br>',
               collabRows,
               '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;"><br>',
-              '<h2 style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:15px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px;">3. GESTION DES PRIORIT\u00c9S (2 semaines \u00e0 venir)</h2><br>',
+              '<h2 style="color:#1a2234;font-size:15px;margin:20px 0 10px;">3. GESTION DES PRIORIT\u00c9S (2 semaines \u00e0 venir)</h2><br>',
               prioRows,
               '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;">',
               '</td></tr>',
               '<tr><td style="background:#f9f9f7;padding:16px 32px;border-top:1px solid #e5e7eb;">',
-              '<p style="font-family:Aptos,\'Segoe UI\',Calibri,sans-serif;font-size:11px;color:#9ca3af;margin:0;">Email g\u00e9n\u00e9r\u00e9 automatiquement par l\'outil de staffing Upside.</p>',
+              '<p style="margin:0;font-size:11px;color:#9ca3af;">Email g\u00e9n\u00e9r\u00e9 automatiquement par l\'outil de staffing Upside.</p>',
               '</td></tr>',
               '</tbody></table>',
               '</td></tr></tbody></table>',

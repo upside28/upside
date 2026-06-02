@@ -1,0 +1,234 @@
+name: Friday Staffing Reminder
+
+on:
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: 'morning (11h) ou afternoon (17h)'
+        required: true
+        default: 'morning'
+        type: choice
+        options:
+          - morning
+          - afternoon
+
+jobs:
+  send-reminder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Send staffing reminder
+        uses: actions/github-script@v7
+        env:
+          AZURE_TENANT_ID:     ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID:     ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
+          LOGO_BASE64:         ${{ secrets.LOGO_BASE64 }}
+          SLOT:                ${{ inputs.slot }}
+        with:
+          script: |
+            const SUPABASE_URL        = process.env.SUPABASE_URL;
+            const SUPABASE_KEY        = process.env.SUPABASE_KEY;
+            const AZURE_TENANT_ID     = process.env.AZURE_TENANT_ID;
+            const AZURE_CLIENT_ID     = process.env.AZURE_CLIENT_ID;
+            const AZURE_CLIENT_SECRET = process.env.AZURE_CLIENT_SECRET;
+            const FROM_ADDRESS        = 'envoi-auto@upside.paris';
+            const LOGO_SRC            = 'data:image/png;base64,' + process.env.LOGO_BASE64;
+            const SLOT                = process.env.SLOT; // 'morning' | 'afternoon'
+
+            // ── Clé semaine courante (lundi de la semaine en cours) ──────────────
+            function isoMonday(date) {
+              const d = new Date(date);
+              const day = d.getUTCDay() || 7;
+              d.setUTCDate(d.getUTCDate() - day + 1);
+              d.setUTCHours(0, 0, 0, 0);
+              return d;
+            }
+            function isoWeekNumber(date) {
+              const d = new Date(date);
+              d.setUTCHours(0, 0, 0, 0);
+              d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+              const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+              return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            }
+            function currentWeekKey() {
+              const now = new Date();
+              const mon = isoMonday(now);
+              const y   = mon.getUTCFullYear();
+              const w   = String(isoWeekNumber(mon)).padStart(2, '0');
+              return y + '-W' + w;
+            }
+
+            // ── Jours fériés (même référentiel que weekly-recap) ────────────────
+            const JOURS_FERIES = new Set([
+              '2026-01-01','2026-04-06','2026-05-01','2026-05-08','2026-05-14','2026-05-25',
+              '2026-07-14','2026-08-15','2026-11-01','2026-11-11','2026-12-25',
+              '2027-01-01','2027-03-29','2027-05-01','2027-05-08','2027-05-06','2027-05-17',
+              '2027-07-14','2027-08-15','2027-11-01','2027-11-11','2027-12-25',
+              '2028-01-01','2028-04-17','2028-05-01','2028-05-08','2028-05-25','2028-06-05',
+              '2028-07-14','2028-08-15','2028-11-01','2028-11-11','2028-12-25',
+            ]);
+            function holidayPct(weekKey) {
+              const parts  = weekKey.split('-W');
+              const y      = parseInt(parts[0], 10);
+              const wNum   = parseInt(parts[1], 10);
+              const jan4   = new Date(Date.UTC(y, 0, 4));
+              const jan4Day = jan4.getUTCDay() || 7;
+              const monday = new Date(jan4.getTime() + (wNum * 7 - jan4Day - 2) * 86400000);
+              let count = 0;
+              for (let i = 0; i < 5; i++) {
+                const d = new Date(monday.getTime() + i * 86400000);
+                if (JOURS_FERIES.has(d.toISOString().slice(0, 10))) count++;
+              }
+              return count / 5;
+            }
+
+            // ── Supabase ─────────────────────────────────────────────────────────
+            async function supabaseFetch(table, params) {
+              params = params || '';
+              const url = SUPABASE_URL + '/rest/v1/' + table + '?' + params;
+              const res = await fetch(url, {
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': 'Bearer ' + SUPABASE_KEY,
+                  'Accept': 'application/json'
+                },
+              });
+              if (!res.ok) throw new Error('Supabase ' + table + ': ' + res.status + ' ' + (await res.text()));
+              return res.json();
+            }
+
+            // ── Chargement des données ───────────────────────────────────────────
+            const wk = currentWeekKey();
+            const [users, missions, entries] = await Promise.all([
+              supabaseFetch('users',   'select=*&archived=eq.false&order=last_name.asc'),
+              supabaseFetch('missions','select=*&archived=eq.false'),
+              supabaseFetch('entries', 'select=*&week_key=eq.' + wk),
+            ]);
+
+            const hp = holidayPct(wk);
+
+            // ── Collaborateurs sous le seuil de 50 % ────────────────────────────
+            // Seuil : billable + internal + absences + fériés < 0.5
+            const collaborateurs = users.filter(function(u) {
+              return u.role === 'collaborateur' && !u.archived;
+            });
+
+            const toNotify = collaborateurs.filter(function(u) {
+              const ue      = entries.filter(function(e) { return e.user_id === u.id; });
+              const bil     = ue.filter(function(e) {
+                const m = missions.find(function(m) { return m.id === e.mission_id; });
+                return m && m.category === 'billable';
+              });
+              const int     = ue.filter(function(e) {
+                const m = missions.find(function(m) { return m.id === e.mission_id; });
+                return m && m.category === 'internal';
+              });
+              const abs     = ue.filter(function(e) { return e.is_absence; });
+              const totalBil = bil.reduce(function(s, e) { return s + e.pct; }, 0);
+              const totalInt = int.reduce(function(s, e) { return s + e.pct; }, 0);
+              const totalAbs = abs.reduce(function(s, e) { return s + e.pct; }, 0);
+              const total    = totalBil + totalInt + totalAbs + hp;
+              return total < 0.5;
+            });
+
+            if (toNotify.length === 0) {
+              console.log('Aucun collaborateur sous le seuil de 50 % — aucun mail envoy\u00e9.');
+              return;
+            }
+
+            // ── Auth Microsoft Graph ─────────────────────────────────────────────
+            const tokenRes = await fetch(
+              'https://login.microsoftonline.com/' + AZURE_TENANT_ID + '/oauth2/v2.0/token',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                  grant_type:    'client_credentials',
+                  client_id:     AZURE_CLIENT_ID,
+                  client_secret: AZURE_CLIENT_SECRET,
+                  scope:         'https://graph.microsoft.com/.default',
+                }),
+              }
+            );
+            if (!tokenRes.ok) throw new Error('Auth Graph : ' + tokenRes.status + ' ' + (await tokenRes.text()));
+            const { access_token } = await tokenRes.json();
+
+            // ── Contenu selon le slot ────────────────────────────────────────────
+            const isMorning = SLOT === 'morning';
+            const subject = isMorning
+              ? 'Staffing Upside \u2014 rappel de saisie'
+              : 'Staffing Upside \u2014 saisie toujours incompl\u00e8te';
+            const headingText = isMorning
+              ? 'RAPPEL DE SAISIE \u2014 SEMAINE EN COURS'
+              : 'SAISIE INCOMPL\u00c8TE \u2014 ACTION REQUISE';
+            const bodyPara = isMorning
+              ? 'Votre saisie de staffing pour la semaine en cours appara\u00eet incompl\u00e8te\u00a0: moins de 50\u00a0% de votre semaine est actuellement renseign\u00e9 dans l\u2019outil.'
+              : 'Votre saisie de staffing pour la semaine en cours demeure en dessous de 50\u00a0%. Ce message est un second rappel automatique.';
+            const closingPara = isMorning
+              ? 'Nous vous remercions de bien vouloir compl\u00e9ter votre saisie avant la fin de journ\u00e9e.'
+              : 'Nous vous remercions de r\u00e9gulariser votre saisie.';
+            const toolUrl = 'https://upside28.github.io/upside/staffing.html';
+
+            // ── Envoi individuel ─────────────────────────────────────────────────
+            for (const u of toNotify) {
+              const toAddress = u.email || 'mroux@upside.paris'; // fallback si colonne vide
+              const firstName = u.first_name;
+
+              const htmlBody = [
+                '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>',
+                '<body style="margin:0;padding:0;background:#f0f0ee;font-family:\'Segoe UI\',Calibri,sans-serif;">',
+                '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0ee;padding:32px 16px;">',
+                '<tbody><tr><td align="center">',
+                '<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">',
+                '<tbody>',
+                '<tr><td style="background:#1a2234;padding:20px 32px;">',
+                '<img src="' + LOGO_SRC + '" alt="Upside" style="height:32px;width:auto;">',
+                '</td></tr>',
+                '<tr><td style="padding:32px;font-size:14px;line-height:1.7;color:#1a2234;">',
+                '<h1 style="color:#1a2234;font-size:18px;margin:0 0 24px;">' + headingText + '</h1>',
+                '<p style="margin:0 0 16px;">Bonjour ' + firstName + ',</p>',
+                '<p style="margin:0 0 16px;">' + bodyPara + '</p>',
+                '<p style="margin:0 0 24px;">' + closingPara + '</p>',
+                '<p style="margin:0;">',
+                '<a href="' + toolUrl + '" style="display:inline-block;padding:10px 20px;background:#c9a84c;color:#1a2234;font-weight:700;font-size:13px;border-radius:8px;text-decoration:none;">',
+                '\u2192 Acc\u00e9der \u00e0 l\u2019outil',
+                '</a>',
+                '</p>',
+                '</td></tr>',
+                '<tr><td style="background:#f9f9f7;padding:16px 32px;border-top:1px solid #e5e7eb;">',
+                '<p style="margin:0;font-size:11px;color:#9ca3af;">Email g\u00e9n\u00e9r\u00e9 automatiquement par l\u2019outil de staffing Upside.</p>',
+                '</td></tr>',
+                '</tbody></table>',
+                '</td></tr></tbody></table>',
+                '</body></html>',
+              ].join('');
+
+              const sendRes = await fetch(
+                'https://graph.microsoft.com/v1.0/users/' + FROM_ADDRESS + '/sendMail',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': 'Bearer ' + access_token,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    message: {
+                      subject: subject,
+                      body: { contentType: 'html', content: htmlBody },
+                      toRecipients: [{ emailAddress: { address: toAddress } }],
+                    },
+                    saveToSentItems: false,
+                  }),
+                }
+              );
+              if (sendRes.status === 202) {
+                console.log('Mail envoy\u00e9 \u2192 ' + firstName + ' ' + u.last_name + ' (' + toAddress + ')');
+              } else {
+                const errText = await sendRes.text();
+                console.error('Echec envoi \u2192 ' + toAddress + ' : ' + sendRes.status + ' ' + errText);
+              }
+            }

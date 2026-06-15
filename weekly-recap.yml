@@ -1,0 +1,282 @@
+name: Weekly Staffing Recap
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+jobs:
+  send-recap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Send weekly recap email
+        uses: actions/github-script@v7
+        env:
+          AZURE_TENANT_ID:     ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID:     ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
+          LOGO_BASE64:         ${{ secrets.LOGO_BASE64 }}
+        with:
+          script: |
+            const SUPABASE_URL        = process.env.SUPABASE_URL;
+            const SUPABASE_KEY        = process.env.SUPABASE_KEY;
+            const AZURE_TENANT_ID     = process.env.AZURE_TENANT_ID;
+            const AZURE_CLIENT_ID     = process.env.AZURE_CLIENT_ID;
+            const AZURE_CLIENT_SECRET = process.env.AZURE_CLIENT_SECRET;
+            const FROM_ADDRESS        = 'envoi-auto@upside.paris';
+            const TO_ADDRESS          = 'upsiders@upside.paris';
+            const LOGO_SRC            = 'data:image/png;base64,' + process.env.LOGO_BASE64;
+
+            function isoMonday(date) {
+              const d = new Date(date);
+              const day = d.getUTCDay() || 7;
+              d.setUTCDate(d.getUTCDate() - day + 1);
+              d.setUTCHours(0, 0, 0, 0);
+              return d;
+            }
+            function isoWeekNumber(date) {
+              const d = new Date(date);
+              d.setUTCHours(0, 0, 0, 0);
+              d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+              const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+              return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            }
+            function lastWeekKey() {
+              const now = new Date();
+              const lastMon = isoMonday(new Date(now.getTime() - 7 * 86400000));
+              const y = lastMon.getUTCFullYear();
+              const w = String(isoWeekNumber(lastMon)).padStart(2, '0');
+              return y + '-W' + w;
+            }
+            function lastWeekRange() {
+              const wk = lastWeekKey();
+              const parts = wk.split('-W');
+              const y = parseInt(parts[0], 10);
+              const wNum = parseInt(parts[1], 10);
+              const jan4 = new Date(Date.UTC(y, 0, 4));
+              const jan4Day = jan4.getUTCDay() || 7;
+              const monday = new Date(jan4.getTime() + (wNum * 7 - jan4Day - 2) * 86400000);
+              const friday = new Date(monday.getTime() + 4 * 86400000);
+              const MOIS = ['janvier','f\u00e9vrier','mars','avril','mai','juin','juillet','ao\u00fbt','septembre','octobre','novembre','d\u00e9cembre'];
+              return monday.getUTCDate() + ' ' + MOIS[monday.getUTCMonth()] + ' au ' + friday.getUTCDate() + ' ' + MOIS[friday.getUTCMonth()] + ' ' + friday.getUTCFullYear();
+            }
+
+            const JOURS_FERIES = new Set([
+              '2026-01-01','2026-04-06','2026-05-01','2026-05-08','2026-05-14','2026-05-25',
+              '2026-07-14','2026-08-15','2026-11-01','2026-11-11','2026-12-25',
+              '2027-01-01','2027-03-29','2027-05-01','2027-05-08','2027-05-06','2027-05-17',
+              '2027-07-14','2027-08-15','2027-11-01','2027-11-11','2027-12-25',
+              '2028-01-01','2028-04-17','2028-05-01','2028-05-08','2028-05-25','2028-06-05',
+              '2028-07-14','2028-08-15','2028-11-01','2028-11-11','2028-12-25',
+            ]);
+            function holidayPct(weekKey) {
+              const parts = weekKey.split('-W');
+              const y = parseInt(parts[0], 10);
+              const wNum = parseInt(parts[1], 10);
+              const jan4 = new Date(Date.UTC(y, 0, 4));
+              const jan4Day = jan4.getUTCDay() || 7;
+              const monday = new Date(jan4.getTime() + (wNum * 7 - jan4Day - 2) * 86400000);
+              let count = 0;
+              for (let i = 0; i < 5; i++) {
+                const d = new Date(monday.getTime() + i * 86400000);
+                if (JOURS_FERIES.has(d.toISOString().slice(0, 10))) count++;
+              }
+              return count / 5;
+            }
+
+            async function supabaseFetch(table, params) {
+              params = params || '';
+              const url = SUPABASE_URL + '/rest/v1/' + table + '?' + params;
+              const res = await fetch(url, {
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Accept': 'application/json' },
+              });
+              if (!res.ok) throw new Error('Supabase ' + table + ': ' + res.status + ' ' + (await res.text()));
+              return res.json();
+            }
+
+            const wk = lastWeekKey();
+            const [users, missions, entries, priorities] = await Promise.all([
+              supabaseFetch('users',      'select=*&archived=eq.false&order=last_name.asc'),
+              supabaseFetch('missions',   'select=*&archived=eq.false'),
+              supabaseFetch('entries',    'select=*&week_key=eq.' + wk),
+              supabaseFetch('priorities', 'select=*&order=due_date.asc'),
+            ]);
+
+            const hp = holidayPct(wk);
+            const collaborateurs = users.filter(function(u) { return u.role === 'collaborateur' && !u.archived; });
+
+            // Section 1 : Missions
+            const missionTotals  = {};
+            const missionDetails = {};
+            for (const e of entries) {
+              if (e.is_absence || !e.mission_id) continue;
+              const m = missions.find(function(m) { return m.id === e.mission_id; });
+              if (!m || m.category !== 'billable') continue;
+              missionTotals[e.mission_id]  = (missionTotals[e.mission_id] || 0) + e.pct;
+              if (!missionDetails[e.mission_id]) missionDetails[e.mission_id] = [];
+              const u = users.find(function(u) { return u.id === e.user_id; });
+              if (u) missionDetails[e.mission_id].push({ user: u, pct: e.pct });
+            }
+            const missionsSorted = Object.entries(missionTotals).sort(function(a, b) { return b[1] - a[1]; });
+
+            let missionRows = '';
+            if (!missionsSorted.length) {
+              missionRows = '<p style="margin:2px 0;font-size:13px;">Aucune saisie facturable pour la semaine.</p>';
+            } else {
+              for (const [mid, total] of missionsSorted) {
+                const m = missions.find(function(m) { return m.id === mid; });
+                if (!m) continue;
+                const label = m.task ? m.client + ' \u2014 ' + m.task : m.client;
+                const details = (missionDetails[mid] || [])
+                  .sort(function(a, b) { return b.pct - a.pct; })
+                  .map(function(d) { return d.user.first_name + ' ' + d.user.last_name + ' (' + Math.round(d.pct * 100) + '%)'; })
+                  .join(', ');
+                missionRows += '<p style="margin:6px 0 2px;font-weight:700;color:#1a2234;">\u2022 ' + label + ' : ' + Math.round(total * 100) + '%</p>';
+                missionRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">' + details + '</p><br>';
+              }
+            }
+
+            // Section 2 : Collaborateurs
+            let collabRows = '';
+            for (const u of collaborateurs) {
+              const ue  = entries.filter(function(e) { return e.user_id === u.id; });
+              const bil = ue.filter(function(e) { const m = missions.find(function(m) { return m.id === e.mission_id; }); return m && m.category === 'billable'; });
+              const int = ue.filter(function(e) { const m = missions.find(function(m) { return m.id === e.mission_id; }); return m && m.category === 'internal'; });
+              const abs = ue.filter(function(e) { return e.is_absence; });
+              const totalBil = bil.reduce(function(s, e) { return s + e.pct; }, 0);
+              const totalInt = int.reduce(function(s, e) { return s + e.pct; }, 0);
+              const totalAbs = abs.reduce(function(s, e) { return s + e.pct; }, 0);
+              const total    = totalBil + totalInt + Math.max(totalAbs, hp);
+              const pctColor = total >= 1 ? '#c9a84c' : '#1a2234';
+              const pctStr   = Math.round(total * 100) + '%';
+              collabRows += '<p style="margin:10px 0 2px;font-weight:700;">' + u.first_name + ' ' + u.last_name + ' : <span style="color:' + pctColor + ';">' + pctStr + '</span></p>';
+              if (!ue.length && hp === 0) {
+                collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">Pas de staffing renseign\u00e9 cette semaine</p>';
+              } else {
+                for (const e of bil.sort(function(a, b) { return b.pct - a.pct; })) {
+                  const m = missions.find(function(m) { return m.id === e.mission_id; });
+                  if (!m) continue;
+                  const label = m.task ? m.client + ' \u2014 ' + m.task : m.client;
+                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">' + label + ' : ' + Math.round(e.pct * 100) + '%</p>';
+                }
+                for (const e of int.sort(function(a, b) { return b.pct - a.pct; })) {
+                  const m = missions.find(function(m) { return m.id === e.mission_id; });
+                  if (!m) continue;
+                  const label = m.task ? m.client + ' \u2014 ' + m.task : m.client;
+                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">' + label + ' : ' + Math.round(e.pct * 100) + '%</p>';
+                }
+                for (const e of abs) {
+                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">Cong\u00e9s / Absences : ' + Math.round(e.pct * 100) + '%</p>';
+                }
+                if (hp > 0) {
+                  collabRows += '<p style="margin:0 0 2px;padding-left:16px;color:#374151;font-size:13px;">Jours f\u00e9ri\u00e9s : ' + Math.round(hp * 100) + '%</p>';
+                }
+              }
+            }
+
+            // Section 3 : Priorités
+            const today = new Date(); today.setUTCHours(0, 0, 0, 0);
+            const limit = new Date(today.getTime() + 14 * 86400000);
+            const JOURS_LONG = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+            const MOIS_LONG  = ['janvier','f\u00e9vrier','mars','avril','mai','juin','juillet','ao\u00fbt','septembre','octobre','novembre','d\u00e9cembre'];
+            const upcomingPrios = priorities
+              .filter(function(p) { const d = new Date(p.due_date); d.setUTCHours(0,0,0,0); return d >= today && d <= limit; })
+              .sort(function(a, b) { return new Date(a.due_date) - new Date(b.due_date); });
+            let prioRows = '';
+            if (!upcomingPrios.length) {
+              prioRows = '<p style="margin:2px 0;font-size:13px;">Aucune priorit\u00e9 renseign\u00e9e pour les deux prochaines semaines.</p>';
+            } else {
+              for (const p of upcomingPrios) {
+                const d      = new Date(p.due_date);
+                const dateFr = JOURS_LONG[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MOIS_LONG[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+                const m      = missions.find(function(m) { return m.id === p.mission_id; });
+                const mLabel = m ? (m.task ? m.client + ' \u2014 ' + m.task : m.client) : '';
+                const nameLabel = mLabel ? p.name + ' (' + mLabel + ')' : p.name;
+                const assignees = (p.assignees || [])
+                  .map(function(uid) { return users.find(function(u) { return u.id === uid; }); })
+                  .filter(Boolean)
+                  .map(function(u) { return u.first_name + ' ' + u.last_name; })
+                  .join(', ');
+                prioRows += '<p style="margin:2px 0;font-size:13px;"><strong>' + dateFr + '</strong> : ' + nameLabel + '</p>';
+                if (assignees) prioRows += '<p style="margin:0 0 6px;padding-left:16px;font-size:12px;color:#6b7280;">Collaborateurs : ' + assignees + '</p>';
+              }
+            }
+
+            // Assemblage HTML
+            const wkLbl = lastWeekRange();
+            const H = [
+              '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>',
+              '<body style="margin:0;padding:0;background:#f0f0ee;font-family:\'Segoe UI\',Calibri,sans-serif;">',
+              '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0ee;padding:32px 16px;">',
+              '<tbody><tr><td align="center">',
+              '<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">',
+              '<tbody>',
+              '<tr><td style="background:#1a2234;padding:20px 32px;">',
+              '<img src="' + LOGO_SRC + '" alt="Upside" style="height:32px;width:auto;">',
+              '</td></tr>',
+              '<tr><td style="padding:32px;font-size:14px;line-height:1.7;color:#1a2234;">',
+              '<h1 style="color:#1a2234;font-size:18px;margin:0 0 4px;">R\u00c9CAPITULATIF HEBDOMADAIRE DE STAFFING</h1>',
+              '<p style="color:#6b7280;font-size:13px;margin:0 0 16px;">' + wkLbl + '</p>',
+              '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;"><br>',
+              '<h2 style="color:#1a2234;font-size:15px;margin:20px 0 10px;">1. MISSIONS</h2><br>',
+              missionRows,
+              '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;"><br>',
+              '<h2 style="color:#1a2234;font-size:15px;margin:20px 0 10px;">2. D\u00c9TAIL PAR COLLABORATEUR</h2><br>',
+              collabRows,
+              '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;"><br>',
+              '<h2 style="color:#1a2234;font-size:15px;margin:20px 0 10px;">3. GESTION DES PRIORIT\u00c9S (2 semaines \u00e0 venir)</h2><br>',
+              prioRows,
+              '<hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0;">',
+              '</td></tr>',
+              '<tr><td style="background:#f9f9f7;padding:16px 32px;border-top:1px solid #e5e7eb;">',
+              '<p style="margin:0;font-size:11px;color:#9ca3af;">Email g\u00e9n\u00e9r\u00e9 automatiquement par l\'outil de staffing Upside.</p>',
+              '</td></tr>',
+              '</tbody></table>',
+              '</td></tr></tbody></table>',
+              '</body></html>',
+            ];
+            const htmlBody = H.join('');
+
+            // Auth Microsoft Graph
+            const tokenRes = await fetch(
+              'https://login.microsoftonline.com/' + AZURE_TENANT_ID + '/oauth2/v2.0/token',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                  grant_type: 'client_credentials',
+                  client_id: AZURE_CLIENT_ID,
+                  client_secret: AZURE_CLIENT_SECRET,
+                  scope: 'https://graph.microsoft.com/.default',
+                }),
+              }
+            );
+            if (!tokenRes.ok) throw new Error('Auth Graph : ' + tokenRes.status + ' ' + (await tokenRes.text()));
+            const tokenData = await tokenRes.json();
+            const access_token = tokenData.access_token;
+
+            // Envoi
+            const sendRes = await fetch(
+              'https://graph.microsoft.com/v1.0/users/' + FROM_ADDRESS + '/sendMail',
+              {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + access_token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  message: {
+                    subject: 'Staffing Upside \u2014 ' + wkLbl,
+                    body: { contentType: 'html', content: htmlBody },
+                    toRecipients: [{ emailAddress: { address: TO_ADDRESS } }],
+                  },
+                  saveToSentItems: false,
+                }),
+              }
+            );
+            if (sendRes.status === 202) {
+              console.log('Email envoy\u00e9 \u2014 ' + wkLbl + ' \u2192 ' + TO_ADDRESS);
+            } else {
+              throw new Error('Echec envoi Graph : ' + sendRes.status + ' ' + (await sendRes.text()));
+            }

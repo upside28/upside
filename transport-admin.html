@@ -1415,7 +1415,7 @@ async function fetchGmBike(fromLat,fromLng,toLat,toLng,key){
   return null;
 }
 
-async function fetchGmCar(fromLat,fromLng,toLat,toLng,key){
+async function fetchGmCar(fromLat,fromLng,toLat,toLng,key,_isRetry){
   const dt=new Date(S.refDate);
   const timeVal=(document.getElementById('arrTime')?.value||'08:00').split(':');
   dt.setHours(parseInt(timeVal[0])||8,parseInt(timeVal[1])||0,0,0);
@@ -1427,26 +1427,47 @@ async function fetchGmCar(fromLat,fromLng,toLat,toLng,key){
     routingPreference:'TRAFFIC_AWARE',
     computeAlternativeRoutes:false
   });
-  const r=await fetchWithTimeout('https://routes.googleapis.com/directions/v2:computeRoutes',{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'X-Goog-Api-Key':key,
-      'X-Goog-FieldMask':'routes.duration'
-    },
-    body
-  },12000);
+  // Timeout porté à 25s (au lieu de 12s) : les trajets longs avec trafic temps réel
+  // (routingPreference TRAFFIC_AWARE) prennent plus de temps à calculer que les
+  // trajets courts ou que le mode transport en commun, et pouvaient être coupés
+  // avant d'obtenir une réponse.
+  let r;
+  try{
+    r=await fetchWithTimeout('https://routes.googleapis.com/directions/v2:computeRoutes',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'X-Goog-Api-Key':key,
+        'X-Goog-FieldMask':'routes.duration'
+      },
+      body
+    },25000);
+  }catch(e){
+    // Timeout/erreur réseau : on retente une fois avant d'abandonner (utile pour
+    // les longs trajets qui frôlent la limite), et on logue l'erreur réelle en
+    // console pour pouvoir diagnostiquer au lieu de la faire disparaître silencieusement.
+    if(!_isRetry){
+      console.warn('[fetchGmCar] échec réseau/timeout, nouvelle tentative...',e);
+      return fetchGmCar(fromLat,fromLng,toLat,toLng,key,true);
+    }
+    console.warn('[fetchGmCar] échec définitif après retry (origin:'+fromLat+','+fromLng+' → dest:'+toLat+','+toLng+') :',e);
+    return null;
+  }
   if(r.status===429){const e=new Error('429');e.is429=true;throw e;}
   if(r.ok){
     const d=await r.json();
     if(d.error){
       if(d.error.code===429||d.error.status==='RESOURCE_EXHAUSTED'){const e=new Error('429');e.is429=true;throw e;}
+      console.warn('[fetchGmCar] erreur API Routes (origin:'+fromLat+','+fromLng+' → dest:'+toLat+','+toLng+') :',d.error);
       return null;
     }
     if(d.routes&&d.routes[0]){
       const durSec=parseInt(d.routes[0].duration)||0;
       return Math.round(durSec/60);
     }
+    console.warn('[fetchGmCar] réponse OK mais aucun itinéraire trouvé (origin:'+fromLat+','+fromLng+' → dest:'+toLat+','+toLng+')',d);
+  }else{
+    console.warn('[fetchGmCar] réponse HTTP non-OK ('+r.status+') (origin:'+fromLat+','+fromLng+' → dest:'+toLat+','+toLng+')');
   }
   return null;
 }

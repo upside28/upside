@@ -2540,13 +2540,18 @@ function buildResults(){
     avgBike:oBIKE.length?Math.round(oBIKE.reduce((a,b)=>a+b,0)/oBIKE.length):null,
     medBike:oBIKE.length?oBIKE[Math.floor(oBIKE.length/2)]:null,
     avgWalk:oWALK.length?Math.round(oWALK.reduce((a,b)=>a+b,0)/oWALK.length):null,
-    crit:oTC.filter(t=>t>60).length,
+    crit:collabs.filter(c=>{const v=modeVal(c,getO(c));return v!==null&&v>60;}).length,
     zoneConfort:n>0?Math.round((collabs.filter(c=>{
       const v=modeVal(c,getO(c));
       return v!==null&&v<=30;
     }).length/n)*100):null,
     zoneConfortN:collabs.filter(c=>{const v=modeVal(c,getO(c));return v!==null&&v<=30;}).length,
-    dist:mkD(oTC),
+    // CORRECTION : la répartition (0-15/15-30/.../+60) et le seuil "cas sensibles" (>60min)
+    // doivent inclure TOUS les modes de trajet (voiture, vélo, TC), chacun selon le
+    // temps de SON propre mode — pas uniquement le temps TC. Sinon, un site majoritairement
+    // en voiture (comme LIMONEST) affiche une répartition et des cas sensibles à 0,
+    // même si des collaborateurs en voiture dépassent largement ces seuils.
+    dist:mkD(collabs.map(c=>modeVal(c,getO(c))).filter(v=>v!==null)),
     tcCount:tcN,carCount:carN,bikeCount:bikeN,
     pctTC:Math.round(tcN/n*100),pctCar:Math.round(carN/n*100),pctBike:Math.round(bikeN/n*100),
     depts:deptDistrib(collabs),communes:communeCount(collabs)
@@ -2571,7 +2576,10 @@ function buildResults(){
       const md=modeVal(c,d);
       if(mo===null||md===null)return;
       const delta=md-mo;dl.push(delta);
-      if(d.tc!==null&&d.tc>60)cr++;
+      // CORRECTION : "cas sensibles" (trajet > 1h) doit se baser sur le temps du mode
+      // effectif du collaborateur (md), pas uniquement le temps TC (qui vaut souvent
+      // null pour un collaborateur en voiture ou vélo, faussant le compteur à 0).
+      if(md>60)cr++;
       if(Math.abs(delta)<=5)st++;else if(delta<0)g++;else p++;
     });
     sCollabs.filter(c=>c.mode==='tc').forEach(c=>{
@@ -2601,7 +2609,9 @@ function buildResults(){
       avgBike:allBIKE.length?Math.round(allBIKE.reduce((a,b)=>a+b,0)/allBIKE.length):null,
       medBike:allBIKE.length?allBIKE[Math.floor(allBIKE.length/2)]:null,
       avgWalk:allW.length?Math.round(allW.reduce((a,b)=>a+b,0)/allW.length):null,
-      dist:mkD(allTC),
+      // CORRECTION : idem qu'au niveau global — la répartition par tranche de temps
+      // doit inclure voiture + vélo + TC (temps propre à chaque mode), pas seulement TC.
+      dist:mkD(sCollabs.map(c=>modeVal(c,getT(c,site))).filter(v=>v!==null)),
       zoneConfort:sn>0?Math.round((sCollabs.filter(c=>{const v=modeVal(c,getT(c,site));return v!==null&&v<=30;}).length/sn)*100):null,
       zoneConfortN:sCollabs.filter(c=>{const v=modeVal(c,getT(c,site));return v!==null&&v<=30;}).length
     };
@@ -3351,7 +3361,7 @@ function rFutures(){
           ${r.origStats.carCount>0?`<div class="mcc"><div class="mch" style="color:var(--grn)">🚗 Impact Voiture</div><div style="font-size:10px;color:var(--muted)">Delta moy : <b style="color:${s.avgDCAR!==null&&s.avgDCAR<=0?'var(--grn)':'var(--red)'}">${s.avgDCAR!==null?(s.avgDCAR>0?'+':'')+s.avgDCAR+' min':'—'}</b></div><div style="font-size:10px;color:var(--muted);margin-top:2px">Tps moy : <b>${fmt(s.avgCar)} min</b> (actuel : ${fmt(r.origStats.avgCar)} min)</div></div>`:''}
           ${r.origStats.bikeCount>0?`<div class="mcc"><div class="mch" style="color:#c0392b">🚲 Impact Vélo</div><div style="font-size:10px;color:var(--muted)">Delta moy : <b style="color:${s.avgDBIKE!==null&&s.avgDBIKE<=0?'var(--grn)':'var(--red)'}">${s.avgDBIKE!==null?(s.avgDBIKE>0?'+':'')+s.avgDBIKE+' min':'—'}</b></div><div style="font-size:10px;color:var(--muted);margin-top:2px">Tps moy : <b>${fmt(s.avgBike)} min</b> (actuel : ${fmt(r.origStats.avgBike)} min)</div></div>`:''}
         </div>
-        <div class="distrib-title">Repartition des temps de trajet (TC)</div>`;
+        <div class="distrib-title">Repartition des temps de trajet (tous modes)</div>`;
     const sN=s.n||n;const mx=Math.max(...s.dist.map(d=>d.c),1);
     s.dist.forEach(d=>{const pct=sN>0?Math.round(d.c/sN*100):0;
       const wPct=Math.max(8,Math.round(d.c/mx*100));

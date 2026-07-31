@@ -1729,7 +1729,13 @@ function doFile(f){
       const wb=XLSX.read(e.target.result,{type:'binary'});
       const ws=wb.Sheets[wb.SheetNames[0]];
       S.rawTimes={};S.rawGeo={};
-      S.allCollabs=pC(XLSX.utils.sheet_to_json(ws));
+      // CORRECTION : sans {defval:''}, SheetJS omet purement et simplement les colonnes
+      // entièrement vides d'une ligne (ex: colonne "TC" jamais cochée si tout le monde
+      // est en "voiture"). Le code de détection de format (gColTC/gColCar/gColBike)
+      // ne "voyait" alors plus ces colonnes du tout, cassant la reconnaissance du format
+      // "cases séparées" dès que TC et Vélo étaient 100% vides, et faisant basculer
+      // TOUS les collaborateurs par défaut sur le mode "TC".
+      S.allCollabs=pC(XLSX.utils.sheet_to_json(ws,{defval:''}));
       document.getElementById('fileRequired').style.display='none';
       document.getElementById('fileOk').style.display='flex';
       if(S.allCollabs.length===0){

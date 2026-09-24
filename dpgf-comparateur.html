@@ -395,6 +395,8 @@ tr:hover td { background: #fafaf9; }
 .mob-an-sous .mob-cell-agg.mob-best { color: var(--green); }
 .mob-an-sous .mob-cell-agg.mob-worst { color: var(--red); }
 
+.mob-an-row .mob-cell.mob-qty-diff { background: #fed7aa; color: #9a3412; font-weight: 700; }
+.mob-an-typo .mob-cell.mob-qty-diff { background: #f97316; color: #fff; }
 /* Absent */
 .mob-cell-absent { justify-content: center; font-size: 10px; color: var(--text-light); background: #f3f4f6; font-weight: 500; }
 .mob-an-group .mob-cell-absent, .mob-an-typo .mob-cell-absent { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.45); }
@@ -2652,6 +2654,13 @@ function mobNormKey(s) {
     .replace(/\s+/g, ' ').trim();
 }
 
+// Vrai si les quantités renseignées diffèrent entre entreprises (entreprises absentes ignorées).
+function mobQtyDiffers(values) {
+  const vals = values.map(v => (v === null || v === undefined || v === '') ? null : parseFloat(v))
+    .filter(v => v !== null && Number.isFinite(v)).map(v => Math.round(v * 100) / 100);
+  return new Set(vals).size > 1;
+}
+
 // Clé d'une typologie : son code (ex. "T.B.01a") s'il existe, sinon son titre normalisé.
 // Deux fichiers qui écrivent "TYPOLOGIE T.B.01a | Bureau individuel neuf" et
 // "Typologie T.B.01a | Bureau indiv. neuf" tombent ainsi sur la même ligne.
@@ -2859,7 +2868,9 @@ function renderMobAnalyse() {
     const pu = l.prix_unitaire; const tot = l.prix_total_global||l.prix_total_ht||0;
     const puCls = flags.validPU>1 ? (pu===flags.minPU?'mob-best':pu===flags.maxPU?'mob-worst':'') : '';
     const totCls = flags.validTot>1 ? (tot===flags.minTot?'mob-best':tot===flags.maxTot?'mob-worst':'') : '';
-    return `<div class="mob-cell mob-cell-q mob-col-sep">${l.qte_typo!==null?fmtNum(l.qte_typo):'—'}</div>`
+    const qCls = flags.qtyDiff ? 'mob-qty-diff' : '';
+    const qTitle = flags.qtyDiff ? ' title="Quantité différente selon les entreprises (colonne D)"' : '';
+    return `<div class="mob-cell mob-cell-q mob-col-sep ${qCls}"${qTitle}>${l.qte_typo!==null?fmtNum(l.qte_typo):'—'}</div>`
       + `<div class="mob-cell mob-cell-num ${puCls}">${fmt(pu)} €</div>`
       + `<div class="mob-cell mob-cell-num ${totCls}">${fmt(tot)} €</div>`;
   }
@@ -2880,7 +2891,9 @@ function renderMobAnalyse() {
       if (tot===null || metas[i]===null) return `<div class="mob-cell mob-cell-absent mob-col-sep" style="grid-column:span 3;">N/A</div>`;
       const m = metas[i];
       const totCls = flags.valid>1 ? (tot===flags.min?'mob-best':tot===flags.max?'mob-worst':'') : '';
-      return `<div class="mob-cell mob-cell-q mob-col-sep">${fmtNum(m.qteTot)}</div>`
+      const qCls = flags.qtyDiff ? 'mob-qty-diff' : '';
+      const qTitle = flags.qtyDiff ? ' title="Quantité différente selon les entreprises (colonne G)"' : '';
+      return `<div class="mob-cell mob-cell-q mob-col-sep ${qCls}"${qTitle}>${fmtNum(m.qteTot)}</div>`
         + `<div class="mob-cell mob-cell-num">${fmt(m.puTypo)} €</div>`
         + `<div class="mob-cell mob-cell-num ${totCls}" style="font-weight:600;">${fmt(tot)} €</div>`;
     }).join('');
@@ -2907,6 +2920,7 @@ function renderMobAnalyse() {
     <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:var(--green-bg);border:1px solid #bbf7d0;border-radius:2px;"></span><span style="color:var(--green);font-weight:600;">Plus bas</span></span>
     <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:var(--red-bg);border:1px solid #fca5a5;border-radius:2px;"></span><span style="color:var(--red);">Plus élevé</span></span>
     <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#f3f4f6;border:1px solid var(--border);border-radius:2px;"></span><span style="color:var(--text-muted);">Absent</span></span>
+    <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#fed7aa;border:1px solid #fb923c;border-radius:2px;"></span><span style="color:#c2410c;font-weight:600;">Quantités différentes</span></span>
   </div>`;
 
   const sortedGroups = Object.entries(groupMap).sort((a,b)=>a[1].ordre-b[1].ordre);
@@ -2933,7 +2947,7 @@ function renderMobAnalyse() {
       const tTotals = companies.map(c=>typoData.totalByCompany[c]??null);
       const tMetas = companies.map(c=>typoData.metaByCompany[c]??null);
       const tValidArr = tTotals.filter(v=>v!==null);
-      const tFlags = { valid: tValidArr.length, min: tValidArr.length?Math.min(...tValidArr):0, max: tValidArr.length?Math.max(...tValidArr):0 };
+      const tFlags = { valid: tValidArr.length, min: tValidArr.length?Math.min(...tValidArr):0, max: tValidArr.length?Math.max(...tValidArr):0 , qtyDiff: mobQtyDiffers(tMetas.map(m => m ? m.qteTot : null)) };
       const typoId = `mob-an-t-${gi}-${ti}`;
 
       // Ligne TYPOLOGIE (navy) — 3 colonnes par entreprise : PU typo | Qté | Total
@@ -2952,7 +2966,8 @@ function renderMobAnalyse() {
         const tots = companies.map(c=>(lineData.byCompany[c]?.prix_total_global??lineData.byCompany[c]?.prix_total_ht)??null).filter(v=>v!==null&&v>0);
         const flags = {
           validPU: pus.length, minPU: pus.length?Math.min(...pus):0, maxPU: pus.length?Math.max(...pus):0,
-          validTot: tots.length, minTot: tots.length?Math.min(...tots):0, maxTot: tots.length?Math.max(...tots):0
+          validTot: tots.length, minTot: tots.length?Math.min(...tots):0, maxTot: tots.length?Math.max(...tots):0,
+          qtyDiff: mobQtyDiffers(companies.map(c => lineData.byCompany[c]?.qte_typo))
         };
         html += `<div class="mob-an-row mob-an-product" style="--mob-grid:${gridTemplate};">
           <div class="mob-an-label mob-an-product-label"><strong>${escHtml(code)}</strong><span class="mob-an-desc">${escHtml(lineData.description||'')}</span></div>
@@ -3255,6 +3270,7 @@ async function exportMobAnalyseExcel(targetWb = null) {
       for (const [, typoData] of sortedTypos) {
         const typoNom = typoData.nom;
         const trow = ws.getRow(rIdx);
+        const typoQtyDiff = mobQtyDiffers(companies.map(c => typoData.metaByCompany[c] ? typoData.metaByCompany[c].qteTot : null));
         trow.getCell(1).value = 'Typologie'; trow.getCell(2).value = typoNom;
         companies.forEach((c, i) => {
           const col = 3 + i * 3;
@@ -3270,6 +3286,12 @@ async function exportMobAnalyseExcel(targetWb = null) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.navy } };
           cell.font = { color: { argb: C.white }, bold: c <= 2 };
         }
+        if (typoQtyDiff) companies.forEach((c, i) => { // quantités typologie (colonne G) différentes
+          if (!typoData.metaByCompany[c]) return;
+          const qc = trow.getCell(3 + i * 3);
+          qc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF97316' } };
+          qc.font = { color: { argb: C.white }, bold: true };
+        });
         rIdx++;
 
         const sortedLignes = Object.entries(typoData.lignes).sort((a, b) => a[1].ordre - b[1].ordre);
@@ -3282,11 +3304,16 @@ async function exportMobAnalyseExcel(targetWb = null) {
           const minPU = pus.length ? Math.min(...pus) : null, maxPU = pus.length ? Math.max(...pus) : null;
           const tots = companies.map(c => (lineData.byCompany[c]?.prix_total_global ?? lineData.byCompany[c]?.prix_total_ht)).filter(v => typeof v === 'number' && v > 0);
           const minTot = tots.length ? Math.min(...tots) : null, maxTot = tots.length ? Math.max(...tots) : null;
+          const lineQtyDiff = mobQtyDiffers(companies.map(c => lineData.byCompany[c]?.qte_typo)); // colonne D
           companies.forEach((c, i) => {
             const col = 3 + i * 3;
             const l = lineData.byCompany[c];
             const qte = l?.qte_typo ?? null, pu = l?.prix_unitaire ?? null, tot = (l?.prix_total_global ?? l?.prix_total_ht) ?? null;
             prow.getCell(col).value = qte;
+            if (lineQtyDiff && l) {
+              prow.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFED7AA' } };
+              prow.getCell(col).font = { color: { argb: 'FF9A3412' }, bold: true };
+            }
             const puCell = prow.getCell(col + 1); puCell.value = pu; puCell.numFmt = '#,##0 "€"';
             const totCell = prow.getCell(col + 2); totCell.value = tot; totCell.numFmt = '#,##0 "€"';
             if (pus.length > 1 && pu != null) {

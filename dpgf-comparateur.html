@@ -2830,7 +2830,7 @@ function renderMobAnalyse() {
       <button class="btn btn-outline btn-sm" onclick="toggleAllMobNodes('.mob-group-panel',true)">Tout ouvrir</button>
       <button class="btn btn-outline btn-sm" onclick="toggleAllMobNodes('.mob-group-panel',false)">Tout fermer</button>
       <button class="btn btn-outline btn-sm" onclick="window.print()">Exporter en PDF (tout ouvert)</button>
-      <button class="btn btn-outline btn-sm" onclick="exportMobAnalyseExcel()">Exporter en Excel (.xlsx)</button>
+      <button class="btn btn-outline btn-sm" onclick="exportMobCompletExcel()">Exporter en Excel (Analyse + Catalogue)</button>
     </div>`;
 
   // En-tête figé UNIFIÉ (Point 2) : noms d'entreprises + sous-colonnes dans un seul bloc sticky.
@@ -3028,7 +3028,7 @@ function renderMobCatalogue() {
     <button class="btn btn-outline btn-sm" onclick="toggleAllMobNodes('#mob-cat-rows .mob-node-panel', true)">Tout déplier</button>
     <button class="btn btn-outline btn-sm" onclick="toggleAllMobNodes('#mob-cat-rows .mob-node-panel', false)">Tout replier</button>
     <button class="btn btn-outline btn-sm" onclick="window.print()">Exporter en PDF (tout ouvert)</button>
-    <button class="btn btn-outline btn-sm" onclick="exportMobCatalogueExcel()">Exporter en Excel (.xlsx)</button>
+    <button class="btn btn-outline btn-sm" onclick="exportMobCompletExcel()">Exporter en Excel (Analyse + Catalogue)</button>
   </div>`;
 
   if (!rows.length) {
@@ -3134,8 +3134,9 @@ async function mobDownloadWorkbook(wb, filename) {
 
 // ── Export Excel : Analyse comparative Mobilier (LOT Mobilier), à plat, tout dépliée,
 //    avec les mêmes couleurs que l'interface (doré = groupe, navy = typologie, vert/rouge = meilleur/pire prix) ──
-async function exportMobAnalyseExcel() {
-  if (!currentMobOffers.length) { alert('Aucune offre Mobilier à exporter.'); return; }
+async function exportMobAnalyseExcel(targetWb = null) {
+  // targetWb : si fourni, l'onglet est ajouté à ce classeur (export combiné) sans téléchargement.
+  if (!currentMobOffers.length) { if (!targetWb) alert('Aucune offre Mobilier à exporter.'); return false; }
   const C = MOB_XLSX_COLORS;
   const companies = currentMobOffers.map(o => o.company_name);
 
@@ -3163,8 +3164,8 @@ async function exportMobAnalyseExcel() {
   }
 
   try {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Analyse Mobilier', { views: [{ state: 'frozen', ySplit: 2 }] });
+    const wb = targetWb || new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Analyse comparative', { views: [{ state: 'frozen', ySplit: 2 }] });
     const totalCols = 3 + companies.length * 3;
     ws.columns = [{ width: 12 }, { width: 42 }, { width: 14 }, ...companies.flatMap(() => [{ width: 9 }, { width: 11 }, { width: 13 }])];
 
@@ -3259,35 +3260,38 @@ async function exportMobAnalyseExcel() {
       }
     }
 
+    if (targetWb) return true;
     const slug = (currentProject?.name || 'projet').replace(/[^a-z0-9]/gi, '_').substring(0, 30);
     await mobDownloadWorkbook(wb, `Analyse_comparative_Mobilier_${slug}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   } catch (e) {
+    if (targetWb) throw e;
     alert("Erreur lors de la génération de l'export Excel : " + e.message); console.error(e);
   }
 }
 
 // ── Export Excel : Comparatif Catalogue Mobilier (Annexe_Mobilier neuf), même mise en forme ──
-async function exportMobCatalogueExcel() {
-  if (!currentMobOffers.length) { alert('Aucune offre Mobilier à exporter.'); return; }
+async function exportMobCatalogueExcel(targetWb = null) {
+  if (!currentMobOffers.length) { if (!targetWb) alert('Aucune offre Mobilier à exporter.'); return false; }
   const rows = buildMobCatalogueRows();
-  if (!rows.length) { alert("Aucune donnée de catalogue (onglet Annexe_Mobilier neuf) trouvée dans les offres importées."); return; }
+  if (!rows.length) { if (targetWb) return false; alert("Aucune donnée de catalogue (onglet Annexe_Mobilier neuf) trouvée dans les offres importées."); return; }
   const C = MOB_XLSX_COLORS;
   const companies = currentMobOffers.map(o => o.company_name);
 
   try {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Catalogue Mobilier', { views: [{ state: 'frozen', ySplit: 2 }] });
-    const totalCols = 3 + companies.length * 5;
-    ws.columns = [{ width: 14 }, { width: 42 }, { width: 20 }, ...companies.flatMap(() => [{ width: 11 }, { width: 45 }, { width: 18 }, { width: 16 }, { width: 30 }])];
+    // Mêmes colonnes que l'écran : Code / Désignation, puis pour chaque entreprise Prix U. HT | Commentaire
+    const wb = targetWb || new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Comparatif catalogue', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2 }] });
+    const totalCols = 2 + companies.length * 2;
+    ws.columns = [{ width: 12 }, { width: 48 }, ...companies.flatMap(() => [{ width: 13 }, { width: 50 }])];
 
-    ws.mergeCells(1, 1, 2, 3);
-    ws.getCell(1, 1).value = 'Code / Désignation / Dimensions';
+    ws.mergeCells(1, 1, 2, 2);
+    ws.getCell(1, 1).value = 'Code / Désignation';
     companies.forEach((c, i) => {
-      const col = 4 + i * 5;
-      ws.mergeCells(1, col, 1, col + 4);
+      const col = 3 + i * 2;
+      ws.mergeCells(1, col, 1, col + 1);
       ws.getCell(1, col).value = c;
-      ws.getCell(2, col).value = 'Prix U. HT'; ws.getCell(2, col + 1).value = 'Commentaire';
-      ws.getCell(2, col + 2).value = 'Fournisseur'; ws.getCell(2, col + 3).value = 'Gamme'; ws.getCell(2, col + 4).value = 'Finitions';
+      ws.getCell(2, col).value = 'Prix U. HT';
+      ws.getCell(2, col + 1).value = 'Commentaire';
     });
     for (let r = 1; r <= 2; r++) {
       const row = ws.getRow(r);
@@ -3295,53 +3299,77 @@ async function exportMobCatalogueExcel() {
         const cell = row.getCell(c);
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.navy } };
         cell.font = { color: { argb: C.white }, bold: true, size: r === 1 ? 11 : 9 };
-        cell.alignment = { vertical: 'middle', horizontal: c <= 3 ? 'left' : 'center', wrapText: true };
+        cell.alignment = { vertical: 'middle', horizontal: c <= 2 ? 'left' : (r === 2 && (c - 3) % 2 === 1 ? 'left' : 'center'), wrapText: true };
       }
     }
 
     let rIdx = 3;
     for (const sec of groupMobCatalogueSections(rows)) {
-     if (sec.nom) { // ligne de section (navy), comme les lignes bleues du fichier source
-      ws.mergeCells(rIdx, 1, rIdx, totalCols);
-      const sc = ws.getCell(rIdx, 1);
-      sc.value = sec.nom;
-      sc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.navy } };
-      sc.font = { color: { argb: C.white }, bold: true, size: 10 };
-      sc.alignment = { vertical: 'middle', horizontal: 'left' };
-      ws.getRow(rIdx).height = 18;
-      rIdx++;
-     }
-     for (const row of sec.rows) {
-      const xr = ws.getRow(rIdx);
-      xr.getCell(1).value = row.code; xr.getCell(2).value = row.libelle; xr.getCell(3).value = row.dimensions;
-      const pus = companies.map(c => row.byCompany[c]?.prix_unitaire).filter(v => typeof v === 'number' && v > 0);
-      const minV = pus.length ? Math.min(...pus) : null, maxV = pus.length ? Math.max(...pus) : null;
-      companies.forEach((c, i) => {
-        const col = 4 + i * 5;
-        const p = row.byCompany[c];
-        const puCell = xr.getCell(col);
-        puCell.value = p?.prix_unitaire ?? null; puCell.numFmt = '#,##0 "€"';
-        const comCell = xr.getCell(col + 1);
-        comCell.value = p?.commentaire || '';
-        comCell.alignment = { wrapText: true, vertical: 'top' };
-        comCell.font = { size: 9 };
-        xr.getCell(col + 2).value = p?.fournisseur || '';
-        xr.getCell(col + 3).value = p?.gamme || '';
-        xr.getCell(col + 4).value = p?.finitions || '';
-        if (p && typeof p.prix_unitaire === 'number' && p.prix_unitaire > 0 && pus.length > 1) {
-          if (p.prix_unitaire === minV) { puCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.greenBg } }; puCell.font = { color: { argb: C.green }, bold: true }; }
-          else if (p.prix_unitaire === maxV) { puCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.redBg } }; puCell.font = { color: { argb: C.red }, bold: true }; }
-        }
-      });
-      for (let c = 1; c <= totalCols; c++) {
-        xr.getCell(c).border = { bottom: { style: 'thin', color: { argb: C.border } } };
+      if (sec.nom) { // ligne de section, comme à l'écran
+        ws.mergeCells(rIdx, 1, rIdx, totalCols);
+        const sc = ws.getCell(rIdx, 1);
+        sc.value = `${sec.nom}   (${sec.rows.length} produit${sec.rows.length > 1 ? 's' : ''})`;
+        sc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.navy } };
+        sc.font = { color: { argb: C.white }, bold: true, size: 10 };
+        sc.alignment = { vertical: 'middle', horizontal: 'left' };
+        ws.getRow(rIdx).height = 18;
+        rIdx++;
       }
-      rIdx++;
-     }
+      for (const row of sec.rows) {
+        const xr = ws.getRow(rIdx);
+        xr.getCell(1).value = row.code;
+        xr.getCell(1).font = { bold: true, size: 10 };
+        xr.getCell(2).value = row.libelle + (row.dimensions ? ' — ' + row.dimensions : '');
+        xr.getCell(2).alignment = { wrapText: true, vertical: 'top' };
+        const pus = companies.map(c => row.byCompany[c]?.prix_unitaire).filter(v => typeof v === 'number' && v > 0);
+        const minV = pus.length ? Math.min(...pus) : null, maxV = pus.length ? Math.max(...pus) : null;
+        companies.forEach((c, i) => {
+          const col = 3 + i * 2;
+          const p = row.byCompany[c];
+          const puCell = xr.getCell(col);
+          const hasPrice = p && typeof p.prix_unitaire === 'number' && p.prix_unitaire > 0;
+          if (hasPrice) {
+            puCell.value = p.prix_unitaire; puCell.numFmt = '#,##0 "€"';
+            puCell.alignment = { horizontal: 'right', vertical: 'top' };
+            if (pus.length > 1 && p.prix_unitaire === minV) { puCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.greenBg } }; puCell.font = { color: { argb: C.green }, bold: true }; }
+            else if (pus.length > 1 && p.prix_unitaire === maxV) { puCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.redBg } }; puCell.font = { color: { argb: C.red }, bold: true }; }
+          } else {
+            puCell.value = p ? 'Non chiffré' : 'Absent';
+            puCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+            puCell.font = { color: { argb: 'FF9CA3AF' }, size: 9 };
+            puCell.alignment = { horizontal: 'center', vertical: 'top' };
+          }
+          const comCell = xr.getCell(col + 1);
+          comCell.value = p?.commentaire || '';
+          comCell.alignment = { wrapText: true, vertical: 'top' };
+          comCell.font = { size: 9 };
+        });
+        for (let c = 1; c <= totalCols; c++) {
+          xr.getCell(c).border = { bottom: { style: 'thin', color: { argb: C.border } } };
+        }
+        rIdx++;
+      }
     }
 
+    if (targetWb) return true;
     const slug = (currentProject?.name || 'projet').replace(/[^a-z0-9]/gi, '_').substring(0, 30);
     await mobDownloadWorkbook(wb, `Catalogue_Mobilier_Annexe_${slug}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  } catch (e) {
+    if (targetWb) throw e;
+    alert("Erreur lors de la génération de l'export Excel : " + e.message); console.error(e);
+  }
+}
+
+// ── Export Excel combiné : onglets "Analyse comparative" + "Comparatif catalogue" dans un seul fichier ──
+async function exportMobCompletExcel() {
+  if (!currentMobOffers.length) { alert('Aucune offre Mobilier à exporter.'); return; }
+  try {
+    const wb = new ExcelJS.Workbook();
+    const okAnalyse = await exportMobAnalyseExcel(wb);
+    const okCatalogue = await exportMobCatalogueExcel(wb);
+    if (!okAnalyse && !okCatalogue) { alert('Aucune donnée à exporter.'); return; }
+    const slug = (currentProject?.name || 'projet').replace(/[^a-z0-9]/gi, '_').substring(0, 30);
+    await mobDownloadWorkbook(wb, `Comparatif_Mobilier_${slug}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   } catch (e) {
     alert("Erreur lors de la génération de l'export Excel : " + e.message); console.error(e);
   }

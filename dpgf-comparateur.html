@@ -182,6 +182,7 @@ body {
 .version-file-name { font-size: 12px; font-weight: 600; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .version-file-meta { font-size: 10.5px; color: var(--text-muted); }
 .version-file-del { padding: 4px 7px; }
+.version-file-ref { padding: 3px 8px; font-size: 10.5px; white-space: nowrap; }
 .mob-diff-title { font-size: 13px; font-weight: 700; color: var(--navy); margin: 8px 0 10px; padding-left: 10px; border-left: 3px solid var(--gold); }
 .diff-com-td { font-size: 11px; line-height: 1.35; min-width: 160px; max-width: 260px; vertical-align: top; text-decoration: none; }
 .diff-upside-th { background: #f5efe2 !important; color: var(--navy) !important; }
@@ -347,6 +348,7 @@ tr:hover td { background: #fafaf9; }
   padding: 12px 12px 6px; font-size: 12.5px; font-weight: 700; color: #fff; text-align: center;
   align-self: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.mob-head-version { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; background: rgba(184,148,42,0.25); color: #f3dea0; vertical-align: 1px; }
 .mob-head-company.mob-col-sep { border-left: 1px solid rgba(255,255,255,0.14); }
 .mob-head-sub {
   padding: 4px 10px 9px; font-size: 9.5px; font-weight: 600; color: rgba(255,255,255,0.5);
@@ -701,11 +703,11 @@ tr:hover td { background: #fafaf9; }
       </div>
       <div class="sidebar-item disabled" id="nav-mob-analyse" data-page="mob-analyse" onclick="navigate('mob-analyse')">
         <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 12l4-4 3 3 5-6"/></svg>
-        Analyse comparative
+        Comparaison onglet typologie
       </div>
       <div class="sidebar-item disabled" id="nav-mob-catalogue" data-page="mob-catalogue" onclick="navigate('mob-catalogue')">
         <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2V2zm7 0h5v5H9V2zm-7 7h5v5H2V9zm7 0h5v5H9V9z"/></svg>
-        Comparatif Catalogue (Annexe)
+        Comparaison listing mobilier unitaire
       </div>
       <div class="sidebar-item disabled" id="nav-mob-synthese" data-page="mob-synthese" onclick="navigate('mob-synthese')">
         <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v3H2V2zm0 5h12v3H2V7zm0 5h8v2H2v-2z"/></svg>
@@ -936,7 +938,7 @@ tr:hover td { background: #fafaf9; }
     <div class="page" id="page-mob-analyse">
       <div class="page-header">
         <div class="page-eyebrow">Analyse — Mobilier</div>
-        <div class="page-title">Analyse comparative Mobilier</div>
+        <div class="page-title">Comparaison onglet typologie</div>
         <div class="page-subtitle">Comparaison par groupe d'espace, typologie et produit (code, prix unitaire, quantité). Dépliez un groupe doré, puis une typologie, pour atteindre le détail produit. <span style="color:var(--green);font-weight:600;">■ Prix le plus bas</span> &nbsp; <span style="color:var(--red);font-weight:600;">■ Prix le plus élevé</span></div>
       </div>
       <div id="mob-analyse-content"></div>
@@ -946,7 +948,7 @@ tr:hover td { background: #fafaf9; }
     <div class="page" id="page-mob-catalogue">
       <div class="page-header">
         <div class="page-eyebrow">Analyse — Mobilier</div>
-        <div class="page-title">Comparatif Catalogue Mobilier (Annexe)</div>
+        <div class="page-title">Comparaison listing mobilier unitaire</div>
         <div class="page-subtitle">Comparaison du catalogue produit brut de l'onglet « Annexe_Mobilier neuf » : prix unitaire par code, entre entreprises, indépendamment des quantités utilisées dans le LOT Mobilier. <span style="color:var(--green);font-weight:600;">■ Prix le plus bas</span> &nbsp; <span style="color:var(--red);font-weight:600;">■ Prix le plus élevé</span></div>
       </div>
       <div id="mob-catalogue-content"></div>
@@ -1526,6 +1528,18 @@ function renderOffersList() {
   }
 }
 
+// Libellé "Entreprise (V2)" : version de référence utilisée dans les comparaisons Mobilier
+function mobVersionChip(company) {
+  const o = currentMobOffers.find(x => x.company_name === company);
+  if (!o) return '';
+  return `<span class="mob-head-version">${escHtml(o.version_label || ('V' + (o.version_number || 1)))}</span>`;
+}
+function mobCompanyLabel(company) {
+  const o = currentMobOffers.find(x => x.company_name === company);
+  const v = o ? (o.version_label || ('V' + (o.version_number || 1))) : '';
+  return v ? `${company} (${v})` : company;
+}
+
 // ============================================================
 // IMPORT — DOSSIER DES VERSIONS D'UNE ENTREPRISE (affichage + suppression d'une version)
 // ============================================================
@@ -1540,6 +1554,7 @@ function renderVersionFolder(type, companyName, versions) {
         <div class="version-file-meta">${formatDate(v.uploaded_at || v.created_at)}</div>
       </div>
       <span class="version-badge ${v.is_reference ? 'version-badge-ref' : 'version-badge-old'}">${escHtml(v.version_label || ('V' + (v.version_number || 1)))}${v.is_reference ? ' <span style="font-size:9px;">REF</span>' : ''}</span>
+      ${!v.is_reference ? `<button class="btn btn-outline btn-sm version-file-ref" title="Utiliser cette version dans les comparaisons" onclick="setReferenceFromFolder('${type}','${v.id}')">Définir REF</button>` : ''}
       ${canDelete ? `<button class="btn btn-danger btn-sm version-file-del" title="Supprimer cette version" onclick="deleteOfferVersion('${type}','${v.id}')">
         <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M3 4h10l-1 10H4L3 4zm2-2h6M6 7v5m4-5v5"/></svg>
       </button>` : ''}
@@ -1552,6 +1567,27 @@ function toggleVersionFolder(btn) {
   const open = panel.style.display !== 'none';
   panel.style.display = open ? 'none' : 'block';
   btn.classList.toggle('open', !open);
+}
+
+// Rouvre le dossier des versions d'une entreprise après un rafraîchissement de la liste
+function reopenVersionFolder(companyName) {
+  document.querySelectorAll('.offer-card').forEach(card => {
+    if (card.dataset.company === companyName) {
+      const btn = card.querySelector('.version-folder-toggle');
+      if (btn) toggleVersionFolder(btn);
+    }
+  });
+}
+
+async function setReferenceFromFolder(type, offerId) {
+  const all = type === 'travaux' ? currentAllOffers : currentAllMobOffers;
+  const v = all.find(o => String(o.id) === String(offerId));
+  if (!v) return;
+  try {
+    await setReference(v.id, v.company_name, type); // met à jour la base, recharge et rafraîchit les analyses
+  } catch (e) { alert('Erreur : ' + e.message); console.error(e); return; }
+  if (type === 'travaux') renderOffersList(); else renderMobOffersList();
+  reopenVersionFolder(v.company_name);
 }
 
 async function deleteOfferVersion(type, offerId) {
@@ -3020,7 +3056,7 @@ function renderMobAnalyse() {
       <button class="btn btn-outline btn-sm" onclick="toggleAllMobNodes('.mob-group-panel',true)">Tout ouvrir</button>
       <button class="btn btn-outline btn-sm" onclick="toggleAllMobNodes('.mob-group-panel',false)">Tout fermer</button>
       <button class="btn btn-outline btn-sm" onclick="window.print()">Exporter en PDF (tout ouvert)</button>
-      <button class="btn btn-outline btn-sm" onclick="exportMobCompletExcel()">Exporter en Excel (Analyse + Catalogue)</button>
+      <button class="btn btn-outline btn-sm" onclick="exportMobCompletExcel()">Exporter en Excel (Typologie + Listing unitaire)</button>
     </div>`;
 
   // En-tête figé UNIFIÉ (Point 2) : noms d'entreprises + sous-colonnes dans un seul bloc sticky.
@@ -3028,7 +3064,7 @@ function renderMobAnalyse() {
   html += `<div class="mob-head">
     <div class="mob-head-companies" style="--mob-grid:${gridTemplate};">
       <div class="mob-head-desig">Groupe / Typologie / Produit</div>
-      ${companies.map(c=>`<div class="mob-head-company mob-col-sep" style="grid-column:span 3;">${escHtml(c)}</div>`).join('')}
+      ${companies.map(c=>`<div class="mob-head-company mob-col-sep" style="grid-column:span 3;">${escHtml(c)} ${mobVersionChip(c)}</div>`).join('')}
       ${companies.map(()=>`<div class="mob-head-sub mob-col-sep">Qté</div><div class="mob-head-sub">P.U. HT</div><div class="mob-head-sub">Total HT</div>`).join('')}
     </div>
   </div>`;
@@ -3223,7 +3259,7 @@ function renderMobCatalogue() {
     <button class="btn btn-outline btn-sm" onclick="toggleAllMobNodes('#mob-cat-rows .mob-node-panel', true)">Tout déplier</button>
     <button class="btn btn-outline btn-sm" onclick="toggleAllMobNodes('#mob-cat-rows .mob-node-panel', false)">Tout replier</button>
     <button class="btn btn-outline btn-sm" onclick="window.print()">Exporter en PDF (tout ouvert)</button>
-    <button class="btn btn-outline btn-sm" onclick="exportMobCompletExcel()">Exporter en Excel (Analyse + Catalogue)</button>
+    <button class="btn btn-outline btn-sm" onclick="exportMobCompletExcel()">Exporter en Excel (Typologie + Listing unitaire)</button>
   </div>`;
 
   if (!rows.length) {
@@ -3241,7 +3277,7 @@ function renderMobCatalogue() {
   html += `<div class="mob-head">
     <div class="mob-head-companies" style="--mob-grid:${gridTemplate};">
       <div class="mob-head-desig">Code / Désignation</div>
-      ${companies.map(c => `<div class="mob-head-company mob-col-sep" style="grid-column: span 3;">${escHtml(c)}</div>`).join('')}
+      ${companies.map(c => `<div class="mob-head-company mob-col-sep" style="grid-column: span 3;">${escHtml(c)} ${mobVersionChip(c)}</div>`).join('')}
       ${companies.map(() => `<div class="mob-head-sub mob-col-sep">Prix U. HT</div><div class="mob-head-sub" style="text-align:left;">Commentaire contractant</div><div class="mob-head-sub mob-head-upside" style="text-align:left;">Commentaire Upside</div>`).join('')}
     </div>
   </div>`;
@@ -3340,7 +3376,7 @@ async function exportMobAnalyseExcel(targetWb = null) {
 
   try {
     const wb = targetWb || new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Analyse comparative', { views: [{ state: 'frozen', ySplit: 2 }] });
+    const ws = wb.addWorksheet('Comparaison onglet typologie', { views: [{ state: 'frozen', ySplit: 2 }] });
     const totalCols = 2 + companies.length * 3;
     ws.columns = [{ width: 14 }, { width: 52 }, ...companies.flatMap(() => [{ width: 9 }, { width: 11 }, { width: 13 }])];
 
@@ -3350,7 +3386,7 @@ async function exportMobAnalyseExcel(targetWb = null) {
     companies.forEach((c, i) => {
       const col = 3 + i * 3;
       ws.mergeCells(1, col, 1, col + 2);
-      ws.getCell(1, col).value = c;
+      ws.getCell(1, col).value = mobCompanyLabel(c);
       ws.getCell(2, col).value = 'Qté'; ws.getCell(2, col + 1).value = 'PU HT'; ws.getCell(2, col + 2).value = 'Total HT';
     });
     for (let r = 1; r <= 2; r++) {
@@ -3565,7 +3601,7 @@ async function exportMobCatalogueExcel(targetWb = null) {
   try {
     // Mêmes colonnes que l'écran : Code / Désignation, puis pour chaque entreprise Prix U. HT | Commentaire
     const wb = targetWb || new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Comparatif catalogue', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2 }] });
+    const ws = wb.addWorksheet('Comparaison listing unitaire', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2 }] });
     const totalCols = 2 + companies.length * 3;
     ws.columns = [{ width: 12 }, { width: 48 }, ...companies.flatMap(() => [{ width: 13 }, { width: 45 }, { width: 40 }])];
 
@@ -3574,7 +3610,7 @@ async function exportMobCatalogueExcel(targetWb = null) {
     companies.forEach((c, i) => {
       const col = 3 + i * 3;
       ws.mergeCells(1, col, 1, col + 2);
-      ws.getCell(1, col).value = c;
+      ws.getCell(1, col).value = mobCompanyLabel(c);
       ws.getCell(2, col).value = 'Prix U. HT';
       ws.getCell(2, col + 1).value = 'Commentaire contractant';
       ws.getCell(2, col + 2).value = 'Commentaire Upside';

@@ -168,6 +168,22 @@ body {
 .offer-card-total { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
 .offer-card-lots { font-size: 11px; color: var(--text-muted); margin-bottom: 14px; }
 .offer-card-actions { display: flex; gap: 8px; }
+.version-folder-toggle { margin-left: 6px; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; cursor: pointer; font: inherit; font-size: 11px; }
+.version-folder-toggle:hover { background: #dbeafe; }
+.version-folder-toggle .vf-chevron { display: inline-block; transition: transform .15s; }
+.version-folder-toggle.open .vf-chevron { transform: rotate(180deg); }
+.version-folder { margin: 4px 0 12px; border: 1px solid var(--border); border-radius: var(--radius); background: #fafaf8; padding: 4px; }
+.version-file { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 4px; }
+.version-file + .version-file { border-top: 1px solid var(--border); }
+.version-file:hover { background: #f2f0ea; }
+.version-file.is-ref { background: var(--gold-pale); }
+.version-file-icon { flex: 0 0 auto; color: var(--text-muted); }
+.version-file-info { flex: 1; min-width: 0; }
+.version-file-name { font-size: 12px; font-weight: 600; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.version-file-meta { font-size: 10.5px; color: var(--text-muted); }
+.version-file-del { padding: 4px 7px; }
+.diff-upside-th { background: #f5efe2 !important; color: var(--navy) !important; }
+.diff-upside-td { background: #fbf8f1; font-size: 11px; line-height: 1.35; color: var(--navy); min-width: 180px; max-width: 280px; vertical-align: top; }
 .offer-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
 .offer-badge-winner { background: var(--green-bg); color: var(--green); }
 .offer-badge-warning { background: var(--orange-bg); color: var(--orange); }
@@ -1472,6 +1488,7 @@ function renderOffersList() {
     const hasMultiVersions = versions.length > 1;
     const card = document.createElement('div');
     card.className = 'offer-card';
+    card.dataset.company = companyName;
     card.innerHTML = `
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;">
         <div class="offer-card-name">${escHtml(companyName)}</div>
@@ -1480,9 +1497,10 @@ function renderOffersList() {
       <div class="offer-card-meta">${escHtml(refOffer.file_name || '')} · ${formatDate(refOffer.uploaded_at||refOffer.created_at)}</div>
       <div class="offer-card-total">${fmt(totalAll)} € HT</div>
       <div class="offer-card-lots">${lots.length} lot(s) · ${lots.reduce((s,l)=>s+(l.dpgf_lines||[]).length,0)} postes${extraLots.length > 0 ? ` <span class="tag tag-extra" style="margin-left:6px;">+ ${extraLots.length} lot(s) spécifique(s)</span>` : ''}
-        ${hasMultiVersions ? `<span class="tag" style="margin-left:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;">${versions.length} versions</span>` : ''}
+        ${hasMultiVersions ? `<button type="button" class="tag version-folder-toggle" onclick="toggleVersionFolder(this)" title="Afficher les fichiers de chaque version">${versions.length} versions <span class="vf-chevron">▾</span></button>` : ''}
       </div>
       ${hasExtraLots ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">Total lots communs : <strong>${fmt(totalCommon)} € HT</strong></div>` : ''}
+      ${hasMultiVersions ? `<div class="version-folder" style="display:none;">${renderVersionFolder('travaux', companyName, versions)}</div>` : ''}
       <div class="offer-card-actions">
         <button class="btn btn-outline btn-sm" onclick="openUpdateModal('${refOffer.id}','${escHtml(companyName)}',${versions.length})">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 2.5l2 2-9 9H2.5v-2L11.5 2.5z"/></svg> Mettre à jour
@@ -1504,6 +1522,88 @@ function renderOffersList() {
     info.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="7" stroke="currentColor" fill="none"/><path d="M8 7v5M8 5v1"/></svg> Ajoutez au moins 2 offres pour activer les onglets d\'analyse.';
     container.appendChild(info);
   }
+}
+
+// ============================================================
+// IMPORT — DOSSIER DES VERSIONS D'UNE ENTREPRISE (affichage + suppression d'une version)
+// ============================================================
+function renderVersionFolder(type, companyName, versions) {
+  const sorted = versions.slice().sort((a, b) => (b.version_number || 0) - (a.version_number || 0));
+  const canDelete = versions.length > 1;
+  return sorted.map(v => `
+    <div class="version-file ${v.is_reference ? 'is-ref' : ''}">
+      <svg class="version-file-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z"/><path d="M14 3v5h5"/></svg>
+      <div class="version-file-info">
+        <div class="version-file-name" title="${escHtml(v.file_name || '')}">${escHtml(v.file_name || 'Fichier sans nom')}</div>
+        <div class="version-file-meta">${formatDate(v.uploaded_at || v.created_at)}</div>
+      </div>
+      <span class="version-badge ${v.is_reference ? 'version-badge-ref' : 'version-badge-old'}">${escHtml(v.version_label || ('V' + (v.version_number || 1)))}${v.is_reference ? ' <span style="font-size:9px;">REF</span>' : ''}</span>
+      ${canDelete ? `<button class="btn btn-danger btn-sm version-file-del" title="Supprimer cette version" onclick="deleteOfferVersion('${type}','${v.id}')">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M3 4h10l-1 10H4L3 4zm2-2h6M6 7v5m4-5v5"/></svg>
+      </button>` : ''}
+    </div>`).join('');
+}
+
+function toggleVersionFolder(btn) {
+  const panel = btn.closest('.offer-card').querySelector('.version-folder');
+  if (!panel) return;
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  btn.classList.toggle('open', !open);
+}
+
+async function deleteOfferVersion(type, offerId) {
+  const all = type === 'travaux' ? currentAllOffers : currentAllMobOffers;
+  const v = all.find(o => String(o.id) === String(offerId));
+  if (!v) return;
+  const siblings = all.filter(o => o.company_name === v.company_name);
+  if (siblings.length < 2) { alert("C'est la seule version de cette entreprise : utilisez la corbeille de la carte pour supprimer l'entreprise."); return; }
+  const label = v.version_label || ('V' + (v.version_number || 1));
+  if (!confirm(`Supprimer la version ${label} de « ${v.company_name} » (${v.file_name || 'fichier'}) ?\n\nCette action est irréversible.`)) return;
+  try {
+    if (type === 'travaux') {
+      const { data: lots } = await sb.from('dpgf_lots').select('id').eq('offer_id', v.id);
+      if (lots) for (const l of lots) await sb.from('dpgf_lines').delete().eq('lot_id', l.id);
+      await sb.from('dpgf_lots').delete().eq('offer_id', v.id);
+      await sb.from('dpgf_offers').delete().eq('id', v.id);
+    } else {
+      await deleteMobOfferCascade(v.id);
+      // Commentaires Upside propres à cette version
+      await sb.from('mobilier_catalogue_comments').delete().eq('project_id', String(currentProject.id))
+        .eq('company_name', v.company_name).eq('version_number', v.version_number || 1);
+    }
+    // Comparaisons mémorisées impliquant cette version
+    const vn = v.version_number || 1;
+    for (const col of ['version_from', 'version_to']) {
+      await sb.from('dpgf_version_diffs').delete().eq('project_id', currentProject.id)
+        .eq('offer_type', type).eq('company_name', v.company_name).eq(col, vn);
+    }
+    // Si c'était la version de référence, la plus récente restante le devient
+    if (v.is_reference) {
+      const rest = siblings.filter(o => o.id !== v.id).sort((a, b) => (b.version_number || 0) - (a.version_number || 0));
+      if (rest[0]) await sb.from(type === 'travaux' ? 'dpgf_offers' : 'mobilier_offers').update({ is_reference: true }).eq('id', rest[0].id);
+    }
+  } catch (e) {
+    alert('Erreur lors de la suppression : ' + e.message); console.error(e);
+  }
+  if (type === 'travaux') {
+    await loadOffers();
+    unlockAnalysisTabs(currentOffers.length >= 2);
+    refreshVersionTabs();
+    renderOffersList();
+  } else {
+    await loadMobOffers();
+    unlockMobAnalysisTabs(currentMobOffers.length >= 2);
+    refreshVersionTabs();
+    renderMobOffersList();
+  }
+  // Rouvre le dossier de l'entreprise concernée
+  document.querySelectorAll('.offer-card').forEach(card => {
+    if (card.dataset.company === v.company_name) {
+      const btn = card.querySelector('.version-folder-toggle');
+      if (btn) toggleVersionFolder(btn);
+    }
+  });
 }
 
 function openDeleteCompanyModal(companyName, type) {
@@ -1807,6 +1907,7 @@ function renderMobOffersList() {
     const hasMultiVersions = versions.length > 1;
     const card = document.createElement('div');
     card.className = 'offer-card';
+    card.dataset.company = companyName;
     card.innerHTML = `
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;">
         <div class="offer-card-name">${escHtml(companyName)}</div>
@@ -1815,8 +1916,9 @@ function renderMobOffersList() {
       <div class="offer-card-meta">${escHtml(refOffer.file_name || '')} · ${formatDate(refOffer.created_at)}</div>
       <div class="offer-card-total">${fmt(totalHT)} € HT</div>
       <div class="offer-card-lots">${typos.length} typologie(s) · ${nbSous} sous-typ.
-        ${hasMultiVersions ? `<span class="tag" style="margin-left:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;">${versions.length} versions</span>` : ''}
+        ${hasMultiVersions ? `<button type="button" class="tag version-folder-toggle" onclick="toggleVersionFolder(this)" title="Afficher les fichiers de chaque version">${versions.length} versions <span class="vf-chevron">▾</span></button>` : ''}
       </div>
+      ${hasMultiVersions ? `<div class="version-folder" style="display:none;">${renderVersionFolder('mobilier', companyName, versions)}</div>` : ''}
       <div class="offer-card-actions">
         <button class="btn btn-outline btn-sm" onclick="openUpdateMobModal('${refOffer.id}','${escHtml(companyName)}',${versions.length})">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 2.5l2 2-9 9H2.5v-2L11.5 2.5z"/></svg> Mettre à jour
@@ -3365,7 +3467,15 @@ const MOB_UPSIDE_TABLE = 'mobilier_catalogue_comments';
 let mobCatComments = {}; // clé "entreprise||CODE" -> ligne Supabase
 
 function mobCodeKey(code) { return mobNormKey(code).replace(/\s+/g, ''); }
-function mobCatCommentKey(company, code) { return company + '||' + mobCodeKey(code); }
+// Version de référence (celle affichée dans le catalogue) d'une entreprise
+function mobRefVersion(company) {
+  const o = currentMobOffers.find(x => x.company_name === company);
+  return (o && o.version_number) || 1;
+}
+// Un commentaire Upside est propre à une version de l'offre (V1, V2…)
+function mobCatCommentKey(company, code, vnum) {
+  return company + '||' + mobCodeKey(code) + '||' + (vnum || mobRefVersion(company));
+}
 function mobTodayIso() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -3381,7 +3491,14 @@ async function loadMobCatalogueComments() {
   if (!currentProject) return;
   const { data, error } = await sb.from(MOB_UPSIDE_TABLE).select('*').eq('project_id', String(currentProject.id));
   if (error) { console.warn("Commentaires Upside non chargés (table absente ?) :", error); return; }
-  (data || []).forEach(r => { mobCatComments[mobCatCommentKey(r.company_name, r.code)] = r; });
+  for (const r of (data || [])) {
+    // Anciens commentaires (saisis avant la gestion par version) : rattachés à la version de référence actuelle
+    if (r.version_number == null) {
+      r.version_number = mobRefVersion(r.company_name);
+      if (r.id != null) sb.from(MOB_UPSIDE_TABLE).update({ version_number: r.version_number }).eq('id', r.id).then(() => {});
+    }
+    mobCatComments[mobCatCommentKey(r.company_name, r.code, r.version_number)] = r;
+  }
 }
 
 function mobUpsideCellInner(company, code) {
@@ -3418,11 +3535,11 @@ async function saveMobUpsideComment(el, value, previous) {
   const pid = String(currentProject.id), ck = mobCodeKey(code);
   let error;
   if (!text) {
-    ({ error } = await sb.from(MOB_UPSIDE_TABLE).delete().eq('project_id', pid).eq('company_name', company).eq('code_key', ck));
+    ({ error } = await sb.from(MOB_UPSIDE_TABLE).delete().eq('project_id', pid).eq('company_name', company).eq('code_key', ck).eq('version_number', mobRefVersion(company)));
     if (!error) delete mobCatComments[key];
   } else {
-    const row = { project_id: pid, company_name: company, code_key: ck, code, commentaire: text, comment_date: mobTodayIso(), updated_at: new Date().toISOString() };
-    const res = await sb.from(MOB_UPSIDE_TABLE).upsert(row, { onConflict: 'project_id,company_name,code_key' }).select().single();
+    const row = { project_id: pid, company_name: company, code_key: ck, version_number: mobRefVersion(company), code, commentaire: text, comment_date: mobTodayIso(), updated_at: new Date().toISOString() };
+    const res = await sb.from(MOB_UPSIDE_TABLE).upsert(row, { onConflict: 'project_id,company_name,code_key,version_number' }).select().single();
     error = res.error;
     if (!error) mobCatComments[key] = res.data || row;
   }
@@ -3902,7 +4019,14 @@ async function runComparison(type, companyName, compId) {
   const fromLabel = fromSel.selectedOptions[0]?.text || `V${fromVNum}`;
   const toLabel = toSel.selectedOptions[0]?.text || `V${toVNum}`;
   const showUnchanged = document.getElementById(`${compId}-show-unchanged`)?.checked;
-  resultEl.innerHTML = renderDiffHtml(type, diffData, fromLabel, toLabel, compId, showUnchanged);
+  // Commentaires Upside de la version la moins récente des deux (Mobilier uniquement)
+  let upside = null;
+  if (type === 'mobilier') {
+    const oldV = Math.min(fromVNum, toVNum);
+    const oldLabel = oldV === fromVNum ? fromLabel : toLabel;
+    upside = { company: companyName, vnum: oldV, label: oldLabel };
+  }
+  resultEl.innerHTML = renderDiffHtml(type, diffData, fromLabel, toLabel, compId, showUnchanged, upside);
 }
 
 function toggleUnchanged(compId) {
@@ -3915,7 +4039,7 @@ function toggleUnchanged(compId) {
   });
 }
 
-function renderDiffHtml(type, diffData, fromLabel, toLabel, compId, showUnchanged) {
+function renderDiffHtml(type, diffData, fromLabel, toLabel, compId, showUnchanged, upside = null) {
   if (!diffData) return '<div class="alert alert-warning">Aucune donnée de comparaison disponible.</div>';
   let html = '';
   // Summary counts
@@ -3981,7 +4105,7 @@ function renderDiffHtml(type, diffData, fromLabel, toLabel, compId, showUnchange
         </div>`;
       for (const [sousNom, sousDiff] of Object.entries(typoDiff.sous_typologies||{})) {
         html += `<div class="mob-sous-typo-header" style="border-left-color:${sousDiff.status==='added'?'var(--green)':sousDiff.status==='removed'?'var(--red)':'var(--gold)'};">${escHtml(sousNom)}</div>
-        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Désignation</th><th>Qté avant</th><th>Qté après</th><th>P.U. avant</th><th>P.U. après</th><th>Total avant</th><th>Total après</th><th>Statut</th></tr></thead><tbody>`;
+        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Désignation</th>${upside ? `<th class="diff-upside-th">Commentaire Upside<br><span style="font-weight:400;opacity:.75;">(${escHtml(upside.label)})</span></th>` : ''}<th>Qté avant</th><th>Qté après</th><th>P.U. avant</th><th>P.U. après</th><th>Total avant</th><th>Total après</th><th>Statut</th></tr></thead><tbody>`;
         for (const ligne of (sousDiff.lignes||[])) {
           const rowClass = ligne.status==='added'?'diff-added':ligne.status==='removed'?'diff-removed':ligne.status==='modified'?'diff-modified':'diff-unchanged';
           const display = (!showUnchanged && ligne.status==='unchanged') ? 'style="display:none;"' : '';
@@ -3989,6 +4113,12 @@ function renderDiffHtml(type, diffData, fromLabel, toLabel, compId, showUnchange
           html += `<tr class="${rowClass}" ${display}>
             <td style="font-weight:600;">${escHtml(ligne.code||'')}</td>
             <td style="font-size:12px;">${escHtml(ligne.description||'')}</td>
+            ${upside ? (() => {
+              const uc = mobCatComments[mobCatCommentKey(upside.company, ligne.code || '', upside.vnum)];
+              return uc && uc.commentaire
+                ? `<td class="diff-upside-td"><span class="mob-upside-date">${mobFmtDate(uc.comment_date)}</span><br>${escHtml(uc.commentaire).replace(/\n/g, '<br>')}</td>`
+                : `<td class="diff-upside-td"></td>`;
+            })() : ''}
             <td style="text-align:right;">${ligne.qtyFrom!=null?fmtNum(ligne.qtyFrom):'—'}</td>
             <td style="text-align:right;">${ligne.qtyTo!=null?fmtNum(ligne.qtyTo):'—'}</td>
             <td style="text-align:right;white-space:nowrap;">${ligne.puFrom!=null?fmt(ligne.puFrom)+' €':'—'}</td>

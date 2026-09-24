@@ -182,6 +182,8 @@ body {
 .version-file-name { font-size: 12px; font-weight: 600; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .version-file-meta { font-size: 10.5px; color: var(--text-muted); }
 .version-file-del { padding: 4px 7px; }
+.mob-diff-title { font-size: 13px; font-weight: 700; color: var(--navy); margin: 8px 0 10px; padding-left: 10px; border-left: 3px solid var(--gold); }
+.diff-com-td { font-size: 11px; line-height: 1.35; min-width: 160px; max-width: 260px; vertical-align: top; text-decoration: none; }
 .diff-upside-th { background: #f5efe2 !important; color: var(--navy) !important; }
 .diff-upside-td { background: #fbf8f1; font-size: 11px; line-height: 1.35; color: var(--navy); min-width: 180px; max-width: 280px; vertical-align: top; }
 .offer-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
@@ -3122,7 +3124,7 @@ function toggleAllMobNodes(selector, open) {
 // ============================================================
 // Reconstruit, tous offres confondues, la liste des produits du catalogue
 // (indépendante de la structure LOT Mobilier / quantités), regroupés par code.
-function buildMobCatalogueRows() {
+function buildMobCatalogueRows(offers = currentMobOffers) {
   // Principe : on respecte l'arborescence de l'onglet "Annexe_Mobilier neuf".
   // 1) l'ordre des SECTIONS (lignes bleues) est fusionné entre les fichiers ;
   // 2) à l'intérieur de chaque section, l'ordre des PRODUITS est fusionné entre les fichiers.
@@ -3134,7 +3136,7 @@ function buildMobCatalogueRows() {
   const productLists = {};            // catKey -> [ordre des produits, par offre]
   const catLabel = {};                // catKey -> libellé affiché
 
-  for (const offer of currentMobOffers) {
+  for (const offer of offers) {
     const prods = (offer.mobilier_products || []).slice().sort((a, b) => {
       const oa = Number.isFinite(a.ordre) ? a.ordre : Number.MAX_SAFE_INTEGER;
       const ob = Number.isFinite(b.ordre) ? b.ordre : Number.MAX_SAFE_INTEGER;
@@ -3947,7 +3949,10 @@ async function renderVersionsPage(type) {
       <select class="version-select" id="${compId}-from">${versionOptions}</select>
       <span style="color:var(--text-muted);">→</span>
       <select class="version-select" id="${compId}-to">${versions.map((v,i) => `<option value="${v.id}" data-vnum="${v.version_number}" ${i===versions.length-1?'selected':''}>${escHtml(v.version_label||'V'+v.version_number)}</option>`).join('')}</select>
-      <button class="btn btn-primary btn-sm" onclick="runComparison('${type}','${escHtml(company)}','${compId}')">Comparer</button>
+      ${type === 'mobilier'
+        ? `<button class="btn btn-primary btn-sm" onclick="runComparison('${type}','${escHtml(company)}','${compId}')">Comparer l'onglet typologie</button>
+           <button class="btn btn-primary btn-sm" onclick="runCatalogueComparison('${escHtml(company)}','${compId}')">Comparer le listing mobilier unitaire</button>`
+        : `<button class="btn btn-primary btn-sm" onclick="runComparison('${type}','${escHtml(company)}','${compId}')">Comparer</button>`}
       <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
         <input type="checkbox" id="${compId}-show-unchanged" onchange="toggleUnchanged('${compId}')"> Afficher les lignes inchangées
       </label>
@@ -4019,14 +4024,99 @@ async function runComparison(type, companyName, compId) {
   const fromLabel = fromSel.selectedOptions[0]?.text || `V${fromVNum}`;
   const toLabel = toSel.selectedOptions[0]?.text || `V${toVNum}`;
   const showUnchanged = document.getElementById(`${compId}-show-unchanged`)?.checked;
-  // Commentaires Upside de la version la moins récente des deux (Mobilier uniquement)
-  let upside = null;
-  if (type === 'mobilier') {
-    const oldV = Math.min(fromVNum, toVNum);
-    const oldLabel = oldV === fromVNum ? fromLabel : toLabel;
-    upside = { company: companyName, vnum: oldV, label: oldLabel };
+  resultEl.innerHTML = (type === 'mobilier' ? mobDiffTitle("Comparaison de l'onglet typologie (Lot Mobilier)") : '')
+    + renderDiffHtml(type, diffData, fromLabel, toLabel, compId, showUnchanged);
+}
+
+function mobDiffTitle(t) {
+  return `<div class="mob-diff-title">${escHtml(t)}</div>`;
+}
+
+// Compare l'onglet "Annexe_Mobilier neuf" (listing mobilier unitaire) entre deux versions d'une entreprise.
+// Colonnes : Code | Désignation | Commentaire Upside (version la plus ancienne) | PU avant | PU après | Écart |
+//            Commentaire contractant avant | après | Statut
+function runCatalogueComparison(companyName, compId) {
+  const fromSel = document.getElementById(`${compId}-from`);
+  const toSel = document.getElementById(`${compId}-to`);
+  const resultEl = document.getElementById(`${compId}-result`);
+  if (!fromSel || !toSel) return;
+  if (fromSel.value === toSel.value) { resultEl.innerHTML = '<div class="alert alert-info">Sélectionnez deux versions différentes.</div>'; return; }
+  const fromOffer = currentAllMobOffers.find(o => String(o.id) === String(fromSel.value));
+  const toOffer = currentAllMobOffers.find(o => String(o.id) === String(toSel.value));
+  if (!fromOffer || !toOffer) return;
+  const fromLabel = fromSel.selectedOptions[0]?.text || 'Avant';
+  const toLabel = toSel.selectedOptions[0]?.text || 'Après';
+  const fromV = fromOffer.version_number || 1, toV = toOffer.version_number || 1;
+  const oldV = Math.min(fromV, toV), oldLabel = oldV === fromV ? fromLabel : toLabel;
+  const showUnchanged = document.getElementById(`${compId}-show-unchanged`)?.checked;
+
+  // Même moteur que le comparatif catalogue : ordre et sections de l'Annexe respectés
+  const rows = buildMobCatalogueRows([
+    { company_name: '__FROM__', mobilier_products: fromOffer.mobilier_products || [] },
+    { company_name: '__TO__', mobilier_products: toOffer.mobilier_products || [] }
+  ]);
+  if (!rows.length) {
+    resultEl.innerHTML = mobDiffTitle('Comparaison du listing mobilier unitaire (Annexe_Mobilier neuf)')
+      + `<div class="alert alert-info">Aucun produit trouvé dans l'onglet « Annexe_Mobilier neuf » de ces versions.</div>`;
+    return;
   }
-  resultEl.innerHTML = renderDiffHtml(type, diffData, fromLabel, toLabel, compId, showUnchanged, upside);
+  const num = v => (typeof v === 'number' && v > 0) ? v : null;
+  const txt = v => String(v || '').replace(/\s+/g, ' ').trim();
+  const counts = { added: 0, removed: 0, modified: 0, unchanged: 0 };
+  rows.forEach(r => {
+    const f = r.byCompany.__FROM__, t = r.byCompany.__TO__;
+    if (!f) r.status = 'added';
+    else if (!t) r.status = 'removed';
+    else if (num(f.prix_unitaire) !== num(t.prix_unitaire) || txt(f.commentaire) !== txt(t.commentaire)) r.status = 'modified';
+    else r.status = 'unchanged';
+    counts[r.status]++;
+  });
+
+  let html = mobDiffTitle('Comparaison du listing mobilier unitaire (Annexe_Mobilier neuf)');
+  html += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);">
+    <span style="font-size:12px;font-weight:600;color:var(--text-muted);">${escHtml(fromLabel)} → ${escHtml(toLabel)}</span>
+    <span style="margin-left:auto;display:flex;gap:10px;">
+      <span class="diff-tag diff-tag-add">+${counts.added} ajouté(s)</span>
+      <span class="diff-tag diff-tag-del">-${counts.removed} supprimé(s)</span>
+      <span class="diff-tag diff-tag-mod">~${counts.modified} modifié(s)</span>
+      <span style="font-size:11px;color:var(--text-muted);">${counts.unchanged} inchangé(s)</span>
+    </span>
+  </div>`;
+
+  for (const sec of groupMobCatalogueSections(rows)) {
+    const allSame = sec.rows.every(r => r.status === 'unchanged');
+    html += `<div class="${allSame ? 'diff-unchanged' : ''}" style="margin-bottom:16px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;${allSame && !showUnchanged ? 'display:none;' : ''}">
+      <div class="mob-typo-header" style="background:var(--navy);"><span>${escHtml(sec.nom || 'Sans section')}</span><span style="margin-left:auto;font-size:11px;opacity:.7;">${sec.rows.length} produit${sec.rows.length > 1 ? 's' : ''}</span></div>
+      <div class="table-wrap"><table><thead><tr>
+        <th>Code</th><th>Désignation</th>
+        <th class="diff-upside-th">Commentaire Upside<br><span style="font-weight:400;opacity:.75;">(${escHtml(oldLabel)})</span></th>
+        <th>P.U. avant</th><th>P.U. après</th><th>Écart</th>
+        <th>Commentaire contractant avant</th><th>Commentaire contractant après</th><th>Statut</th>
+      </tr></thead><tbody>`;
+    for (const r of sec.rows) {
+      const f = r.byCompany.__FROM__, t = r.byCompany.__TO__;
+      const puF = num(f?.prix_unitaire), puT = num(t?.prix_unitaire);
+      const ecart = (puF != null && puT != null) ? puT - puF : null;
+      const rowClass = r.status === 'added' ? 'diff-added' : r.status === 'removed' ? 'diff-removed' : r.status === 'modified' ? 'diff-modified' : 'diff-unchanged';
+      const display = (!showUnchanged && r.status === 'unchanged') ? 'style="display:none;"' : '';
+      const tag = r.status === 'added' ? '<span class="diff-tag diff-tag-add">Ajout</span>' : r.status === 'removed' ? '<span class="diff-tag diff-tag-del">Suppression</span>' : r.status === 'modified' ? '<span class="diff-tag diff-tag-mod">Modifié</span>' : '';
+      const uc = mobCatComments[mobCatCommentKey(companyName, r.code, oldV)];
+      const comChanged = txt(f?.commentaire) !== txt(t?.commentaire);
+      html += `<tr class="${rowClass}" ${display}>
+        <td style="font-weight:600;white-space:nowrap;">${escHtml(r.code)}</td>
+        <td style="font-size:12px;">${escHtml(r.libelle || '')}${r.dimensions ? ' — ' + escHtml(r.dimensions) : ''}</td>
+        <td class="diff-upside-td">${uc && uc.commentaire ? `<span class="mob-upside-date">${mobFmtDate(uc.comment_date)}</span><br>${escHtml(uc.commentaire).replace(/\n/g, '<br>')}` : ''}</td>
+        <td style="text-align:right;white-space:nowrap;">${puF != null ? fmt(puF) + ' €' : '—'}</td>
+        <td style="text-align:right;white-space:nowrap;font-weight:${puF !== puT ? '700' : '400'};">${puT != null ? fmt(puT) + ' €' : '—'}</td>
+        <td style="text-align:right;white-space:nowrap;font-weight:600;color:${ecart > 0 ? 'var(--red)' : ecart < 0 ? 'var(--green)' : 'var(--text-muted)'};">${ecart != null && ecart !== 0 ? (ecart > 0 ? '+' : '') + fmt(ecart) + ' €' : ''}</td>
+        <td class="diff-com-td">${escHtml(f?.commentaire || '').replace(/\n/g, '<br>')}</td>
+        <td class="diff-com-td" style="${comChanged ? 'font-weight:600;' : ''}">${escHtml(t?.commentaire || '').replace(/\n/g, '<br>')}</td>
+        <td>${tag}</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+  }
+  resultEl.innerHTML = html;
 }
 
 function toggleUnchanged(compId) {

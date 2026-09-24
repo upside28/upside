@@ -408,6 +408,14 @@ tr:hover td { background: #fafaf9; }
 .mob-cat-price { font-weight: 600; font-variant-numeric: tabular-nums; }
 .mob-cat-sub { font-size: 10.5px; color: var(--text-muted); font-weight: 400; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mob-cat-row { cursor: default; }
+.mob-cat-comment {
+  padding: 8px 10px; font-size: 11px; line-height: 1.35; color: var(--text-muted); text-align: left;
+  min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  cursor: pointer; align-self: center; word-break: break-word;
+}
+.mob-cat-comment.open { display: block; -webkit-line-clamp: unset; color: var(--text); }
+.mob-cat-comment-empty { cursor: default; }
+@media print { .mob-cat-comment { display: block !important; -webkit-line-clamp: unset !important; } }
 .mob-cat-count { margin-left: auto; font-size: 11px; font-weight: 500; opacity: .7; white-space: nowrap; }
 
 /* ===== IMPRESSION / EXPORT PDF ("tout ouvert") ===== */
@@ -1701,15 +1709,15 @@ async function deleteMobOfferCascade(offerId) {
 // pour ne pas perdre les produits (l'ordre ne sera alors pas garanti).
 async function insertMobProducts(offerId, products) {
   if (!products || !products.length) return;
-  const rows = products.map(p => ({ offer_id: offerId, ordre: p.ordre, categorie: p.categorie || null, code: p.code, libelle: p.libelle, dimensions: p.dimensions, prix_unitaire: p.prix_unitaire, finitions: p.finitions, fournisseur: p.fournisseur, gamme: p.gamme }));
+  let rows = products.map(p => ({ offer_id: offerId, ordre: p.ordre, categorie: p.categorie || null, commentaire: p.commentaire || null, code: p.code, libelle: p.libelle, dimensions: p.dimensions, prix_unitaire: p.prix_unitaire, finitions: p.finitions, fournisseur: p.fournisseur, gamme: p.gamme }));
   let { error } = await sb.from('mobilier_products').insert(rows);
-  if (error && /categorie/i.test(error.message || '')) {
-    console.warn("Colonne 'categorie' absente de mobilier_products : ajoutez-la dans Supabase pour afficher les sections de l'Annexe.", error);
-    ({ error } = await sb.from('mobilier_products').insert(rows.map(({ categorie, ...r }) => r)));
-  }
-  if (error && /ordre/i.test(error.message || '')) {
-    console.warn("Colonne 'ordre' absente de mobilier_products : ajoutez-la dans Supabase pour conserver l'ordre de l'Annexe.", error);
-    ({ error } = await sb.from('mobilier_products').insert(rows.map(({ ordre, categorie, ...r }) => r)));
+  // Si une colonne récente n'existe pas encore dans Supabase, on la retire et on réessaie.
+  for (const col of ['commentaire', 'categorie', 'ordre']) {
+    if (error && new RegExp(col, 'i').test(error.message || '')) {
+      console.warn(`Colonne '${col}' absente de mobilier_products : ajoutez-la dans Supabase.`, error);
+      rows = rows.map(r => { const { [col]: _omit, ...rest } = r; return rest; });
+      ({ error } = await sb.from('mobilier_products').insert(rows));
+    }
   }
   if (error) console.warn('Products insert error:', error);
 }
@@ -1938,8 +1946,10 @@ async function parseDPGFMobilier(file) {
               continue;
             }
             if (!/\d/.test(code)) continue; // texte sans code produit : ignoré
-            const pu = parseFloat(row[10]); // colonne K = prix unitaire propre à l'entreprise
-            if (isNaN(pu) || pu === 0) continue;
+            const puRaw = parseFloat(row[10]); // colonne K = prix unitaire propre à l'entreprise
+            const pu = (isNaN(puRaw) || puRaw === 0) ? null : puRaw;
+            const commentaire = row[11] != null ? String(row[11]).replace(/\r/g, '').trim().substring(0, 2000) : ''; // colonne L = commentaires contractant
+            if (pu === null && !commentaire) continue; // ni prix ni commentaire : ligne ignorée
             result.products.push({
               ordre: i, // position de la ligne dans l'onglet "Annexe_Mobilier neuf"
               categorie: currentCat, // section (ligne bleue) à laquelle appartient le produit
@@ -1949,7 +1959,8 @@ async function parseDPGFMobilier(file) {
               prix_unitaire: pu,
               finitions: row[4] ? String(row[4]).replace(/\n/g,' ').trim().substring(0,300) : '',
               fournisseur: row[6] ? String(row[6]).trim().substring(0,100) : '',
-              gamme: row[7] ? String(row[7]).trim().substring(0,100) : ''
+              gamme: row[7] ? String(row[7]).trim().substring(0,100) : '',
+              commentaire
             });
           }
         }
@@ -3010,7 +3021,7 @@ function renderMobCatalogue() {
 
   const rows = buildMobCatalogueRows();
   const companies = currentMobOffers.map(o => o.company_name);
-  const gridTemplate = `minmax(280px, 1.8fr) ${companies.map(() => '1fr').join(' ')}`;
+  const gridTemplate = `minmax(240px, 1.4fr) ${companies.map(() => 'minmax(90px, 0.6fr) minmax(160px, 1.1fr)').join(' ')}`;
 
   let html = `<div class="no-print" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
     <input type="text" id="mob-cat-search" class="form-input" placeholder="Rechercher un code ou une désignation…" style="max-width:280px;" oninput="filterMobCatalogue(this.value)">
@@ -3035,8 +3046,8 @@ function renderMobCatalogue() {
   html += `<div class="mob-head">
     <div class="mob-head-companies" style="--mob-grid:${gridTemplate};">
       <div class="mob-head-desig">Code / Désignation</div>
-      ${companies.map(c => `<div class="mob-head-company mob-col-sep">${escHtml(c)}</div>`).join('')}
-      ${companies.map(() => `<div class="mob-head-sub mob-col-sep">Prix U. HT</div>`).join('')}
+      ${companies.map(c => `<div class="mob-head-company mob-col-sep" style="grid-column: span 2;">${escHtml(c)}</div>`).join('')}
+      ${companies.map(() => `<div class="mob-head-sub mob-col-sep">Prix U. HT</div><div class="mob-head-sub" style="text-align:left;">Commentaire</div>`).join('')}
     </div>
   </div>`;
 
@@ -3044,18 +3055,22 @@ function renderMobCatalogue() {
     let html = '';
     const pus = companies.map(c => row.byCompany[c]?.prix_unitaire).filter(v => typeof v === 'number' && v > 0);
       const minV = pus.length ? Math.min(...pus) : 0, maxV = pus.length ? Math.max(...pus) : 0;
-      const searchKey = escHtml((row.code + ' ' + row.libelle).toLowerCase());
+      const searchKey = escHtml((row.code + ' ' + row.libelle + ' ' + companies.map(c => row.byCompany[c]?.commentaire || '').join(' ')).toLowerCase());
       html += `<div class="mob-an-row mob-an-product mob-cat-row" style="--mob-grid:${gridTemplate};" data-search="${searchKey}">
         <div class="mob-an-label mob-an-product-label"><strong>${escHtml(row.code)}</strong><span class="mob-an-desc">${escHtml(row.libelle)}${row.dimensions ? ' — ' + escHtml(row.dimensions) : ''}</span></div>
         ${companies.map(c => {
           const p = row.byCompany[c];
-          if (!p || typeof p.prix_unitaire !== 'number' || !p.prix_unitaire) return `<div class="mob-cell mob-cell-absent mob-col-sep">Absent</div>`;
+          const com = p?.commentaire
+            ? `<div class="mob-cat-comment" title="${escHtml(p.commentaire)}" onclick="this.classList.toggle('open')">${escHtml(p.commentaire).replace(/\n/g, '<br>')}</div>`
+            : `<div class="mob-cat-comment mob-cat-comment-empty"></div>`;
+          if (!p) return `<div class="mob-cell mob-cell-absent mob-col-sep">Absent</div>${com}`;
+          if (typeof p.prix_unitaire !== 'number' || !p.prix_unitaire) return `<div class="mob-cell mob-cell-absent mob-col-sep">Non chiffré</div>${com}`;
           const cls = pus.length > 1 ? (p.prix_unitaire === minV ? 'mob-best' : p.prix_unitaire === maxV ? 'mob-worst' : '') : '';
           const sub = [p.fournisseur, p.gamme].filter(Boolean).join(' · ');
           return `<div class="mob-cell mob-cat-cell mob-col-sep ${cls}" title="${escHtml(p.finitions || '')}">
             <span class="mob-cat-price">${fmt(p.prix_unitaire)} €</span>
             ${sub ? `<span class="mob-cat-sub">${escHtml(sub)}</span>` : ''}
-          </div>`;
+          </div>${com}`;
         }).join('')}
       </div>`;
     return html;
@@ -3071,7 +3086,7 @@ function renderMobCatalogue() {
     html += `<div class="mob-cat-section">
       <div class="mob-an-row mob-an-typo" style="--mob-grid:${gridTemplate};" onclick="toggleMobNode('${secId}',this)">
         <div class="mob-an-label"><span class="mob-node-chevron" style="transform:rotate(90deg);">▶</span><span class="mob-an-typo-name">${escHtml(sec.nom)}</span><span class="mob-cat-count">${sec.rows.length} produit${sec.rows.length > 1 ? 's' : ''}</span></div>
-        ${companies.map(() => `<div class="mob-col-sep"></div>`).join('')}
+        ${companies.map(() => `<div class="mob-col-sep" style="grid-column: span 2;"></div>`).join('')}
       </div>
       <div id="${secId}" class="mob-node-panel" style="display:block;">`;
     sec.rows.forEach(r => { html += productRowHtml(r); });
@@ -3262,17 +3277,17 @@ async function exportMobCatalogueExcel() {
   try {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Catalogue Mobilier', { views: [{ state: 'frozen', ySplit: 2 }] });
-    const totalCols = 3 + companies.length * 4;
-    ws.columns = [{ width: 14 }, { width: 42 }, { width: 20 }, ...companies.flatMap(() => [{ width: 10 }, { width: 18 }, { width: 16 }, { width: 30 }])];
+    const totalCols = 3 + companies.length * 5;
+    ws.columns = [{ width: 14 }, { width: 42 }, { width: 20 }, ...companies.flatMap(() => [{ width: 11 }, { width: 45 }, { width: 18 }, { width: 16 }, { width: 30 }])];
 
     ws.mergeCells(1, 1, 2, 3);
     ws.getCell(1, 1).value = 'Code / Désignation / Dimensions';
     companies.forEach((c, i) => {
-      const col = 4 + i * 4;
-      ws.mergeCells(1, col, 1, col + 3);
+      const col = 4 + i * 5;
+      ws.mergeCells(1, col, 1, col + 4);
       ws.getCell(1, col).value = c;
-      ws.getCell(2, col).value = 'Prix U. HT'; ws.getCell(2, col + 1).value = 'Fournisseur';
-      ws.getCell(2, col + 2).value = 'Gamme'; ws.getCell(2, col + 3).value = 'Finitions';
+      ws.getCell(2, col).value = 'Prix U. HT'; ws.getCell(2, col + 1).value = 'Commentaire';
+      ws.getCell(2, col + 2).value = 'Fournisseur'; ws.getCell(2, col + 3).value = 'Gamme'; ws.getCell(2, col + 4).value = 'Finitions';
     });
     for (let r = 1; r <= 2; r++) {
       const row = ws.getRow(r);
@@ -3302,13 +3317,17 @@ async function exportMobCatalogueExcel() {
       const pus = companies.map(c => row.byCompany[c]?.prix_unitaire).filter(v => typeof v === 'number' && v > 0);
       const minV = pus.length ? Math.min(...pus) : null, maxV = pus.length ? Math.max(...pus) : null;
       companies.forEach((c, i) => {
-        const col = 4 + i * 4;
+        const col = 4 + i * 5;
         const p = row.byCompany[c];
         const puCell = xr.getCell(col);
         puCell.value = p?.prix_unitaire ?? null; puCell.numFmt = '#,##0 "€"';
-        xr.getCell(col + 1).value = p?.fournisseur || '';
-        xr.getCell(col + 2).value = p?.gamme || '';
-        xr.getCell(col + 3).value = p?.finitions || '';
+        const comCell = xr.getCell(col + 1);
+        comCell.value = p?.commentaire || '';
+        comCell.alignment = { wrapText: true, vertical: 'top' };
+        comCell.font = { size: 9 };
+        xr.getCell(col + 2).value = p?.fournisseur || '';
+        xr.getCell(col + 3).value = p?.gamme || '';
+        xr.getCell(col + 4).value = p?.finitions || '';
         if (p && typeof p.prix_unitaire === 'number' && p.prix_unitaire > 0 && pus.length > 1) {
           if (p.prix_unitaire === minV) { puCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.greenBg } }; puCell.font = { color: { argb: C.green }, bold: true }; }
           else if (p.prix_unitaire === maxV) { puCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.redBg } }; puCell.font = { color: { argb: C.red }, bold: true }; }

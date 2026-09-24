@@ -395,8 +395,8 @@ tr:hover td { background: #fafaf9; }
 .mob-an-sous .mob-cell-agg.mob-best { color: var(--green); }
 .mob-an-sous .mob-cell-agg.mob-worst { color: var(--red); }
 
-.mob-an-row .mob-cell.mob-qty-diff { background: #fed7aa; color: #9a3412; font-weight: 700; }
-.mob-an-typo .mob-cell.mob-qty-diff { background: #f97316; color: #fff; }
+/* Quantités différentes : fond pêche clair + texte terracotta gras (même principe que vert/rouge) */
+.mob-an-row .mob-cell.mob-qty-diff, .mob-an-typo .mob-cell.mob-qty-diff { background: #fdebdc; color: #c2562b; font-weight: 700; }
 /* Absent */
 .mob-cell-absent { justify-content: center; font-size: 10px; color: var(--text-light); background: #f3f4f6; font-weight: 500; }
 .mob-an-group .mob-cell-absent, .mob-an-typo .mob-cell-absent { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.45); }
@@ -2920,7 +2920,7 @@ function renderMobAnalyse() {
     <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:var(--green-bg);border:1px solid #bbf7d0;border-radius:2px;"></span><span style="color:var(--green);font-weight:600;">Plus bas</span></span>
     <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:var(--red-bg);border:1px solid #fca5a5;border-radius:2px;"></span><span style="color:var(--red);">Plus élevé</span></span>
     <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#f3f4f6;border:1px solid var(--border);border-radius:2px;"></span><span style="color:var(--text-muted);">Absent</span></span>
-    <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#fed7aa;border:1px solid #fb923c;border-radius:2px;"></span><span style="color:#c2410c;font-weight:600;">Quantités différentes</span></span>
+    <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#fdebdc;border:1px solid #f4c3a1;border-radius:2px;"></span><span style="color:#c2562b;font-weight:600;">Quantités différentes</span></span>
   </div>`;
 
   const sortedGroups = Object.entries(groupMap).sort((a,b)=>a[1].ordre-b[1].ordre);
@@ -3289,8 +3289,8 @@ async function exportMobAnalyseExcel(targetWb = null) {
         if (typoQtyDiff) companies.forEach((c, i) => { // quantités typologie (colonne G) différentes
           if (!typoData.metaByCompany[c]) return;
           const qc = trow.getCell(3 + i * 3);
-          qc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF97316' } };
-          qc.font = { color: { argb: C.white }, bold: true };
+          qc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDEBDC' } };
+          qc.font = { color: { argb: 'FFC2562B' }, bold: true };
         });
         rIdx++;
 
@@ -3311,8 +3311,8 @@ async function exportMobAnalyseExcel(targetWb = null) {
             const qte = l?.qte_typo ?? null, pu = l?.prix_unitaire ?? null, tot = (l?.prix_total_global ?? l?.prix_total_ht) ?? null;
             prow.getCell(col).value = qte;
             if (lineQtyDiff && l) {
-              prow.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFED7AA' } };
-              prow.getCell(col).font = { color: { argb: 'FF9A3412' }, bold: true };
+              prow.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDEBDC' } };
+              prow.getCell(col).font = { color: { argb: 'FFC2562B' }, bold: true };
             }
             const puCell = prow.getCell(col + 1); puCell.value = pu; puCell.numFmt = '#,##0 "€"';
             const totCell = prow.getCell(col + 2); totCell.value = tot; totCell.numFmt = '#,##0 "€"';

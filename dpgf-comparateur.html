@@ -2919,31 +2919,77 @@ function toggleAllMobNodes(selector, open) {
 // Reconstruit, tous offres confondues, la liste des produits du catalogue
 // (indépendante de la structure LOT Mobilier / quantités), regroupés par code.
 function buildMobCatalogueRows() {
-  // Les lignes renvoyées par Supabase n'ont pas d'ordre garanti : on s'appuie sur
-  // la colonne "ordre" (n° de ligne dans l'onglet Annexe_Mobilier neuf).
+  // Principe : on respecte l'arborescence de l'onglet "Annexe_Mobilier neuf".
+  // 1) l'ordre des SECTIONS (lignes bleues) est fusionné entre les fichiers ;
+  // 2) à l'intérieur de chaque section, l'ordre des PRODUITS est fusionné entre les fichiers.
+  // Ainsi, une ligne ajoutée par une seule entreprise (ex. AS0286a) reste dans sa section,
+  // à côté de la ligne qui la précède, même si les fichiers n'ont pas le même nombre de lignes.
+  const normCat = c => String(c || '').replace(/\s+/g, ' ').trim().toUpperCase();
   const rowsMap = {};
-  let seq = 0; // ordre d'apparition, utilisé en secours (anciennes données sans "ordre")
+  const sectionLists = [];            // ordre des sections, par offre
+  const productLists = {};            // catKey -> [ordre des produits, par offre]
+  const catLabel = {};                // catKey -> libellé affiché
+
   for (const offer of currentMobOffers) {
     const prods = (offer.mobilier_products || []).slice().sort((a, b) => {
       const oa = Number.isFinite(a.ordre) ? a.ordre : Number.MAX_SAFE_INTEGER;
       const ob = Number.isFinite(b.ordre) ? b.ordre : Number.MAX_SAFE_INTEGER;
       return oa - ob;
     });
+    const secSeq = [];
+    const prodSeq = {};
     for (const p of prods) {
       const key = String(p.code || '').trim().toLowerCase();
       if (!key) continue;
       if (!rowsMap[key]) {
-        rowsMap[key] = { code: String(p.code).trim(), libelle: p.libelle || '', dimensions: p.dimensions || '', categorie: p.categorie || '', byCompany: {}, ordre: Number.MAX_SAFE_INTEGER, seq: seq++ };
+        rowsMap[key] = { code: String(p.code).trim(), libelle: p.libelle || '', dimensions: p.dimensions || '', categorie: p.categorie || '', catKey: normCat(p.categorie), byCompany: {} };
       }
       const r = rowsMap[key];
-      if (Number.isFinite(p.ordre) && p.ordre < r.ordre) { r.ordre = p.ordre; if (p.categorie) r.categorie = p.categorie; }
-      if (!r.categorie && p.categorie) r.categorie = p.categorie;
+      if (!r.catKey && p.categorie) { r.categorie = p.categorie; r.catKey = normCat(p.categorie); }
       if (!r.libelle && p.libelle) r.libelle = p.libelle;
       if (!r.dimensions && p.dimensions) r.dimensions = p.dimensions;
       r.byCompany[offer.company_name] = p;
+
+      const ck = normCat(p.categorie);
+      if (!(ck in catLabel) || (!catLabel[ck] && p.categorie)) catLabel[ck] = String(p.categorie || '').replace(/\s+/g, ' ').trim();
+      if (!secSeq.includes(ck)) secSeq.push(ck);
+      (prodSeq[ck] = prodSeq[ck] || []).push(key);
+    }
+    sectionLists.push(secSeq);
+    for (const ck in prodSeq) (productLists[ck] = productLists[ck] || []).push(prodSeq[ck]);
+  }
+
+  // Un produit appartient à une seule section (celle du 1er fichier où il apparaît).
+  const orderedSections = mergeMobSequences(sectionLists);
+  const out = [];
+  const seen = new Set();
+  for (const ck of orderedSections) {
+    for (const key of mergeMobSequences(productLists[ck] || [])) {
+      const r = rowsMap[key];
+      if (!r || seen.has(key) || r.catKey !== ck) continue;
+      seen.add(key);
+      r.categorie = catLabel[ck] || r.categorie;
+      out.push(r);
     }
   }
-  return Object.values(rowsMap).sort((a, b) => (a.ordre - b.ordre) || (a.seq - b.seq));
+  return out;
+}
+
+// Fusionne plusieurs listes ordonnées en une seule, en respectant l'ordre de chacune :
+// un élément absent de la liste de référence est inséré juste après l'élément qui le précède
+// dans son propre fichier.
+function mergeMobSequences(lists) {
+  const result = [];
+  for (const list of lists) {
+    let pos = -1;
+    for (const item of list) {
+      const idx = result.indexOf(item);
+      if (idx >= 0) { pos = idx; continue; }
+      result.splice(pos + 1, 0, item);
+      pos = pos + 1;
+    }
+  }
+  return result;
 }
 
 // Regroupe les lignes (déjà triées) en sections consécutives, comme dans l'onglet source.

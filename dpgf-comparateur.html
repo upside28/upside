@@ -2643,6 +2643,78 @@ function mobTotalOffer(offer) {
 }
 
 // Reconstruit, pour UNE offre, la hiérarchie [{ nom, total, typologies:[typoRecord] }].
+// Normalise un titre pour comparer des fichiers entre eux : sans accents, sans casse,
+// espaces/ponctuation uniformisés. "Bureau Fermé", "BUREAU FERME " et "bureau  fermé" → "BUREAU FERME".
+function mobNormKey(s) {
+  return String(s || '').replace(/^\[\[G\]\]/, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/[’'`]/g, "'").replace(/\s*([|:\-–—])\s*/g, '$1')
+    .replace(/\s+/g, ' ').trim();
+}
+
+// Construit la hiérarchie comparative GROUPE > TYPOLOGIE > PRODUIT commune à toutes les offres.
+// - Groupes, typologies et produits sont rapprochés via mobNormKey (accents, majuscules, espaces).
+// - Si un fichier n'a pas de titre de groupe (typologies rangées dans "Autres"), chaque typologie
+//   est rattachée au groupe où elle figure dans les autres fichiers.
+// Retour : { groupKey -> { nom, ordre, totalByCompany, typos: { typoKey -> { nom, ordre, totalByCompany, metaByCompany, lignes: { codeKey -> { code, description, ordre, byCompany } } } } } }
+function buildMobAnalyseGroupMap() {
+  const perOffer = currentMobOffers.map(o => ({ offer: o, groups: buildMobGroups(o.mobilier_typologies || []) }));
+  const isUnnamed = g => !g.nom || mobNormKey(g.nom) === 'AUTRES';
+
+  // Typologie -> groupe, d'après les fichiers dont les groupes sont bien titrés
+  const typoToGroup = {};
+  for (const { groups } of perOffer) {
+    for (const g of groups) {
+      if (isUnnamed(g)) continue;
+      for (const t of g.typologies) {
+        const tk = mobNormKey(mobCleanName(t.nom));
+        if (!typoToGroup[tk]) typoToGroup[tk] = { key: mobNormKey(g.nom), nom: mobCleanName(g.nom) };
+      }
+    }
+  }
+
+  const groupMap = {};
+  const ensureGroup = (key, nom, ordre) => {
+    if (!groupMap[key]) groupMap[key] = { nom, ordre, totalByCompany: {}, typos: {} };
+    else if (ordre < groupMap[key].ordre && groupMap[key].nom === 'Autres') groupMap[key].ordre = ordre;
+    return groupMap[key];
+  };
+
+  for (const { offer, groups } of perOffer) {
+    const company = offer.company_name;
+    groups.forEach((g, gOrdre) => {
+      const unnamed = isUnnamed(g);
+      for (const typo of g.typologies) {
+        const tnom = mobCleanName(typo.nom);
+        const tk = mobNormKey(tnom);
+        let target;
+        if (!unnamed) target = { key: mobNormKey(g.nom), nom: mobCleanName(g.nom) };
+        else target = typoToGroup[tk] || { key: 'AUTRES', nom: 'Autres' };
+        const grp = ensureGroup(target.key, target.nom, gOrdre);
+        // Total du groupe : total déclaré si le groupe est titré, sinon somme des typologies rattachées
+        if (unnamed) grp.totalByCompany[company] = (grp.totalByCompany[company] || 0) + (parseFloat(typo.total_ht || 0) || 0);
+
+        const tm = grp.typos;
+        if (!tm[tk]) tm[tk] = { nom: tnom, ordre: typo.ordre, totalByCompany: {}, metaByCompany: {}, lignes: {} };
+        tm[tk].totalByCompany[company] = parseFloat(typo.total_ht || 0);
+        tm[tk].metaByCompany[company] = mobTypoMeta(typo);
+        for (const sous of (typo.mobilier_sous_typologies || []).slice().sort((a, b) => a.ordre - b.ordre)) {
+          for (const ligne of (sous.mobilier_lignes || []).slice().sort((a, b) => a.ordre - b.ordre)) {
+            const code = String(ligne.code || '?').trim();
+            const ck = mobNormKey(code).replace(/\s+/g, '');
+            if (!tm[tk].lignes[ck]) tm[tk].lignes[ck] = { code, description: ligne.description, ordre: Object.keys(tm[tk].lignes).length, byCompany: {} };
+            if (!tm[tk].lignes[ck].description && ligne.description) tm[tk].lignes[ck].description = ligne.description;
+            tm[tk].lignes[ck].byCompany[company] = ligne;
+          }
+        }
+      }
+      if (!unnamed) ensureGroup(mobNormKey(g.nom), mobCleanName(g.nom), gOrdre).totalByCompany[company] = g.total;
+    });
+  }
+  // Un groupe titré vide (aucune typologie) reste affiché, comme avant.
+  return groupMap;
+}
+
 function buildMobGroups(typos) {
   const sorted = (typos || []).slice().sort((a,b)=>a.ordre-b.ordre);
   const groups = [];
@@ -2763,28 +2835,7 @@ function renderMobAnalyse() {
 
   // Construit, par GROUPE, la hiérarchie comparative inter-entreprises.
   // groupMap: groupNom -> { ordre, totalByCompany, typos: { typoNom -> { ordre, totalByCompany, metaByCompany, lignes } } }
-  const groupMap = {};
-  for (const offer of currentMobOffers) {
-    const grps = buildMobGroups(offer.mobilier_typologies || []);
-    grps.forEach((g, gOrdre) => {
-      if (!groupMap[g.nom]) groupMap[g.nom] = { ordre: gOrdre, totalByCompany: {}, typos: {} };
-      groupMap[g.nom].totalByCompany[offer.company_name] = g.total;
-      g.typologies.forEach(typo => {
-        const tm = groupMap[g.nom].typos;
-        const tnom = mobCleanName(typo.nom);
-        if (!tm[tnom]) tm[tnom] = { ordre: typo.ordre, totalByCompany: {}, metaByCompany: {}, lignes: {} };
-        tm[tnom].totalByCompany[offer.company_name] = parseFloat(typo.total_ht||0);
-        tm[tnom].metaByCompany[offer.company_name] = mobTypoMeta(typo);
-        for (const sous of (typo.mobilier_sous_typologies||[]).slice().sort((a,b)=>a.ordre-b.ordre)) {
-          for (const ligne of (sous.mobilier_lignes||[]).slice().sort((a,b)=>a.ordre-b.ordre)) {
-            const code = ligne.code || '?';
-            if (!tm[tnom].lignes[code]) tm[tnom].lignes[code] = { description: ligne.description, ordre: Object.keys(tm[tnom].lignes).length, byCompany: {} };
-            tm[tnom].lignes[code].byCompany[offer.company_name] = ligne;
-          }
-        }
-      });
-    });
-  }
+  const groupMap = buildMobAnalyseGroupMap();
 
   const companies = currentMobOffers.map(o=>o.company_name);
   const n = companies.length;
@@ -2851,7 +2902,8 @@ function renderMobAnalyse() {
 
   const sortedGroups = Object.entries(groupMap).sort((a,b)=>a[1].ordre-b[1].ordre);
   let gi = 0;
-  for (const [groupNom, groupData] of sortedGroups) {
+  for (const [, groupData] of sortedGroups) {
+    const groupNom = groupData.nom;
     const gTotals = companies.map(c=>groupData.totalByCompany[c]??null);
     const gValid = gTotals.filter(v=>v!==null);
     const gMin = gValid.length?Math.min(...gValid):0, gMax = gValid.length?Math.max(...gValid):0;
@@ -2867,7 +2919,8 @@ function renderMobAnalyse() {
 
     const sortedTypos = Object.entries(groupData.typos).sort((a,b)=>a[1].ordre-b[1].ordre);
     let ti = 0;
-    for (const [typoNom, typoData] of sortedTypos) {
+    for (const [, typoData] of sortedTypos) {
+      const typoNom = typoData.nom;
       const tTotals = companies.map(c=>typoData.totalByCompany[c]??null);
       const tMetas = companies.map(c=>typoData.metaByCompany[c]??null);
       const tValidArr = tTotals.filter(v=>v!==null);
@@ -2884,7 +2937,8 @@ function renderMobAnalyse() {
 
       // Lignes PRODUIT directement sous la typologie (plus de niveau "Général")
       const sortedLignes = Object.entries(typoData.lignes).sort((a,b)=>a[1].ordre-b[1].ordre);
-      for (const [code, lineData] of sortedLignes) {
+      for (const [, lineData] of sortedLignes) {
+        const code = lineData.code;
         const pus = companies.map(c=>lineData.byCompany[c]?.prix_unitaire??null).filter(v=>v!==null&&v>0);
         const tots = companies.map(c=>(lineData.byCompany[c]?.prix_total_global??lineData.byCompany[c]?.prix_total_ht)??null).filter(v=>v!==null&&v>0);
         const flags = {
@@ -3140,40 +3194,19 @@ async function exportMobAnalyseExcel(targetWb = null) {
   const C = MOB_XLSX_COLORS;
   const companies = currentMobOffers.map(o => o.company_name);
 
-  const groupMap = {};
-  for (const offer of currentMobOffers) {
-    const grps = buildMobGroups(offer.mobilier_typologies || []);
-    grps.forEach((g, gOrdre) => {
-      if (!groupMap[g.nom]) groupMap[g.nom] = { ordre: gOrdre, totalByCompany: {}, typos: {} };
-      groupMap[g.nom].totalByCompany[offer.company_name] = g.total;
-      g.typologies.forEach(typo => {
-        const tm = groupMap[g.nom].typos;
-        const tnom = mobCleanName(typo.nom);
-        if (!tm[tnom]) tm[tnom] = { ordre: typo.ordre, totalByCompany: {}, metaByCompany: {}, lignes: {} };
-        tm[tnom].totalByCompany[offer.company_name] = parseFloat(typo.total_ht || 0);
-        tm[tnom].metaByCompany[offer.company_name] = mobTypoMeta(typo);
-        for (const sous of (typo.mobilier_sous_typologies || []).slice().sort((a, b) => a.ordre - b.ordre)) {
-          for (const ligne of (sous.mobilier_lignes || []).slice().sort((a, b) => a.ordre - b.ordre)) {
-            const code = ligne.code || '?';
-            if (!tm[tnom].lignes[code]) tm[tnom].lignes[code] = { description: ligne.description, ordre: Object.keys(tm[tnom].lignes).length, byCompany: {} };
-            tm[tnom].lignes[code].byCompany[offer.company_name] = ligne;
-          }
-        }
-      });
-    });
-  }
+  const groupMap = buildMobAnalyseGroupMap();
 
   try {
     const wb = targetWb || new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Analyse comparative', { views: [{ state: 'frozen', ySplit: 2 }] });
-    const totalCols = 3 + companies.length * 3;
-    ws.columns = [{ width: 12 }, { width: 42 }, { width: 14 }, ...companies.flatMap(() => [{ width: 9 }, { width: 11 }, { width: 13 }])];
+    const totalCols = 2 + companies.length * 3;
+    ws.columns = [{ width: 14 }, { width: 52 }, ...companies.flatMap(() => [{ width: 9 }, { width: 11 }, { width: 13 }])];
 
     // En-tête (2 lignes), fond navy comme l'interface
-    ws.mergeCells(1, 1, 2, 3);
-    ws.getCell(1, 1).value = 'Groupe / Typologie / Produit';
+    ws.mergeCells(1, 1, 2, 2);
+    ws.getCell(1, 1).value = 'Code / Désignation';
     companies.forEach((c, i) => {
-      const col = 4 + i * 3;
+      const col = 3 + i * 3;
       ws.mergeCells(1, col, 1, col + 2);
       ws.getCell(1, col).value = c;
       ws.getCell(2, col).value = 'Qté'; ws.getCell(2, col + 1).value = 'PU HT'; ws.getCell(2, col + 2).value = 'Total HT';
@@ -3184,17 +3217,18 @@ async function exportMobAnalyseExcel(targetWb = null) {
         const cell = row.getCell(c);
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.navy } };
         cell.font = { color: { argb: C.white }, bold: true, size: r === 1 ? 11 : 9 };
-        cell.alignment = { vertical: 'middle', horizontal: c <= 3 ? 'left' : 'center', wrapText: true };
+        cell.alignment = { vertical: 'middle', horizontal: c <= 2 ? 'left' : 'center', wrapText: true };
       }
     }
 
     let rIdx = 3;
     const sortedGroups = Object.entries(groupMap).sort((a, b) => a[1].ordre - b[1].ordre);
-    for (const [groupNom, groupData] of sortedGroups) {
+    for (const [, groupData] of sortedGroups) {
+      const groupNom = groupData.nom;
       const grow = ws.getRow(rIdx);
       grow.getCell(1).value = 'Groupe'; grow.getCell(2).value = groupNom;
       companies.forEach((c, i) => {
-        const col = 4 + i * 3;
+        const col = 3 + i * 3;
         ws.mergeCells(rIdx, col, rIdx, col + 2);
         const tot = groupData.totalByCompany[c];
         const cell = grow.getCell(col);
@@ -3209,11 +3243,12 @@ async function exportMobAnalyseExcel(targetWb = null) {
       rIdx++;
 
       const sortedTypos = Object.entries(groupData.typos).sort((a, b) => a[1].ordre - b[1].ordre);
-      for (const [typoNom, typoData] of sortedTypos) {
+      for (const [, typoData] of sortedTypos) {
+        const typoNom = typoData.nom;
         const trow = ws.getRow(rIdx);
         trow.getCell(1).value = 'Typologie'; trow.getCell(2).value = typoNom;
         companies.forEach((c, i) => {
-          const col = 4 + i * 3;
+          const col = 3 + i * 3;
           const meta = typoData.metaByCompany[c];
           const tot = typoData.totalByCompany[c];
           trow.getCell(col).value = meta ? Math.round(meta.qteTot * 100) / 100 : null;
@@ -3229,15 +3264,17 @@ async function exportMobAnalyseExcel(targetWb = null) {
         rIdx++;
 
         const sortedLignes = Object.entries(typoData.lignes).sort((a, b) => a[1].ordre - b[1].ordre);
-        for (const [code, lineData] of sortedLignes) {
+        for (const [, lineData] of sortedLignes) {
+          const code = lineData.code;
           const prow = ws.getRow(rIdx);
-          prow.getCell(1).value = 'Produit'; prow.getCell(2).value = lineData.description || ''; prow.getCell(3).value = code;
+          prow.getCell(1).value = code; prow.getCell(1).font = { bold: true, size: 10 };
+          prow.getCell(2).value = lineData.description || '';
           const pus = companies.map(c => lineData.byCompany[c]?.prix_unitaire).filter(v => typeof v === 'number' && v > 0);
           const minPU = pus.length ? Math.min(...pus) : null, maxPU = pus.length ? Math.max(...pus) : null;
           const tots = companies.map(c => (lineData.byCompany[c]?.prix_total_global ?? lineData.byCompany[c]?.prix_total_ht)).filter(v => typeof v === 'number' && v > 0);
           const minTot = tots.length ? Math.min(...tots) : null, maxTot = tots.length ? Math.max(...tots) : null;
           companies.forEach((c, i) => {
-            const col = 4 + i * 3;
+            const col = 3 + i * 3;
             const l = lineData.byCompany[c];
             const qte = l?.qte_typo ?? null, pu = l?.prix_unitaire ?? null, tot = (l?.prix_total_global ?? l?.prix_total_ht) ?? null;
             prow.getCell(col).value = qte;
@@ -3385,14 +3422,8 @@ function renderMobSynthese() {
   const companies = currentMobOffers.map(o=>o.company_name);
 
   // Totaux par GRAND GROUPE d'espace (point 3 : pas de détail typologie)
-  const groupTotals = {}; // groupNom: { ordre, totalByCompany }
-  for (const offer of currentMobOffers) {
-    const grps = buildMobGroups(offer.mobilier_typologies || []);
-    grps.forEach((g, gOrdre) => {
-      if (!groupTotals[g.nom]) groupTotals[g.nom] = { ordre: gOrdre, totalByCompany: {} };
-      groupTotals[g.nom].totalByCompany[offer.company_name] = g.total;
-    });
-  }
+  const groupTotals = {}; // groupNom: { ordre, totalByCompany } — rapprochement tolérant des titres
+  for (const g of Object.values(buildMobAnalyseGroupMap())) groupTotals[g.nom] = { ordre: g.ordre, totalByCompany: g.totalByCompany };
   const sortedGroups = Object.entries(groupTotals).sort((a,b)=>a[1].ordre-b[1].ordre);
 
   const grandTotals = companies.map(c => sortedGroups.reduce((s,[,g])=>s+(g.totalByCompany[c]||0),0));

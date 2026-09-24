@@ -418,6 +418,17 @@ tr:hover td { background: #fafaf9; }
 .mob-cat-comment.open { display: block; -webkit-line-clamp: unset; color: var(--text); }
 .mob-cat-comment-empty { cursor: default; }
 @media print { .mob-cat-comment { display: block !important; -webkit-line-clamp: unset !important; } }
+.mob-upside-cell {
+  padding: 8px 10px; font-size: 11px; line-height: 1.35; text-align: left; min-width: 0;
+  cursor: text; align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  background: #fbf8f1; border-left: 1px dashed var(--border); word-break: break-word;
+}
+.mob-upside-cell:hover { background: #f5efe2; }
+.mob-upside-date { font-size: 9.5px; font-weight: 700; color: var(--gold); letter-spacing: .03em; }
+.mob-upside-text { color: var(--navy); }
+.mob-upside-add { color: var(--text-light); font-style: italic; }
+.mob-upside-input { width: 100%; font: inherit; font-size: 11px; padding: 5px 6px; border: 1px solid var(--gold); border-radius: 4px; resize: vertical; background: #fff; }
+.mob-head-upside { color: #e9d8a6 !important; }
 .mob-cat-count { margin-left: auto; font-size: 11px; font-weight: 500; opacity: .7; white-space: nowrap; }
 
 /* ===== IMPRESSION / EXPORT PDF ("tout ouvert") ===== */
@@ -1329,6 +1340,7 @@ async function confirmDeleteProject(projectId, projectName) {
         await deleteMobOfferCascade(o.id);
       }
     }
+    await sb.from('mobilier_catalogue_comments').delete().eq('project_id', String(projectId)); // commentaires Upside
     await sb.from('dpgf_projects').delete().eq('id', projectId);
     loadProjects();
   } catch(e) { alert('Erreur : ' + e.message); }
@@ -1690,6 +1702,7 @@ async function loadMobOffers() {
   currentMobOffers = Object.values(byCompany).map(versions => {
     return versions.find(v => v.is_reference) || versions[versions.length - 1];
   });
+  await loadMobCatalogueComments();
 }
 
 async function deleteMobOfferCascade(offerId) {
@@ -3099,7 +3112,7 @@ function renderMobCatalogue() {
 
   const rows = buildMobCatalogueRows();
   const companies = currentMobOffers.map(o => o.company_name);
-  const gridTemplate = `minmax(240px, 1.4fr) ${companies.map(() => 'minmax(90px, 0.6fr) minmax(160px, 1.1fr)').join(' ')}`;
+  const gridTemplate = `minmax(240px, 1.4fr) ${companies.map(() => 'minmax(90px, 0.6fr) minmax(150px, 1fr) minmax(150px, 1fr)').join(' ')}`;
 
   let html = `<div class="no-print" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
     <input type="text" id="mob-cat-search" class="form-input" placeholder="Rechercher un code ou une désignation…" style="max-width:280px;" oninput="filterMobCatalogue(this.value)">
@@ -3124,8 +3137,8 @@ function renderMobCatalogue() {
   html += `<div class="mob-head">
     <div class="mob-head-companies" style="--mob-grid:${gridTemplate};">
       <div class="mob-head-desig">Code / Désignation</div>
-      ${companies.map(c => `<div class="mob-head-company mob-col-sep" style="grid-column: span 2;">${escHtml(c)}</div>`).join('')}
-      ${companies.map(() => `<div class="mob-head-sub mob-col-sep">Prix U. HT</div><div class="mob-head-sub" style="text-align:left;">Commentaire</div>`).join('')}
+      ${companies.map(c => `<div class="mob-head-company mob-col-sep" style="grid-column: span 3;">${escHtml(c)}</div>`).join('')}
+      ${companies.map(() => `<div class="mob-head-sub mob-col-sep">Prix U. HT</div><div class="mob-head-sub" style="text-align:left;">Commentaire contractant</div><div class="mob-head-sub mob-head-upside" style="text-align:left;">Commentaire Upside</div>`).join('')}
     </div>
   </div>`;
 
@@ -3133,7 +3146,7 @@ function renderMobCatalogue() {
     let html = '';
     const pus = companies.map(c => row.byCompany[c]?.prix_unitaire).filter(v => typeof v === 'number' && v > 0);
       const minV = pus.length ? Math.min(...pus) : 0, maxV = pus.length ? Math.max(...pus) : 0;
-      const searchKey = escHtml((row.code + ' ' + row.libelle + ' ' + companies.map(c => row.byCompany[c]?.commentaire || '').join(' ')).toLowerCase());
+      const searchKey = escHtml((row.code + ' ' + row.libelle + ' ' + companies.map(c => (row.byCompany[c]?.commentaire || '') + ' ' + (mobCatComments[mobCatCommentKey(c, row.code)]?.commentaire || '')).join(' ')).toLowerCase());
       html += `<div class="mob-an-row mob-an-product mob-cat-row" style="--mob-grid:${gridTemplate};" data-search="${searchKey}">
         <div class="mob-an-label mob-an-product-label"><strong>${escHtml(row.code)}</strong><span class="mob-an-desc">${escHtml(row.libelle)}${row.dimensions ? ' — ' + escHtml(row.dimensions) : ''}</span></div>
         ${companies.map(c => {
@@ -3141,14 +3154,15 @@ function renderMobCatalogue() {
           const com = p?.commentaire
             ? `<div class="mob-cat-comment" title="${escHtml(p.commentaire)}" onclick="this.classList.toggle('open')">${escHtml(p.commentaire).replace(/\n/g, '<br>')}</div>`
             : `<div class="mob-cat-comment mob-cat-comment-empty"></div>`;
-          if (!p) return `<div class="mob-cell mob-cell-absent mob-col-sep">Absent</div>${com}`;
-          if (typeof p.prix_unitaire !== 'number' || !p.prix_unitaire) return `<div class="mob-cell mob-cell-absent mob-col-sep">Non chiffré</div>${com}`;
+          const ups = mobUpsideCellHtml(c, row.code);
+          if (!p) return `<div class="mob-cell mob-cell-absent mob-col-sep">Absent</div>${com}${ups}`;
+          if (typeof p.prix_unitaire !== 'number' || !p.prix_unitaire) return `<div class="mob-cell mob-cell-absent mob-col-sep">Non chiffré</div>${com}${ups}`;
           const cls = pus.length > 1 ? (p.prix_unitaire === minV ? 'mob-best' : p.prix_unitaire === maxV ? 'mob-worst' : '') : '';
           const sub = [p.fournisseur, p.gamme].filter(Boolean).join(' · ');
           return `<div class="mob-cell mob-cat-cell mob-col-sep ${cls}" title="${escHtml(p.finitions || '')}">
             <span class="mob-cat-price">${fmt(p.prix_unitaire)} €</span>
             ${sub ? `<span class="mob-cat-sub">${escHtml(sub)}</span>` : ''}
-          </div>${com}`;
+          </div>${com}${ups}`;
         }).join('')}
       </div>`;
     return html;
@@ -3164,7 +3178,7 @@ function renderMobCatalogue() {
     html += `<div class="mob-cat-section">
       <div class="mob-an-row mob-an-typo" style="--mob-grid:${gridTemplate};" onclick="toggleMobNode('${secId}',this)">
         <div class="mob-an-label"><span class="mob-node-chevron" style="transform:rotate(90deg);">▶</span><span class="mob-an-typo-name">${escHtml(sec.nom)}</span><span class="mob-cat-count">${sec.rows.length} produit${sec.rows.length > 1 ? 's' : ''}</span></div>
-        ${companies.map(() => `<div class="mob-col-sep" style="grid-column: span 2;"></div>`).join('')}
+        ${companies.map(() => `<div class="mob-col-sep" style="grid-column: span 3;"></div>`).join('')}
       </div>
       <div id="${secId}" class="mob-node-panel" style="display:block;">`;
     sec.rows.forEach(r => { html += productRowHtml(r); });
@@ -3342,6 +3356,85 @@ async function exportMobAnalyseExcel(targetWb = null) {
   }
 }
 
+// ============================================================
+// MOBILIER — COMMENTAIRES UPSIDE (Comparatif catalogue)
+// Un commentaire par projet × entreprise × code produit, daté du jour de sa saisie.
+// Stockés dans une table séparée : ils sont conservés même si l'offre est réimportée.
+// ============================================================
+const MOB_UPSIDE_TABLE = 'mobilier_catalogue_comments';
+let mobCatComments = {}; // clé "entreprise||CODE" -> ligne Supabase
+
+function mobCodeKey(code) { return mobNormKey(code).replace(/\s+/g, ''); }
+function mobCatCommentKey(company, code) { return company + '||' + mobCodeKey(code); }
+function mobTodayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function mobFmtDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = String(iso).slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+async function loadMobCatalogueComments() {
+  mobCatComments = {};
+  if (!currentProject) return;
+  const { data, error } = await sb.from(MOB_UPSIDE_TABLE).select('*').eq('project_id', String(currentProject.id));
+  if (error) { console.warn("Commentaires Upside non chargés (table absente ?) :", error); return; }
+  (data || []).forEach(r => { mobCatComments[mobCatCommentKey(r.company_name, r.code)] = r; });
+}
+
+function mobUpsideCellInner(company, code) {
+  const c = mobCatComments[mobCatCommentKey(company, code)];
+  if (!c || !c.commentaire) return `<span class="mob-upside-add no-print">+ Ajouter</span>`;
+  return `<span class="mob-upside-date">${mobFmtDate(c.comment_date)}</span><span class="mob-upside-text">${escHtml(c.commentaire).replace(/\n/g, '<br>')}</span>`;
+}
+function mobUpsideCellHtml(company, code) {
+  return `<div class="mob-upside-cell" data-company="${escHtml(company)}" data-code="${escHtml(code)}" onclick="editMobUpsideComment(this)" title="Cliquer pour saisir un commentaire Upside">${mobUpsideCellInner(company, code)}</div>`;
+}
+
+function editMobUpsideComment(el) {
+  if (el.querySelector('textarea')) return;
+  const company = el.dataset.company, code = el.dataset.code;
+  const current = mobCatComments[mobCatCommentKey(company, code)]?.commentaire || '';
+  el.innerHTML = `<textarea class="mob-upside-input" rows="3" placeholder="Commentaire Upside… (Ctrl+Entrée pour valider, Échap pour annuler)"></textarea>`;
+  const ta = el.querySelector('textarea');
+  ta.value = current;
+  ta.focus();
+  ta.addEventListener('click', e => e.stopPropagation());
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { ta.dataset.cancel = '1'; ta.blur(); }
+    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ta.blur(); }
+  });
+  ta.addEventListener('blur', () => saveMobUpsideComment(el, ta.dataset.cancel ? null : ta.value, current), { once: true });
+}
+
+async function saveMobUpsideComment(el, value, previous) {
+  const company = el.dataset.company, code = el.dataset.code;
+  const key = mobCatCommentKey(company, code);
+  const text = value === null ? null : value.trim();
+  if (text === null || text === (previous || '').trim()) { el.innerHTML = mobUpsideCellInner(company, code); return; }
+  el.innerHTML = `<span class="mob-upside-add">Enregistrement…</span>`;
+  const pid = String(currentProject.id), ck = mobCodeKey(code);
+  let error;
+  if (!text) {
+    ({ error } = await sb.from(MOB_UPSIDE_TABLE).delete().eq('project_id', pid).eq('company_name', company).eq('code_key', ck));
+    if (!error) delete mobCatComments[key];
+  } else {
+    const row = { project_id: pid, company_name: company, code_key: ck, code, commentaire: text, comment_date: mobTodayIso(), updated_at: new Date().toISOString() };
+    const res = await sb.from(MOB_UPSIDE_TABLE).upsert(row, { onConflict: 'project_id,company_name,code_key' }).select().single();
+    error = res.error;
+    if (!error) mobCatComments[key] = res.data || row;
+  }
+  if (error) {
+    console.error(error);
+    alert("Le commentaire n'a pas pu être enregistré. Vérifiez que la table « " + MOB_UPSIDE_TABLE + " » existe dans Supabase.\n\nDétail : " + error.message);
+  }
+  el.innerHTML = mobUpsideCellInner(company, code);
+  const row = el.closest('.mob-cat-row');
+  if (row) row.dataset.search = (row.dataset.search || '') + ' ' + (text || '').toLowerCase();
+}
+
 // ── Export Excel : Comparatif Catalogue Mobilier (Annexe_Mobilier neuf), même mise en forme ──
 async function exportMobCatalogueExcel(targetWb = null) {
   if (!currentMobOffers.length) { if (!targetWb) alert('Aucune offre Mobilier à exporter.'); return false; }
@@ -3354,17 +3447,18 @@ async function exportMobCatalogueExcel(targetWb = null) {
     // Mêmes colonnes que l'écran : Code / Désignation, puis pour chaque entreprise Prix U. HT | Commentaire
     const wb = targetWb || new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Comparatif catalogue', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2 }] });
-    const totalCols = 2 + companies.length * 2;
-    ws.columns = [{ width: 12 }, { width: 48 }, ...companies.flatMap(() => [{ width: 13 }, { width: 50 }])];
+    const totalCols = 2 + companies.length * 3;
+    ws.columns = [{ width: 12 }, { width: 48 }, ...companies.flatMap(() => [{ width: 13 }, { width: 45 }, { width: 40 }])];
 
     ws.mergeCells(1, 1, 2, 2);
     ws.getCell(1, 1).value = 'Code / Désignation';
     companies.forEach((c, i) => {
-      const col = 3 + i * 2;
-      ws.mergeCells(1, col, 1, col + 1);
+      const col = 3 + i * 3;
+      ws.mergeCells(1, col, 1, col + 2);
       ws.getCell(1, col).value = c;
       ws.getCell(2, col).value = 'Prix U. HT';
-      ws.getCell(2, col + 1).value = 'Commentaire';
+      ws.getCell(2, col + 1).value = 'Commentaire contractant';
+      ws.getCell(2, col + 2).value = 'Commentaire Upside';
     });
     for (let r = 1; r <= 2; r++) {
       const row = ws.getRow(r);
@@ -3372,7 +3466,7 @@ async function exportMobCatalogueExcel(targetWb = null) {
         const cell = row.getCell(c);
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.navy } };
         cell.font = { color: { argb: C.white }, bold: true, size: r === 1 ? 11 : 9 };
-        cell.alignment = { vertical: 'middle', horizontal: c <= 2 ? 'left' : (r === 2 && (c - 3) % 2 === 1 ? 'left' : 'center'), wrapText: true };
+        cell.alignment = { vertical: 'middle', horizontal: c <= 2 ? 'left' : (r === 2 && (c - 3) % 3 !== 0 ? 'left' : 'center'), wrapText: true };
       }
     }
 
@@ -3397,7 +3491,7 @@ async function exportMobCatalogueExcel(targetWb = null) {
         const pus = companies.map(c => row.byCompany[c]?.prix_unitaire).filter(v => typeof v === 'number' && v > 0);
         const minV = pus.length ? Math.min(...pus) : null, maxV = pus.length ? Math.max(...pus) : null;
         companies.forEach((c, i) => {
-          const col = 3 + i * 2;
+          const col = 3 + i * 3;
           const p = row.byCompany[c];
           const puCell = xr.getCell(col);
           const hasPrice = p && typeof p.prix_unitaire === 'number' && p.prix_unitaire > 0;
@@ -3416,6 +3510,12 @@ async function exportMobCatalogueExcel(targetWb = null) {
           comCell.value = p?.commentaire || '';
           comCell.alignment = { wrapText: true, vertical: 'top' };
           comCell.font = { size: 9 };
+          const up = mobCatComments[mobCatCommentKey(c, row.code)];
+          const upCell = xr.getCell(col + 2);
+          upCell.value = up && up.commentaire ? `${mobFmtDate(up.comment_date)} — ${up.commentaire}` : '';
+          upCell.alignment = { wrapText: true, vertical: 'top' };
+          upCell.font = { size: 9, color: { argb: C.navy } };
+          upCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFBF8F1' } };
         });
         for (let c = 1; c <= totalCols; c++) {
           xr.getCell(c).border = { bottom: { style: 'thin', color: { argb: C.border } } };

@@ -408,6 +408,7 @@ tr:hover td { background: #fafaf9; }
 .mob-cat-price { font-weight: 600; font-variant-numeric: tabular-nums; }
 .mob-cat-sub { font-size: 10.5px; color: var(--text-muted); font-weight: 400; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mob-cat-row { cursor: default; }
+.mob-cat-count { margin-left: auto; font-size: 11px; font-weight: 500; opacity: .7; white-space: nowrap; }
 
 /* ===== IMPRESSION / EXPORT PDF ("tout ouvert") ===== */
 @media print {
@@ -1700,11 +1701,15 @@ async function deleteMobOfferCascade(offerId) {
 // pour ne pas perdre les produits (l'ordre ne sera alors pas garanti).
 async function insertMobProducts(offerId, products) {
   if (!products || !products.length) return;
-  const rows = products.map(p => ({ offer_id: offerId, ordre: p.ordre, code: p.code, libelle: p.libelle, dimensions: p.dimensions, prix_unitaire: p.prix_unitaire, finitions: p.finitions, fournisseur: p.fournisseur, gamme: p.gamme }));
+  const rows = products.map(p => ({ offer_id: offerId, ordre: p.ordre, categorie: p.categorie || null, code: p.code, libelle: p.libelle, dimensions: p.dimensions, prix_unitaire: p.prix_unitaire, finitions: p.finitions, fournisseur: p.fournisseur, gamme: p.gamme }));
   let { error } = await sb.from('mobilier_products').insert(rows);
+  if (error && /categorie/i.test(error.message || '')) {
+    console.warn("Colonne 'categorie' absente de mobilier_products : ajoutez-la dans Supabase pour afficher les sections de l'Annexe.", error);
+    ({ error } = await sb.from('mobilier_products').insert(rows.map(({ categorie, ...r }) => r)));
+  }
   if (error && /ordre/i.test(error.message || '')) {
     console.warn("Colonne 'ordre' absente de mobilier_products : ajoutez-la dans Supabase pour conserver l'ordre de l'Annexe.", error);
-    ({ error } = await sb.from('mobilier_products').insert(rows.map(({ ordre, ...r }) => r)));
+    ({ error } = await sb.from('mobilier_products').insert(rows.map(({ ordre, categorie, ...r }) => r)));
   }
   if (error) console.warn('Products insert error:', error);
 }
@@ -1916,17 +1921,28 @@ async function parseDPGFMobilier(file) {
         if (annexeSheet) {
           const ws = wb.Sheets[annexeSheet];
           const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+          // Les sections ne sont cherchées qu'après la ligne d'en-tête ("NUM | FABRICANT | ...")
+          // pour ne pas prendre la consigne "MERCI DE REMPLIR..." pour une section.
+          const headerIdx = data.findIndex(r => r && typeof r[0] === 'string' && r[0].trim().toUpperCase() === 'NUM');
+          let currentCat = '';
           for (let i = 0; i < data.length; i++) {
             const row = data[i];
             if (!row || !row[0]) continue;
             const code = row[0];
             if (typeof code !== 'string' || code.length < 2) continue;
-            // Skip category headers (no dot in code, all text)
-            if (!code.match(/[A-Z]{1,3}\d/) && !code.match(/\d/)) continue;
+            // Ligne de section (lignes bleues) : seule la colonne A est remplie, le reste de la ligne est vide
+            // (ex. "ARMOIRE BASSE", "BENCH 2 PERSONNES"). Un vrai produit a toujours un fabricant, une gamme, etc.
+            const restVide = row.slice(1, 12).every(v => v === null || String(v).trim() === '');
+            if (restVide) {
+              if (i > headerIdx) currentCat = code.replace(/\s+/g, ' ').trim().substring(0, 150);
+              continue;
+            }
+            if (!/\d/.test(code)) continue; // texte sans code produit : ignoré
             const pu = parseFloat(row[10]); // colonne K = prix unitaire propre à l'entreprise
             if (isNaN(pu) || pu === 0) continue;
             result.products.push({
               ordre: i, // position de la ligne dans l'onglet "Annexe_Mobilier neuf"
+              categorie: currentCat, // section (ligne bleue) à laquelle appartient le produit
               code: String(code).trim(),
               libelle: row[1] ? String(row[1]).replace(/\n/g,' ').trim().substring(0,200) : '',
               dimensions: row[2] ? String(row[2]).replace(/\n/g,' ').trim().substring(0,100) : '',
@@ -2917,16 +2933,29 @@ function buildMobCatalogueRows() {
       const key = String(p.code || '').trim().toLowerCase();
       if (!key) continue;
       if (!rowsMap[key]) {
-        rowsMap[key] = { code: String(p.code).trim(), libelle: p.libelle || '', dimensions: p.dimensions || '', byCompany: {}, ordre: Number.MAX_SAFE_INTEGER, seq: seq++ };
+        rowsMap[key] = { code: String(p.code).trim(), libelle: p.libelle || '', dimensions: p.dimensions || '', categorie: p.categorie || '', byCompany: {}, ordre: Number.MAX_SAFE_INTEGER, seq: seq++ };
       }
       const r = rowsMap[key];
-      if (Number.isFinite(p.ordre) && p.ordre < r.ordre) r.ordre = p.ordre;
+      if (Number.isFinite(p.ordre) && p.ordre < r.ordre) { r.ordre = p.ordre; if (p.categorie) r.categorie = p.categorie; }
+      if (!r.categorie && p.categorie) r.categorie = p.categorie;
       if (!r.libelle && p.libelle) r.libelle = p.libelle;
       if (!r.dimensions && p.dimensions) r.dimensions = p.dimensions;
       r.byCompany[offer.company_name] = p;
     }
   }
   return Object.values(rowsMap).sort((a, b) => (a.ordre - b.ordre) || (a.seq - b.seq));
+}
+
+// Regroupe les lignes (déjà triées) en sections consécutives, comme dans l'onglet source.
+function groupMobCatalogueSections(rows) {
+  const sections = [];
+  for (const r of rows) {
+    const nom = r.categorie || '';
+    const last = sections[sections.length - 1];
+    if (last && last.nom === nom) last.rows.push(r);
+    else sections.push({ nom, rows: [r] });
+  }
+  return sections;
 }
 
 function renderMobCatalogue() {
@@ -2939,6 +2968,8 @@ function renderMobCatalogue() {
 
   let html = `<div class="no-print" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
     <input type="text" id="mob-cat-search" class="form-input" placeholder="Rechercher un code ou une désignation…" style="max-width:280px;" oninput="filterMobCatalogue(this.value)">
+    <button class="btn btn-outline btn-sm" onclick="toggleAllMobNodes('#mob-cat-rows .mob-node-panel', true)">Tout déplier</button>
+    <button class="btn btn-outline btn-sm" onclick="toggleAllMobNodes('#mob-cat-rows .mob-node-panel', false)">Tout replier</button>
     <button class="btn btn-outline btn-sm" onclick="window.print()">Exporter en PDF (tout ouvert)</button>
     <button class="btn btn-outline btn-sm" onclick="exportMobCatalogueExcel()">Exporter en Excel (.xlsx)</button>
   </div>`;
@@ -2963,25 +2994,43 @@ function renderMobCatalogue() {
     </div>
   </div>`;
 
-  html += `<div id="mob-cat-rows">`;
-  for (const row of rows) {
+  const productRowHtml = (row) => {
+    let html = '';
     const pus = companies.map(c => row.byCompany[c]?.prix_unitaire).filter(v => typeof v === 'number' && v > 0);
-    const minV = pus.length ? Math.min(...pus) : 0, maxV = pus.length ? Math.max(...pus) : 0;
-    const searchKey = escHtml((row.code + ' ' + row.libelle).toLowerCase());
-    html += `<div class="mob-an-row mob-an-product mob-cat-row" style="--mob-grid:${gridTemplate};" data-search="${searchKey}">
-      <div class="mob-an-label mob-an-product-label"><strong>${escHtml(row.code)}</strong><span class="mob-an-desc">${escHtml(row.libelle)}${row.dimensions ? ' — ' + escHtml(row.dimensions) : ''}</span></div>
-      ${companies.map(c => {
-        const p = row.byCompany[c];
-        if (!p || typeof p.prix_unitaire !== 'number' || !p.prix_unitaire) return `<div class="mob-cell mob-cell-absent mob-col-sep">Absent</div>`;
-        const cls = pus.length > 1 ? (p.prix_unitaire === minV ? 'mob-best' : p.prix_unitaire === maxV ? 'mob-worst' : '') : '';
-        const sub = [p.fournisseur, p.gamme].filter(Boolean).join(' · ');
-        return `<div class="mob-cell mob-cat-cell mob-col-sep ${cls}" title="${escHtml(p.finitions || '')}">
-          <span class="mob-cat-price">${fmt(p.prix_unitaire)} €</span>
-          ${sub ? `<span class="mob-cat-sub">${escHtml(sub)}</span>` : ''}
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
+      const minV = pus.length ? Math.min(...pus) : 0, maxV = pus.length ? Math.max(...pus) : 0;
+      const searchKey = escHtml((row.code + ' ' + row.libelle).toLowerCase());
+      html += `<div class="mob-an-row mob-an-product mob-cat-row" style="--mob-grid:${gridTemplate};" data-search="${searchKey}">
+        <div class="mob-an-label mob-an-product-label"><strong>${escHtml(row.code)}</strong><span class="mob-an-desc">${escHtml(row.libelle)}${row.dimensions ? ' — ' + escHtml(row.dimensions) : ''}</span></div>
+        ${companies.map(c => {
+          const p = row.byCompany[c];
+          if (!p || typeof p.prix_unitaire !== 'number' || !p.prix_unitaire) return `<div class="mob-cell mob-cell-absent mob-col-sep">Absent</div>`;
+          const cls = pus.length > 1 ? (p.prix_unitaire === minV ? 'mob-best' : p.prix_unitaire === maxV ? 'mob-worst' : '') : '';
+          const sub = [p.fournisseur, p.gamme].filter(Boolean).join(' · ');
+          return `<div class="mob-cell mob-cat-cell mob-col-sep ${cls}" title="${escHtml(p.finitions || '')}">
+            <span class="mob-cat-price">${fmt(p.prix_unitaire)} €</span>
+            ${sub ? `<span class="mob-cat-sub">${escHtml(sub)}</span>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    return html;
+  };
+
+  html += `<div id="mob-cat-rows">`;
+  groupMobCatalogueSections(rows).forEach((sec, si) => {
+    if (!sec.nom) { // produits sans section (anciennes données) : affichés à plat
+      sec.rows.forEach(r => { html += productRowHtml(r); });
+      return;
+    }
+    const secId = `mob-cat-s-${si}`;
+    html += `<div class="mob-cat-section">
+      <div class="mob-an-row mob-an-typo" style="--mob-grid:${gridTemplate};" onclick="toggleMobNode('${secId}',this)">
+        <div class="mob-an-label"><span class="mob-node-chevron" style="transform:rotate(90deg);">▶</span><span class="mob-an-typo-name">${escHtml(sec.nom)}</span><span class="mob-cat-count">${sec.rows.length} produit${sec.rows.length > 1 ? 's' : ''}</span></div>
+        ${companies.map(() => `<div class="mob-col-sep"></div>`).join('')}
+      </div>
+      <div id="${secId}" class="mob-node-panel" style="display:block;">`;
+    sec.rows.forEach(r => { html += productRowHtml(r); });
+    html += `</div></div>`;
+  });
   html += `</div>`;
   container.innerHTML = html;
 }
@@ -2990,6 +3039,17 @@ function filterMobCatalogue(term) {
   const t = String(term || '').trim().toLowerCase();
   document.querySelectorAll('#mob-cat-rows .mob-cat-row').forEach(row => {
     row.style.display = (!t || (row.dataset.search || '').includes(t)) ? '' : 'none';
+  });
+  // Une section reste visible si elle contient au moins un produit correspondant ;
+  // pendant une recherche, les sections concernées sont dépliées.
+  document.querySelectorAll('#mob-cat-rows .mob-cat-section').forEach(sec => {
+    const visibles = [...sec.querySelectorAll('.mob-cat-row')].some(r => r.style.display !== 'none');
+    sec.style.display = visibles ? '' : 'none';
+    if (t && visibles) {
+      const panel = sec.querySelector('.mob-node-panel'), chev = sec.querySelector('.mob-node-chevron');
+      if (panel) panel.style.display = 'block';
+      if (chev) chev.style.transform = 'rotate(90deg)';
+    }
   });
 }
 
@@ -3179,7 +3239,18 @@ async function exportMobCatalogueExcel() {
     }
 
     let rIdx = 3;
-    for (const row of rows) {
+    for (const sec of groupMobCatalogueSections(rows)) {
+     if (sec.nom) { // ligne de section (navy), comme les lignes bleues du fichier source
+      ws.mergeCells(rIdx, 1, rIdx, totalCols);
+      const sc = ws.getCell(rIdx, 1);
+      sc.value = sec.nom;
+      sc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.navy } };
+      sc.font = { color: { argb: C.white }, bold: true, size: 10 };
+      sc.alignment = { vertical: 'middle', horizontal: 'left' };
+      ws.getRow(rIdx).height = 18;
+      rIdx++;
+     }
+     for (const row of sec.rows) {
       const xr = ws.getRow(rIdx);
       xr.getCell(1).value = row.code; xr.getCell(2).value = row.libelle; xr.getCell(3).value = row.dimensions;
       const pus = companies.map(c => row.byCompany[c]?.prix_unitaire).filter(v => typeof v === 'number' && v > 0);
@@ -3201,6 +3272,7 @@ async function exportMobCatalogueExcel() {
         xr.getCell(c).border = { bottom: { style: 'thin', color: { argb: C.border } } };
       }
       rIdx++;
+     }
     }
 
     const slug = (currentProject?.name || 'projet').replace(/[^a-z0-9]/gi, '_').substring(0, 30);

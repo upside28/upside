@@ -2652,6 +2652,15 @@ function mobNormKey(s) {
     .replace(/\s+/g, ' ').trim();
 }
 
+// Clé d'une typologie : son code (ex. "T.B.01a") s'il existe, sinon son titre normalisé.
+// Deux fichiers qui écrivent "TYPOLOGIE T.B.01a | Bureau individuel neuf" et
+// "Typologie T.B.01a | Bureau indiv. neuf" tombent ainsi sur la même ligne.
+function mobTypoKey(nom) {
+  const n = mobNormKey(mobCleanName(nom));
+  const m = n.match(/\bT\.?\s?[A-Z]{1,4}\.?\s?\d{1,3}[A-Z]?\b/);
+  return m ? 'T:' + m[0].replace(/[\s.]/g, '') : n;
+}
+
 // Construit la hiérarchie comparative GROUPE > TYPOLOGIE > PRODUIT commune à toutes les offres.
 // - Groupes, typologies et produits sont rapprochés via mobNormKey (accents, majuscules, espaces).
 // - Si un fichier n'a pas de titre de groupe (typologies rangées dans "Autres"), chaque typologie
@@ -2667,7 +2676,7 @@ function buildMobAnalyseGroupMap() {
     for (const g of groups) {
       if (isUnnamed(g)) continue;
       for (const t of g.typologies) {
-        const tk = mobNormKey(mobCleanName(t.nom));
+        const tk = mobTypoKey(t.nom);
         if (!typoToGroup[tk]) typoToGroup[tk] = { key: mobNormKey(g.nom), nom: mobCleanName(g.nom) };
       }
     }
@@ -2686,7 +2695,7 @@ function buildMobAnalyseGroupMap() {
       const unnamed = isUnnamed(g);
       for (const typo of g.typologies) {
         const tnom = mobCleanName(typo.nom);
-        const tk = mobNormKey(tnom);
+        const tk = mobTypoKey(tnom);
         let target;
         if (!unnamed) target = { key: mobNormKey(g.nom), nom: mobCleanName(g.nom) };
         else target = typoToGroup[tk] || { key: 'AUTRES', nom: 'Autres' };

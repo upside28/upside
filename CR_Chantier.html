@@ -103,6 +103,11 @@ svg{flex:none}
 
 .note{background:var(--encours-bg);color:var(--encours);border:1px solid #bfdbfe;border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:14px}
 .note.ok{background:var(--termine-bg);color:var(--termine);border-color:#bbf7d0}
+.crlist .crrow{cursor:pointer}
+.crlist .crrow:hover td{background:var(--surface-2)}
+.crlist td{vertical-align:middle}
+.draftbadge{display:inline-flex;background:var(--afaire-bg);color:var(--afaire);border:1px solid #fde68a;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600}
+.formfoot{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
 .okbadge{display:inline-flex;align-items:center;gap:4px;background:var(--termine-bg);color:var(--termine);border:1px solid #bbf7d0;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600;letter-spacing:0;text-transform:none;white-space:nowrap}
 .status-select:disabled{cursor:default;background-image:none;padding-right:11px;opacity:1}
 .ro .pseg button{cursor:default}
@@ -206,6 +211,24 @@ svg{flex:none}
 .hc:hover .acts,.hc .acts:focus-within{opacity:1}
 .hc .acts button{border:0;background:none;color:var(--muted);cursor:pointer;padding:3px 5px;border-radius:6px;font-size:12.5px}
 .hc .acts button:hover{background:var(--surface-2);color:var(--ink)}
+.cadd.over{outline:2px dashed var(--gold);outline-offset:4px;border-radius:var(--radius)}
+.cadd .cbtns{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.cpend{display:flex;flex-wrap:wrap;gap:6px}
+.cpend:empty{display:none}
+.fchip{display:inline-flex;align-items:center;gap:6px;max-width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:20px;padding:3px 6px 3px 10px;font-size:12.5px}
+.fchip .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.fchip .s{color:var(--muted);font-size:11.5px;white-space:nowrap}
+.fchip img{width:22px;height:22px;object-fit:cover;border-radius:4px;margin-left:-4px}
+.fchip button.x{border:0;background:none;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:10px;line-height:1}
+.fchip button.x:hover{color:var(--urgent);background:var(--urgent-bg)}
+.cfiles{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:flex-start}
+.cthumb{border:1px solid var(--line);border-radius:6px;padding:0;background:var(--surface-2);cursor:zoom-in;width:96px;height:72px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.cthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.cthumb:hover{border-color:var(--gold)}
+.cfile{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:5px 8px;background:var(--surface);font-size:12.5px;cursor:pointer;max-width:100%;color:var(--encours)}
+.cfile:hover{border-color:var(--gold)}
+.cfile .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.cfile .s{color:var(--muted);font-size:11.5px}
 .hl{font-size:12.5px;color:var(--muted);padding:0 0 8px 15px}
 .hempty{color:var(--muted);font-size:14px;margin:0}
 
@@ -384,6 +407,9 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .pd-lot .cm.new{background:#e8f0fa}
 .pd-lot .cm i{display:block;font-style:normal;font-weight:600;color:#444;font-size:8.5pt}
 .pd-lot .cm span{white-space:pre-wrap}
+.pd-lot .cm .pimgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.pd-lot .cm .pimgs img{height:80px;max-width:110px;object-fit:cover;border-radius:3px}
+.pd-lot .cm .pf{font-size:8.5pt;color:#1D5C9E;margin-top:3px}
 .pd-lot .fl{font-size:8.5pt;color:#1D5C9E;margin-top:4px}
 .pd-lot tbody.arch td{color:#9aa1a5}
 .pd-lot tbody.arch .tt{text-decoration:line-through}
@@ -438,6 +464,10 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <div class="dlg-body">
       <div class="field"><label for="cDate">Date du commentaire</label><input id="cDate" type="date"></div>
       <div class="field"><label for="cText">Commentaire</label><textarea id="cText" style="min-height:140px"></textarea></div>
+      <div class="field"><span class="lbl">Pièces jointes</span>
+        <div class="cpend" id="cFileList"></div>
+        <div><button type="button" class="btn sm" id="cAddFile">+ Ajouter un fichier</button><input type="file" id="cFiles" multiple hidden></div>
+      </div>
     </div>
     <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>Annuler</button><button class="btn primary" type="submit">Enregistrer</button></div>
   </form>
@@ -512,26 +542,6 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   </form>
 </dialog>
 
-<!-- Nouveau CR -->
-<dialog id="crDlg" class="small" aria-labelledby="crDlgTitle">
-  <form class="dlg-form" id="crForm" novalidate>
-    <div class="dlg-head"><h2 id="crDlgTitle">Nouveau compte-rendu</h2><button class="btn ghost icon" type="button" data-close aria-label="Fermer">✕</button></div>
-    <div class="dlg-body">
-      <p class="help" id="crHelp"></p>
-      <div class="grid2">
-        <div class="field"><label for="nNum">N° du CR</label><input id="nNum" type="number" min="1"></div>
-        <div class="field"><label for="nDate">Date de la réunion</label><input id="nDate" type="date"></div>
-      </div>
-      <div class="grid2">
-        <div class="field"><label for="nNext">Prochaine réunion</label><input id="nNext" type="date"></div>
-        <div class="field"><label for="nTime">Heure</label><input id="nTime" type="time"></div>
-      </div>
-      <label class="check" style="padding:0"><input type="checkbox" id="nCopy" checked> Reprendre les présences, convocations et informations du CR précédent</label>
-    </div>
-    <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>Annuler</button><button class="btn primary" type="submit">Créer le CR</button></div>
-  </form>
-</dialog>
-
 <!-- Impression -->
 <dialog id="printDlg" class="small" aria-labelledby="printDlgTitle">
   <form class="dlg-form" id="printForm" novalidate>
@@ -551,6 +561,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 <datalist id="roleList"></datalist>
 <datalist id="socList"></datalist>
 <input type="file" id="quickFile" multiple hidden>
+<input type="file" id="comFile" multiple hidden>
 <input type="file" id="logoFile" accept="image/png,image/jpeg" hidden>
 <input type="file" id="importFile" accept=".json,application/json" hidden>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -618,10 +629,24 @@ function save() {
   }
 }
 function newProject(name, color) {
-  const cr = { id: uid(), num: 1, date: today(), nextDate: addDays(today(), 7), nextTime: "09:00", infos: "", presences: {} };
-  return { id: uid(), name, color, crTitle: "Compte-rendu de réunion", operation: "", adresse: "", nota: "", view: "taches",
-    intervenants: [], lots: [{ id: uid(), name: "TÂCHES GÉNÉRALES", open: true }], crs: [cr], activeCr: cr.id, tasks: [] };
+  return { id: uid(), name, color, crTitle: "Compte-rendu de réunion", operation: "", adresse: "", nota: "", view: "crs",
+    intervenants: [], lots: [{ id: uid(), name: "TÂCHES GÉNÉRALES", open: true }], crs: [], activeCr: null, tasks: [] };
 }
+/* Préparation d'un nouveau CR : brouillon prérempli avec la réunion précédente */
+let DRAFT = null;
+function startNewCr(p) {
+  const last = sortedCrs(p).slice(-1)[0];
+  const date = last ? (last.nextDate || addDays(last.date, 7)) : today();
+  const presences = {};
+  p.intervenants.forEach((i) => {
+    const prev = last && last.presences[i.id];
+    const conv = prev ? !!prev.conv : true;
+    presences[i.id] = { p: conv ? "P" : "", conv };
+  });
+  DRAFT = { num: last ? last.num + 1 : 1, date, nextDate: addDays(date, 7), nextTime: last ? last.nextTime || "09:00" : "09:00", infos: last ? last.infos : "", presences, from: last ? last.num : null };
+  p.view = "newcr"; HOME = false;
+}
+const meetingTarget = (p) => p.view === "newcr" ? DRAFT : activeCr(p);
 // Reprise de la version précédente (projets / objets)
 function migrateV2(s) {
   const out = { projects: [], active: null };
@@ -721,7 +746,7 @@ function resetFilters() { F.q = ""; F.status = ""; F.who = ""; F.arch = true; }
 function matches(p, t, w) {
   if (!F.arch && t.status === "archive") return false;
   if (F.q) {
-    const hay = [t.code, t.title, t.desc, whoText(p, t.resp), ...t.concerne.map((id) => whoText(p, id)), ...t.comments.map((c) => c.text), ...(t.files || []).map((f) => f.name)].join(" ").toLowerCase();
+    const hay = [t.code, t.title, t.desc, whoText(p, t.resp), ...t.concerne.map((id) => whoText(p, id)), ...t.comments.map((c) => c.text), ...allFiles(t).map((f) => f.name)].join(" ").toLowerCase();
     if (!hay.includes(F.q.toLowerCase())) return false;
   }
   if (F.status === "open" && !OPEN_STATUSES.includes(t.status)) return false;
@@ -779,11 +804,12 @@ function renderSidebar(p) {
   let h = `<div class="sidebar-section-label">Navigation</div>` + item('data-act="home"', SI.home, "Accueil", HOME || !p);
   if (p && !HOME) {
     h += `<div class="sidebar-divider"></div><div class="sidebar-section-label">Projet actif</div>`
-      + [["taches", "Tâches"], ["reunion", "Réunion et présences"], ["intervenants", "Intervenants"]].map(([k, l]) => item(`data-view="${k}"`, SI[k], l, p.view === k)).join("");
-    const cr = activeCr(p);
-    h += `<div class="sidebar-divider"></div><div class="sidebar-section-label">Comptes-rendus</div>`
-      + sortedCrs(p).reverse().map((c) => item(`data-crpick="${c.id}"`, SI.cr, `CR n°${c.num} · ${fmtNum(c.date)}`, c === cr, c.validated ? '<span class="ok" title="Validé">✓</span>' : "")).join("")
-      + `<button type="button" class="sidebar-item add" data-act="new-cr">${SI.plus}<span class="lbl">Nouveau CR</span></button>`;
+      + item('data-view="crs"', SI.taches, "Comptes-rendus", p.view === "crs")
+      + item('data-view="intervenants"', SI.intervenants, "Intervenants", p.view === "intervenants");
+    const cr = activeCr(p); const inCr = p.view === "taches" || p.view === "reunion";
+    h += `<div class="sidebar-divider"></div><div class="sidebar-section-label">CR du projet</div>`
+      + sortedCrs(p).reverse().map((c) => item(`data-crpick="${c.id}"`, SI.cr, `CR n°${c.num} · ${fmtNum(c.date)}`, inCr && c === cr, c.validated ? '<span class="ok" title="Validé">✓</span>' : "")).join("")
+      + `<button type="button" class="sidebar-item add${p.view === "newcr" ? " active" : ""}" data-act="new-cr">${SI.plus}<span class="lbl">Nouveau CR</span></button>`;
   }
   if (state.projects.length) {
     h += `<div class="proj-list"><div class="sidebar-divider"></div><div class="sidebar-section-label">Projets</div>`
@@ -843,9 +869,35 @@ function render() {
   document.title = p.name;
   $("#roleList").innerHTML = [...new Set([...ROLES, ...p.intervenants.map((i) => i.role).filter(Boolean)])].map((r) => `<option value="${esc(r)}">`).join("");
   $("#socList").innerHTML = [...new Set(p.intervenants.map((i) => i.societe).filter(Boolean))].map((r) => `<option value="${esc(r)}">`).join("");
+  if (p.view === "newcr" && !DRAFT) p.view = "crs";
+  if ((p.view === "taches" || p.view === "reunion") && !activeCr(p)) p.view = "crs";
+  if (!["crs", "newcr", "taches", "reunion", "intervenants"].includes(p.view)) p.view = "crs";
+  if (p.view === "crs" || p.view === "newcr" || p.view === "intervenants") {
+    RO = false;
+    const projMenu = `<button class="btn icon" type="button" data-act="menu" aria-label="Plus d’options" aria-haspopup="true" aria-expanded="false">${I.dots}</button>
+        <div class="menu" id="menu" role="menu">
+          <button type="button" data-act="edit-project">Modifier le projet</button>
+          <hr>
+          <button type="button" data-act="export">Exporter une sauvegarde</button>
+          <button type="button" data-act="import">Importer une sauvegarde</button>
+          <hr>
+          <button type="button" data-act="delete-project" class="danger">Supprimer le projet</button>
+        </div>`;
+    const eyebrow = { crs: "Comptes-rendus du projet", newcr: DRAFT && DRAFT.from ? `Nouveau CR — prérempli à partir du CR n°${DRAFT.from}` : "Nouveau CR", intervenants: "Intervenants du projet" }[p.view];
+    const actions = p.view === "crs" ? `<button class="btn primary" type="button" data-act="new-cr">${I.plus} Nouveau CR</button>${projMenu}`
+      : p.view === "newcr" ? `<button class="btn" type="button" data-act="cancel-newcr">Annuler</button><button class="btn primary" type="button" data-act="create-cr">Créer le CR et passer aux tâches →</button>`
+      : projMenu;
+    app.innerHTML = `<header class="phead"><div>
+        <div class="page-eyebrow">${eyebrow}</div>
+        <h1 class="page-title">${esc(p.name)}</h1>
+        <div class="page-subtitle">${[p.operation, p.adresse].filter(Boolean).map(esc).join(" — ") || "&nbsp;"}</div>
+      </div><div class="crbar">${actions}</div></header>`
+      + (p.view === "crs" ? renderCrList(p) : p.view === "newcr" ? renderReunion(p, DRAFT, true) : renderIntervenants(p));
+    return;
+  }
   const cr = activeCr(p);
   const isLast = cr && cr === sortedCrs(p).slice(-1)[0];
-  const viewName = { taches: "Tâches et avancement", reunion: "Réunion et présences", intervenants: "Intervenants" }[p.view] || "";
+  const viewName = { taches: "Tâches et avancement", reunion: "Réunion et présences" }[p.view] || "";
   const head = `
     <header class="phead">
       <div>
@@ -857,7 +909,7 @@ function render() {
         ${cr && cr.validated
           ? `<button class="btn primary" type="button" data-act="pdf">${I.dl} Exporter en PDF</button>`
           : cr ? `<button class="btn primary" type="button" data-act="validate">✓ Valider le CR</button>` : ""}
-        <button class="btn" type="button" data-act="new-cr">${I.plus} Nouveau CR</button>
+        ${p.view === "reunion" ? `<button class="btn" type="button" data-view="taches">← Retour aux tâches</button>` : `<button class="btn" type="button" data-view="reunion">Réunion et présences</button>`}
         <button class="btn icon" type="button" data-act="menu" aria-label="Plus d’options" aria-haspopup="true" aria-expanded="false">${I.dots}</button>
         <div class="menu" id="menu" role="menu">
           <button type="button" data-act="print">${cr && cr.validated ? "Imprimer le CR" : "Aperçu avant validation"}</button>
@@ -877,11 +929,11 @@ function render() {
     ${cr && !isLast && !cr.validated ? `<div class="note">Tu consultes le CR n°${cr.num}, qui n’est pas le dernier. Les commentaires et changements de statut que tu ajoutes maintenant seront datés du ${fmtNum(cr.date)}.</div>` : ""}`;
   RO = !!(cr && cr.validated);
   let body = "";
-  if (p.view === "reunion") body = renderReunion(p, cr);
-  else if (p.view === "intervenants") body = renderIntervenants(p);
+  if (p.view === "reunion") body = renderReunion(p, cr, false);
   else body = renderTasks(p, cr);
   const qFocus = document.activeElement && document.activeElement.id === "q";
   app.innerHTML = head + body;
+  hydrateThumbs(app);
   if (qFocus) { const q = $("#q"); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
 }
 
@@ -934,7 +986,7 @@ function renderTasks(p, cr) {
 function taskHTML(p, t, w) {
   const late = isLate(t);
   const hasNew = t.comments.some((c) => isNewIn(c.date, w));
-  const nF = (t.files || []).length;
+  const nF = allFiles(t).length;
   const dates = t.start || t.due
     ? `${t.start ? fmtShort(t.start) : ""}${t.start && t.due ? " → " : ""}${t.due ? `<span class="${late ? "late" : ""}">${fmtShort(t.due)}</span>` : ""}`
     : '<span class="none">—</span>';
@@ -958,7 +1010,7 @@ function detailHTML(p, t, w) {
 
   ].sort((a, b) => b.date.localeCompare(a.date) || b.at - a.at);
   const hist = items.length ? `<ul class="hist">${items.map((it) => it.kind === "c"
-    ? `<li class="hc${isNewIn(it.date, w) ? " new" : ""}" data-cid="${it.c.id}"><div class="h">Commentaire du ${fmtNum(it.date)}${isNewIn(it.date, w) ? '<span class="badge">Ce CR</span>' : ""}${RO ? "" : '<span class="acts"><button type="button" data-act="edit-com">Modifier</button><button type="button" data-act="delete-com">Supprimer</button></span>'}</div><div class="tx">${esc(it.c.text)}</div></li>`
+    ? `<li class="hc${isNewIn(it.date, w) ? " new" : ""}" data-cid="${it.c.id}"><div class="h">Commentaire du ${fmtNum(it.date)}${isNewIn(it.date, w) ? '<span class="badge">Ce CR</span>' : ""}${RO ? "" : '<span class="acts"><button type="button" data-act="edit-com">Modifier</button><button type="button" data-act="delete-com">Supprimer</button></span>'}</div>${it.c.text ? `<div class="tx">${esc(it.c.text)}</div>` : ""}${comFilesHTML(it.c)}</li>`
     : `<li class="hl">${fmtNum(it.date)} — statut : ${statusLabel(it.l.from)} → ${statusLabel(it.l.to)}</li>`).join("")}</ul>` : '<p class="hempty">Aucun commentaire pour l’instant.</p>';
   const conc = t.concerne.map((id) => intById(p, id)).filter(Boolean);
   return `<div class="tdetail">
@@ -975,8 +1027,10 @@ function detailHTML(p, t, w) {
     <div class="sec">
       <h3>Commentaires</h3>
       ${RO ? "" : `<form class="cadd" data-form="add-com">
-        <textarea name="text" placeholder="Nouveau commentaire pour ce CR…" aria-label="Nouveau commentaire"></textarea>
-        <div class="row"><label>Commentaire du <input name="date" type="date" value="${defaultDate(p)}"></label><button class="btn sm primary" type="submit">Ajouter le commentaire</button></div>
+        <textarea name="text" placeholder="Nouveau commentaire pour ce CR… (tu peux aussi y coller une capture d’écran)" aria-label="Nouveau commentaire"></textarea>
+        <div class="cpend" data-pend>${(pendingCom[t.id] || []).map((f, i) => chipHTML(f, i, pendUrl(f))).join("")}</div>
+        <div class="row"><label>Commentaire du <input name="date" type="date" value="${defaultDate(p)}"></label>
+          <div class="cbtns"><button class="btn sm" type="button" data-act="com-attach">${I.clip} Joindre un fichier</button><button class="btn sm primary" type="submit">Ajouter le commentaire</button></div></div>
       </form>`}
       ${hist}
     </div>
@@ -984,7 +1038,7 @@ function detailHTML(p, t, w) {
 }
 
 /* --- Réunion --- */
-function renderReunion(p, cr) {
+function renderReunion(p, cr, draft) {
   if (!cr) return `<div class="empty"><h2>Aucun compte-rendu</h2><p>Crée le premier CR de ce projet.</p><button class="btn primary" type="button" data-act="new-cr">${I.plus} Nouveau CR</button></div>`;
   const groups = ["equipe", "moa", "intervenant"].map((b) => [b, p.intervenants.filter((i) => i.bloc === b)]).filter(([, l]) => l.length);
   const rows = groups.map(([b, list]) => `<tr class="grp"><td colspan="3">${BLOCS[b]}</td></tr>` + list.map((i) => {
@@ -994,7 +1048,7 @@ function renderReunion(p, cr) {
       <td><select data-act="conv" aria-label="Convocation de ${esc(i.nom)}"${RO ? " disabled" : ""}><option value="1"${pr.conv ? " selected" : ""}>Convoqué</option><option value="0"${pr.conv ? "" : " selected"}>Non convoqué</option></select></td></tr>`;
   }).join("")).join("");
   return `<div class="card">
-      <h2>Compte-rendu n°${cr.num}</h2>
+      <h2>${draft ? `Informations de la réunion — CR n°${cr.num}` : `Compte-rendu n°${cr.num}`}</h2>
       <div class="grid4">
         <div class="field"><label for="crNum">N°</label><input id="crNum" data-cr="num"${RO ? " disabled" : ""} type="number" min="1" value="${cr.num}"></div>
         <div class="field"><label for="crDate">Date de la réunion</label><input id="crDate" data-cr="date"${RO ? " disabled" : ""} type="date" value="${cr.date}"></div>
@@ -1008,8 +1062,27 @@ function renderReunion(p, cr) {
       <h2>Présences</h2>
       ${p.intervenants.length ? `<div class="table-wrap"><table class="ptable"><thead><tr><th>Intervenant</th><th>Présence</th><th>Prochaine réunion</th></tr></thead><tbody>${rows}</tbody></table></div>
       <p class="hempty" style="margin-top:10px">P : présent, ABS : absent, E : excusé, R : représenté.</p>`
-      : `<p class="hempty">Ajoute d’abord les intervenants du projet.</p><p><button class="btn" type="button" data-view="intervenants">Aller aux intervenants</button></p>`}
-    </div>`;
+      : `<p class="hempty">Aucun intervenant pour l’instant. Tu peux les ajouter depuis « Modifier le projet » (menu ⋯) ou la page Intervenants.</p>`}
+    </div>
+    ${draft ? `<div class="formfoot"><button class="btn" type="button" data-act="cancel-newcr">Annuler</button><button class="btn primary" type="button" data-act="create-cr">Créer le CR et passer aux tâches →</button></div>`
+      : `<div class="formfoot"><button class="btn primary" type="button" data-view="taches">Retour aux tâches →</button></div>`}`;
+}
+
+/* --- Liste des CR d'un projet --- */
+function renderCrList(p) {
+  const crs = sortedCrs(p).reverse();
+  if (!crs.length) return `<div class="empty"><h2>Aucun compte-rendu</h2><p>Prépare le premier CR : informations de la réunion et présences, puis les tâches.</p><button class="btn primary" type="button" data-act="new-cr">${I.plus} Préparer le CR n°1</button></div>`;
+  const nP = (c) => Object.values(c.presences || {}).filter((x) => x.p === "P").length;
+  return `<div class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="ptable crlist">
+    <thead><tr><th>N°</th><th>Réunion</th><th>Prochaine réunion</th><th>Présents</th><th>État</th><th></th></tr></thead>
+    <tbody>${crs.map((c) => `<tr class="crrow" data-opencr="${c.id}" tabindex="0" title="Ouvrir le CR n°${c.num}">
+      <td><b>CR n°${c.num}</b></td>
+      <td>${fmtLong(c.date)}</td>
+      <td>${c.nextDate ? fmtNum(c.nextDate) + (c.nextTime ? " à " + c.nextTime : "") : '<span class="none">—</span>'}</td>
+      <td>${nP(c)}</td>
+      <td>${c.validated ? `<span class="okbadge">✓ Validé le ${fmtNum(c.validatedAt)}</span>` : '<span class="draftbadge">En cours</span>'}</td>
+      <td style="text-align:right;white-space:nowrap">${c.validated ? `<button class="btn sm" type="button" data-act="pdf-cr" data-crid="${c.id}">${I.dl} PDF</button> ` : ""}<button class="btn sm" type="button" data-opencr="${c.id}">Ouvrir →</button></td>
+    </tr>`).join("")}</tbody></table></div></div>`;
 }
 
 /* --- Intervenants --- */
@@ -1105,48 +1178,26 @@ $("#projForm").addEventListener("submit", (e) => {
   } else {
     HOME = false;
     p = newProject(name, color); p.intervenants = rows;
-    rows.forEach((r) => (p.crs[0].presences[r.id] = { p: "", conv: true }));
-    state.projects.push(p); state.active = p.id; resetFilters();
+    state.projects.push(p); state.active = p.id; resetFilters(); startNewCr(p);
   }
   Object.assign(p, { name, color, crTitle: $("#pCrTitle").value.trim() || "Compte-rendu de réunion", operation: $("#pOp").value.trim(), adresse: $("#pAddr").value.trim(), nota: $("#pNota").value.trim() });
-  save(); render(); $("#projDlg").close(); toast(editingProject ? "Projet modifié" : "Projet créé avec le CR n°1");
+  save(); render(); $("#projDlg").close(); toast(editingProject ? "Projet modifié" : "Projet créé : prépare maintenant le CR n°1");
 });
 async function deleteProject() {
   const p = P();
   if (!confirm(`Supprimer le projet « ${p.name} », tous ses CR et toutes ses tâches ? Cette action est définitive.`)) return;
-  for (const t of p.tasks) for (const f of t.files || []) await delFile(f.id);
+  for (const t of p.tasks) for (const f of allFiles(t)) await delFile(f.id);
   state.projects = state.projects.filter((x) => x !== p); state.active = null; HOME = true; save(); render(); toast("Projet supprimé");
 }
 
 /* ==========================================================
    CR
    ========================================================== */
-function openNewCr() {
-  const p = P(); const last = sortedCrs(p).slice(-1)[0];
-  const date = last ? (last.nextDate || addDays(last.date, 7)) : today();
-  $("#nNum").value = last ? last.num + 1 : 1; $("#nDate").value = date; $("#nNext").value = addDays(date, 7); $("#nTime").value = last ? last.nextTime || "09:00" : "09:00";
-  $("#nCopy").checked = true; $("#nCopy").parentElement.hidden = !last;
-  $("#crHelp").textContent = last ? `Le nouveau CR repart du CR n°${last.num} : toutes les tâches restent en place. Les nouveaux commentaires prendront la date de ce CR.` : "Premier compte-rendu du projet.";
-  $("#crDlg").showModal();
-}
-$("#crForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const p = P(); const last = sortedCrs(p).slice(-1)[0];
-  const num = parseInt($("#nNum").value, 10); const date = $("#nDate").value;
-  if (!num || !date) { toast("Indique le numéro et la date."); return; }
-  if (p.crs.some((c) => c.num === num)) { toast(`Le CR n°${num} existe déjà.`); return; }
-  const cr = { id: uid(), num, date, nextDate: $("#nNext").value, nextTime: $("#nTime").value, infos: "", presences: {} };
-  if (last && $("#nCopy").checked) {
-    cr.infos = last.infos;
-    Object.entries(last.presences).forEach(([id, v]) => { cr.presences[id] = { p: v.conv ? "P" : "", conv: v.conv }; });
-  }
-  p.crs.push(cr); p.activeCr = cr.id; save(); render(); $("#crDlg").close(); toast(`CR n°${num} créé`);
-});
 function deleteCr() {
   const p = P(); const cr = activeCr(p); if (!cr) return;
   if (p.crs.length === 1) { toast("Un projet garde au moins un CR."); return; }
   if (!confirm(`Supprimer le CR n°${cr.num} (présences et informations) ? Les tâches et commentaires sont conservés.`)) return;
-  p.crs = p.crs.filter((c) => c !== cr); p.activeCr = sortedCrs(p).slice(-1)[0].id; save(); render(); toast("CR supprimé");
+  p.crs = p.crs.filter((c) => c !== cr); p.activeCr = sortedCrs(p).slice(-1)[0].id; p.view = "crs"; save(); render(); toast("CR supprimé");
 }
 
 /* ==========================================================
@@ -1187,7 +1238,7 @@ $("#lotForm").addEventListener("submit", (e) => {
 async function deleteLot(lid) {
   const p = P(); const l = p.lots.find((x) => x.id === lid); const tasks = p.tasks.filter((t) => t.lotId === lid);
   if (!confirm(tasks.length ? `Supprimer la catégorie « ${l.name} » et ses ${plural(tasks.length, "tâche", "tâches")} ? Pour garder une trace, archive plutôt les tâches.` : `Supprimer la catégorie « ${l.name} » ?`)) return;
-  for (const t of tasks) for (const f of t.files || []) await delFile(f.id);
+  for (const t of tasks) for (const f of allFiles(t)) await delFile(f.id);
   p.tasks = p.tasks.filter((t) => t.lotId !== lid); p.lots = p.lots.filter((x) => x !== l); save(); render();
 }
 function moveLot(lid, dir) { const p = P(); const i = p.lots.findIndex((x) => x.id === lid); const j = i + dir; if (j < 0 || j >= p.lots.length) return; [p.lots[i], p.lots[j]] = [p.lots[j], p.lots[i]]; save(); render(); }
@@ -1258,21 +1309,73 @@ $("#deleteTask").addEventListener("click", async () => {
   const p = P(); if (!editing || editing.isNew) return;
   if (!confirm(`Supprimer définitivement la tâche « ${editing.draft.title} » et ses commentaires ? (Pour la garder visible en grisé, choisis plutôt le statut « Archivé ».)`)) return;
   const orig = p.tasks.find((t) => t.id === editing.draft.id);
-  for (const id of new Set([...(orig.files || []).map((f) => f.id), ...editing.added])) await delFile(id);
+  for (const id of new Set([...allFiles(orig).map((f) => f.id), ...editing.added])) await delFile(id);
   p.tasks = p.tasks.filter((t) => t !== orig); editing.saved = true; save(); render(); $("#taskDlg").close(); toast("Tâche supprimée");
 });
 
-/* Commentaires */
+/* Commentaires et leurs pièces jointes */
+const isImg = (m) => /^image\/(png|jpe?g|gif|webp|bmp)$/i.test(m.type || "") || /\.(png|jpe?g|gif|webp|bmp)$/i.test(m.name || "");
+const fileMeta = (file, id) => ({ id, name: file.name || `photo-${today()}.png`, size: file.size, type: file.type });
+function chipHTML(m, i, url) {
+  return `<span class="fchip">${url ? `<img src="${url}" alt="">` : I.clip}<span class="n">${esc(m.name)}</span><span class="s">${fmtSize(m.size)}</span><button type="button" class="x" data-i="${i}" aria-label="Retirer ${esc(m.name)}">✕</button></span>`;
+}
+// fichiers en attente pour le formulaire « nouveau commentaire » de chaque tâche
+const pendingCom = {};
+const pendUrls = new WeakMap();
+const pendUrl = (file) => { if (!isImg(file)) return ""; if (!pendUrls.has(file)) pendUrls.set(file, URL.createObjectURL(file)); return pendUrls.get(file); };
+function renderPending(tid) {
+  const box = document.querySelector(`.task[data-tid="${tid}"] [data-pend]`); if (!box) return;
+  box.innerHTML = (pendingCom[tid] || []).map((f, i) => chipHTML(f, i, pendUrl(f))).join("");
+}
+function addPending(tid, files) {
+  const list = [...files].filter((f) => f.size > 0); if (!list.length) return;
+  (pendingCom[tid] = pendingCom[tid] || []).push(...list); renderPending(tid);
+}
+// vignettes des photos déjà enregistrées
+const thumbCache = new Map();
+async function hydrateThumbs(root = document) {
+  for (const img of root.querySelectorAll("img[data-thumb]")) {
+    const id = img.dataset.thumb; img.removeAttribute("data-thumb");
+    if (!thumbCache.has(id)) { const b = await getFile(id); if (!b) continue; thumbCache.set(id, URL.createObjectURL(b)); }
+    img.src = thumbCache.get(id);
+  }
+}
+function comFilesHTML(c) {
+  const fs = c.files || []; if (!fs.length) return "";
+  return `<div class="cfiles">${fs.map((m) => isImg(m)
+    ? `<button type="button" class="cthumb" data-act="open-cfile" data-file="${m.id}" title="${esc(m.name)}"><img data-thumb="${m.id}" alt="${esc(m.name)}"></button>`
+    : `<button type="button" class="cfile" data-act="open-cfile" data-file="${m.id}" title="Ouvrir ${esc(m.name)}">${I.clip}<span class="n">${esc(m.name)}</span><span class="s">${fmtSize(m.size)}</span></button>`).join("")}</div>`;
+}
+const allFiles = (t) => [...(t.files || []), ...t.comments.flatMap((c) => c.files || [])];
+
 let editingCom = null;
 function openCom(tid, cid) {
   const t = P().tasks.find((x) => x.id === tid); const c = t.comments.find((x) => x.id === cid);
-  editingCom = { tid, cid }; $("#cDate").value = c.date; $("#cText").value = c.text; $("#comDlg").showModal(); $("#cText").focus();
+  editingCom = { tid, cid, files: [...(c.files || [])], added: [], removed: [], saved: false };
+  $("#cDate").value = c.date; $("#cText").value = c.text; renderComDlgFiles(); $("#comDlg").showModal(); $("#cText").focus();
 }
-$("#comForm").addEventListener("submit", (e) => {
-  e.preventDefault(); const t = P().tasks.find((x) => x.id === editingCom.tid); const c = t.comments.find((x) => x.id === editingCom.cid);
-  const text = $("#cText").value.trim(); if (!text) { $("#cText").focus(); return; }
-  c.text = text; c.date = $("#cDate").value || c.date; save(); render(); $("#comDlg").close();
+function renderComDlgFiles() {
+  $("#cFileList").innerHTML = editingCom.files.map((m, i) => chipHTML(m, i, isImg(m) && thumbCache.get(m.id) || "")).join("") || '<span class="hempty" style="font-size:13px">Aucune pièce jointe.</span>';
+}
+$("#cAddFile").addEventListener("click", () => $("#cFiles").click());
+$("#cFiles").addEventListener("change", async (e) => {
+  for (const file of [...e.target.files]) { const id = uid(); await putFile(id, file); editingCom.files.push(fileMeta(file, id)); editingCom.added.push(id); }
+  e.target.value = ""; renderComDlgFiles();
 });
+$("#cFileList").addEventListener("click", async (e) => {
+  const b = e.target.closest("button.x"); if (!b) return;
+  const [m] = editingCom.files.splice(+b.dataset.i, 1);
+  if (editingCom.added.includes(m.id)) { editingCom.added = editingCom.added.filter((x) => x !== m.id); await delFile(m.id); } else editingCom.removed.push(m.id);
+  renderComDlgFiles();
+});
+$("#comForm").addEventListener("submit", async (e) => {
+  e.preventDefault(); const t = P().tasks.find((x) => x.id === editingCom.tid); const c = t.comments.find((x) => x.id === editingCom.cid);
+  const text = $("#cText").value.trim(); if (!text && !editingCom.files.length) { $("#cText").focus(); return; }
+  for (const id of editingCom.removed) await delFile(id);
+  c.text = text; c.date = $("#cDate").value || c.date; c.files = editingCom.files; editingCom.saved = true;
+  save(); render(); $("#comDlg").close();
+});
+$("#comDlg").addEventListener("close", async () => { if (editingCom && !editingCom.saved) for (const id of editingCom.added) await delFile(id); editingCom = null; });
 
 /* Intervenants */
 let editingInt = null;
@@ -1314,8 +1417,17 @@ $("#quickFile").addEventListener("change", async (e) => {
 /* ==========================================================
    Impression du CR
    ========================================================== */
-function buildPrint(opts) {
+async function buildPrint(opts) {
   const p = P(); const cr = activeCr(p); const w = crWindow(p, cr); const cutoff = w.to;
+  for (const t of p.tasks) for (const c of t.comments) for (const m of c.files || []) {
+    if (isImg(m) && !thumbCache.has(m.id)) { const b = await getFile(m.id); if (b) thumbCache.set(m.id, URL.createObjectURL(b)); }
+  }
+  const comFiles = (c) => {
+    const fs = c.files || []; if (!fs.length) return "";
+    const imgs = fs.filter((m) => isImg(m) && thumbCache.has(m.id)), others = fs.filter((m) => !imgs.includes(m));
+    return (imgs.length ? `<div class="pimgs">${imgs.map((m) => `<img src="${thumbCache.get(m.id)}" alt="">`).join("")}</div>` : "")
+      + (others.length ? `<div class="pf">Pièces jointes : ${others.map((m) => esc(m.name)).join(" · ")}</div>` : "");
+  };
   const pres = (i) => cr.presences[i.id] || { p: "", conv: false };
   const person = (i) => `<div class="pd-person"><div class="r">${esc(i.role)}</div><b>${esc(i.nom)}${i.societe ? " - " + esc(i.societe) : ""}</b><div>${esc([i.email, i.tel].filter(Boolean).join("  "))}</div><div class="p">${(PRESENCES.find((x) => x.k === pres(i).p) || { l: "—" }).l} | ${pres(i).conv ? "Convoqué à la prochaine réunion" : "Non convoqué"}</div></div>`;
   const team = p.intervenants.filter((i) => i.bloc === "equipe"), moa = p.intervenants.filter((i) => i.bloc === "moa"), others = p.intervenants.filter((i) => i.bloc === "intervenant");
@@ -1333,7 +1445,7 @@ function buildPrint(opts) {
         const files = (t.files || []).map((f) => f.name);
         return `<tbody class="${st === "archive" ? "arch" : ""}"><tr class="main"><td class="code">${esc(t.code)}</td><td><span class="tt">${esc(t.title)}</span><div class="ds">${esc(t.desc)}</div>${conc.length ? `<div class="cc">Concerne aussi : ${conc.map(esc).join(", ")}</div>` : ""}</td>
           <td class="resp">${esc(whoText(p, t.resp))}</td><td class="stat"><span class="pill st-${st}">${statusLabel(st)}</span>${st === "archive" && t.archivedAt ? `<span class="dd">le ${fmtNum(t.archivedAt)}</span>` : ""}${t.start || t.due ? `<span class="dd">${fmtNum(t.start)}${t.start && t.due ? " > " : ""}${fmtNum(t.due)}</span>` : ""}</td></tr>
-          ${coms.length || files.length ? `<tr class="com"><td></td><td colspan="3">${coms.map((c) => `<div class="cm${isNewIn(c.date, w) ? " new" : ""}"><i>Commentaire du ${fmtNum(c.date)} :</i><span>${esc(c.text)}</span></div>`).join("")}${files.length ? `<div class="fl">${files.map(esc).join(" · ")}</div>` : ""}</td></tr>` : ""}</tbody>`;
+          ${coms.length || files.length ? `<tr class="com"><td></td><td colspan="3">${coms.map((c) => `<div class="cm${isNewIn(c.date, w) ? " new" : ""}"><i>Commentaire du ${fmtNum(c.date)} :</i><span>${esc(c.text)}</span>${comFiles(c)}</div>`).join("")}${files.length ? `<div class="fl">${files.map(esc).join(" · ")}</div>` : ""}</td></tr>` : ""}</tbody>`;
       }).join("") + `</table>`;
   });
   $("#printDoc").innerHTML = `<div class="pd">
@@ -1369,8 +1481,8 @@ $("#printForm").addEventListener("submit", async (e) => {
     finally { btn.disabled = false; btn.textContent = "Télécharger le PDF"; }
     return;
   }
-  buildPrint(opts); $("#printDlg").close();
-  setTimeout(() => window.print(), 50);
+  await buildPrint(opts); $("#printDlg").close();
+  setTimeout(() => window.print(), 300);
 });
 
 /* ==========================================================
@@ -1589,6 +1701,22 @@ async function exportPdf(opts) {
   if (cr.infos) { text(cr.infos, { size: 9.5, style: "bold" }); y += 2; }
   if (p.nota) text(`Nota : ${p.nota}`, { size: 9, style: "italic" });
 
+  /* Photos des commentaires : chargées et réduites avant la mise en page */
+  const pdfImgs = {};
+  for (const t of p.tasks) for (const c of t.comments) for (const m of c.files || []) {
+    if (!isImg(m) || (cutoff && c.date >= cutoff)) continue;
+    try {
+      const b = await getFile(m.id); if (!b) continue;
+      const url = URL.createObjectURL(b);
+      const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const k = Math.min(1, 900 / Math.max(im.width, im.height));
+      const cv = document.createElement("canvas"); cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k);
+      const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(im, 0, 0, cv.width, cv.height);
+      pdfImgs[m.id] = { data: cv.toDataURL("image/jpeg", 0.82), w: cv.width, h: cv.height };
+      URL.revokeObjectURL(url);
+    } catch (e) { }
+  }
+
   /* Tâches et avancement */
   heading("Tâches et avancement");
   let anyTask = false;
@@ -1598,7 +1726,7 @@ async function exportPdf(opts) {
     if (!list.length) return;
     anyTask = true;
     // Une ligne de tableau par tâche : elle n'est jamais coupée entre deux pages.
-    const FS = 8.5, LH = FS * MM * 1.15, W1 = CW - 14 - 38 - 30 - 5;
+    const FS = 8.5, LH = FS * MM * 1.15, W1 = CW - 14 - 38 - 30 - 5, IMG_H = 22, IMG_W = (W1 - 4 - 6) / 3;
     const rows = list.map(({ t, st }) => {
       const arch = st === "archive"; const L = [];
       const add = (str, o = {}) => {
@@ -1616,13 +1744,19 @@ async function exportPdf(opts) {
         const g = { bg: arch ? [247, 248, 248] : isNewIn(c.date, w) ? NEWBG : SOFT, grp: k };
         L.push({ t: "" });
         add(`Commentaire du ${fmtNum(c.date)} :`, { ...g, b: true, s: 7.5, c: [70, 70, 70] });
-        add(c.text, { ...g, s: 8 });
+        if (c.text) add(c.text, { ...g, s: 8 });
+        const fs = c.files || [];
+        const imgs = fs.filter((m) => pdfImgs[m.id]).slice(0, 6), others = fs.filter((m) => !pdfImgs[m.id]);
+        for (let r = 0; r < imgs.length; r += 3) L.push({ t: "", ...g, imgs: imgs.slice(r, r + 3), span: Math.ceil((IMG_H + 1.5) / LH) });
+        if (fs.filter((m) => pdfImgs[m.id]).length > 6) add(`+ ${fs.filter((m) => pdfImgs[m.id]).length - 6} autre(s) photo(s)`, { ...g, s: 7.5, c: GREY });
+        if (others.length) add("Pièces jointes : " + others.map((m) => m.name).join("  ·  "), { ...g, s: 7.5, c: [29, 92, 158] });
       });
       if ((t.files || []).length) { L.push({ t: "" }); add(t.files.map((x) => x.name).join("   ·   "), { s: 7.5, c: [29, 92, 158] }); }
       const st3 = [statusLabel(st).toUpperCase()];
       if (st === "archive" && t.archivedAt) st3.push("le " + fmtNum(t.archivedAt));
       if (t.start) st3.push(fmtNum(t.start) + (t.due ? " >" : ""));
       if (t.due) st3.push(fmtNum(t.due));
+      let slot = 0; L.forEach((ln) => { ln.slot = slot; slot += ln.span || 1; });
       return { t, st, arch, L, st3 };
     });
     ensure(30);
@@ -1632,7 +1766,7 @@ async function exportPdf(opts) {
         [{ content: T(lot.name), colSpan: 4, styles: { fillColor: [255, 255, 255], textColor: NAVY, fontStyle: "bold", fontSize: 10, cellPadding: { top: 3, bottom: 2, left: 3, right: 0 } } }],
         ["N°", "Tâche", "Responsable", { content: "Statut", styles: { halign: "right" } }]
       ],
-      body: rows.map((r) => [T(r.t.code), r.L.map((x) => x.t || " ").join("\n"), T(whoText(p, r.t.resp)), r.st3.join("\n")]),
+      body: rows.map((r) => [T(r.t.code), r.L.flatMap((x) => Array(x.span || 1).fill(x.t || " ")).join("\n"), T(whoText(p, r.t.resp)), r.st3.join("\n")]),
       styles: { font: FONT, fontSize: FS, cellPadding: { top: 3, bottom: 3, left: 2, right: 2 }, textColor: INK, overflow: "linebreak", lineHeightFactor: 1.15 },
       headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "normal", fontSize: 8.5, cellPadding: 2 },
       columnStyles: { 0: { cellWidth: 14, fontStyle: "bold" }, 1: { cellWidth: W1 + 4 }, 2: { cellWidth: 38 }, 3: { cellWidth: 30, halign: "right" } },
@@ -1647,19 +1781,29 @@ async function exportPdf(opts) {
         const top = cell.y + 3;
         if (d.column.index === 1) {
           const x = cell.x + 2;
-          // fonds des commentaires
+          // fonds des commentaires (par groupe de lignes consécutives)
           let i = 0;
           while (i < r.L.length) {
             if (!r.L[i].bg) { i++; continue; }
             let j = i; while (j + 1 < r.L.length && r.L[j + 1].bg && r.L[j + 1].grp === r.L[i].grp) j++;
-            doc.setFillColor(...r.L[i].bg); doc.roundedRect(x - 0.5, top + LH * i - 0.6, W1 + 1, LH * (j - i + 1) + 1.2, 0.8, 0.8, "F");
+            const y1 = top + LH * r.L[i].slot - 0.6, y2 = top + LH * (r.L[j].slot + (r.L[j].span || 1)) + 0.6;
+            doc.setFillColor(...r.L[i].bg); doc.roundedRect(x - 0.5, y1, W1 + 1, y2 - y1, 0.8, 0.8, "F");
             i = j + 1;
           }
-          r.L.forEach((ln, k) => {
+          r.L.forEach((ln) => {
+            const ly = top + LH * ln.slot;
+            if (ln.imgs) {
+              ln.imgs.forEach((m, k) => {
+                const im = pdfImgs[m.id]; const sc = Math.min(IMG_W / im.w, IMG_H / im.h);
+                const w2 = im.w * sc, h2 = im.h * sc;
+                try { doc.addImage(im.data, "JPEG", x + 2 + k * (IMG_W + 3), ly + 0.6, w2, h2, m.id, "FAST"); } catch (e) { }
+              });
+              return;
+            }
             if (!ln.t) return;
             doc.setFont(FONT, ln.b ? "bold" : "normal"); doc.setFontSize(ln.s || FS);
             doc.setTextColor(...(r.arch ? [150, 156, 160] : ln.c || INK));
-            doc.text(ln.t, x + (ln.bg ? 2 : 0), top + LH * k + FS * MM * 0.8);
+            doc.text(ln.t, x + (ln.bg ? 2 : 0), ly + FS * MM * 0.8);
           });
         }
         if (d.column.index === 3) {
@@ -1698,7 +1842,7 @@ const blobToDataURL = (b) => new Promise((res, rej) => { const r = new FileReade
 function dataURLToBlob(url) { const [h, d] = url.split(","); const mime = (h.match(/data:([^;]+)/) || [])[1] || "application/octet-stream"; const bin = atob(d); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type: mime }); }
 async function exportData() {
   const files = {};
-  for (const p of state.projects) for (const t of p.tasks) for (const f of t.files || []) { if (f.missing) continue; const b = await getFile(f.id); if (b) files[f.id] = await blobToDataURL(b); }
+  for (const p of state.projects) for (const t of p.tasks) for (const f of allFiles(t)) { if (f.missing) continue; const b = await getFile(f.id); if (b) files[f.id] = await blobToDataURL(b); }
   const url = URL.createObjectURL(new Blob([JSON.stringify({ app: "cr-reunions", version: 3, exportedAt: new Date().toISOString(), state, files })], { type: "application/json" }));
   const a = document.createElement("a"); a.href = url; a.download = `comptes-rendus-${today()}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
   toast("Sauvegarde exportée");
@@ -1711,7 +1855,7 @@ $("#importFile").addEventListener("change", async (e) => {
     else if (data.app === "suivi-projets" && data.state) next = migrateV2(data.state);
     else throw new Error("format");
     if (state.projects.length && !confirm("Importer cette sauvegarde ? Elle remplacera tous les projets actuels.")) return;
-    for (const p of state.projects) for (const t of p.tasks) for (const f of t.files || []) await delFile(f.id);
+    for (const p of state.projects) for (const t of p.tasks) for (const f of allFiles(t)) await delFile(f.id);
     state = next; HOME = !state.active; for (const [id, u] of Object.entries(data.files || {})) await putFile(id, dataURLToBlob(u));
     resetFilters(); save(); render(); toast("Sauvegarde importée");
   } catch (err) { toast("Ce fichier n’est pas une sauvegarde valide."); }
@@ -1726,12 +1870,24 @@ document.querySelectorAll("dialog").forEach((d) => d.addEventListener("click", (
 
 document.addEventListener("click", (e) => {
   const pc = e.target.closest("[data-pid]");
-  if (pc && !e.target.closest("dialog")) { if (state.active !== pc.dataset.pid) resetFilters(); state.active = pc.dataset.pid; HOME = false; save(); render(); $("#main").scrollTop = 0; return; }
-  const crp = e.target.closest("[data-crpick]");
-  if (crp) { P().activeCr = crp.dataset.crpick; save(); render(); return; }
+  if (pc && !e.target.closest("dialog")) {
+    if (state.active !== pc.dataset.pid) resetFilters();
+    state.active = pc.dataset.pid; HOME = false; DRAFT = null; P().view = "crs"; save(); render(); $("#main").scrollTop = 0; return;
+  }
+  const crp = e.target.closest("[data-crpick], [data-opencr]");
+  if (crp && !e.target.closest('[data-act="pdf-cr"]')) {
+    const p0 = P(); p0.activeCr = crp.dataset.crpick || crp.dataset.opencr; p0.view = "taches"; DRAFT = null;
+    save(); render(); $("#main").scrollTop = 0; return;
+  }
   const vb = e.target.closest("[data-view]");
-  if (vb && !e.target.closest("dialog")) { P().view = vb.dataset.view; HOME = false; save(); render(); $("#main").scrollTop = 0; return; }
+  if (vb && !e.target.closest("dialog")) {
+    if (P().view === "newcr" && vb.dataset.view !== "newcr" && !confirm("Abandonner la préparation du nouveau CR ?")) return;
+    if (vb.dataset.view !== "newcr") DRAFT = null;
+    P().view = vb.dataset.view; HOME = false; save(); render(); $("#main").scrollTop = 0; return;
+  }
   if (e.target.closest("dialog")) return;
+  const xp = e.target.closest("[data-pend] button.x");
+  if (xp) { const tid = xp.closest(".task").dataset.tid; pendingCom[tid].splice(+xp.dataset.i, 1); renderPending(tid); return; }
   if (e.target.closest("select, input, textarea, a")) return;
   const el = e.target.closest("[data-act]");
   if (!el) { closeMenu(); return; }
@@ -1750,7 +1906,17 @@ document.addEventListener("click", (e) => {
     case "menu": { const m = $("#menu"); const o = !m.classList.contains("open"); m.classList.toggle("open", o); el.setAttribute("aria-expanded", String(o)); return; }
     case "export": return exportData();
     case "import": return $("#importFile").click();
-    case "new-cr": return openNewCr();
+    case "new-cr": startNewCr(p); render(); $("#main").scrollTop = 0; return;
+    case "cancel-newcr": DRAFT = null; p.view = "crs"; save(); render(); return;
+    case "create-cr": {
+      const d = DRAFT; const num = parseInt(d.num, 10);
+      if (!num || !d.date) return toast("Indique le numéro et la date de la réunion.");
+      if (p.crs.some((c) => c.num === num)) return toast(`Le CR n°${num} existe déjà.`);
+      const cr = { id: uid(), num, date: d.date, nextDate: d.nextDate, nextTime: d.nextTime, infos: d.infos, presences: d.presences };
+      p.crs.push(cr); p.activeCr = cr.id; p.view = "taches"; DRAFT = null; save(); render(); $("#main").scrollTop = 0;
+      return toast(`CR n°${num} créé : mets à jour les tâches`);
+    }
+    case "pdf-cr": p.activeCr = el.dataset.crid; save(); render(); return openExport("pdf");
     case "delete-cr": return deleteCr();
     case "print": return openExport("print");
     case "pdf": return openExport("pdf");
@@ -1776,19 +1942,28 @@ document.addEventListener("click", (e) => {
     case "toggle-task": t.open = !t.open; save(); return render();
     case "edit-task": return openTask(t.id);
     case "edit-com": return openCom(t.id, el.closest(".hc").dataset.cid);
-    case "delete-com": { if (!confirm("Supprimer ce commentaire ?")) return; t.comments = t.comments.filter((c) => c.id !== el.closest(".hc").dataset.cid); save(); return render(); }
+    case "delete-com": {
+      const c = t.comments.find((x) => x.id === el.closest(".hc").dataset.cid);
+      if (!confirm((c.files || []).length ? "Supprimer ce commentaire et ses pièces jointes ?" : "Supprimer ce commentaire ?")) return;
+      for (const m of c.files || []) delFile(m.id);
+      t.comments = t.comments.filter((x) => x !== c); save(); return render();
+    }
+    case "com-attach": comTarget = t.id; return $("#comFile").click();
+    case "open-cfile": { const c = t.comments.find((x) => x.id === el.closest(".hc").dataset.cid); return openFile(c.files.find((m) => m.id === el.dataset.file), false); }
     case "open-file": case "dl-file": return openFile(t.files.find((f) => f.id === el.closest("li").dataset.file), act === "dl-file");
     case "quick-file": quick = { tid: t.id, replace: null }; return $("#quickFile").click();
     case "replace-file": quick = { tid: t.id, replace: el.closest("li").dataset.file }; return $("#quickFile").click();
     case "new-int": return openInt(null);
     case "edit-int": return openInt(el.closest("tr").dataset.iid);
-    case "presence": { const cr = activeCr(p); const iid = el.closest("tr").dataset.iid; const cur = cr.presences[iid] || { p: "", conv: false }; cur.p = cur.p === el.dataset.v ? "" : el.dataset.v; cr.presences[iid] = cur; save(); return render(); }
+    case "presence": { const cr = meetingTarget(p); const iid = el.closest("tr").dataset.iid; const cur = cr.presences[iid] || { p: "", conv: false }; cur.p = cur.p === el.dataset.v ? "" : el.dataset.v; cr.presences[iid] = cur; save(); return render(); }
   }
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeMenu();
   const row = e.target.closest && e.target.closest(".trow");
   if (row && e.target === row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); row.click(); }
+  const crRow = e.target.closest && e.target.closest(".crrow");
+  if (crRow && e.target === crRow && e.key === "Enter") { e.preventDefault(); crRow.click(); }
 });
 document.addEventListener("change", (e) => {
   const tg = e.target; const p = P(); if (!p || tg.closest("dialog")) return;
@@ -1797,32 +1972,38 @@ document.addEventListener("change", (e) => {
     const t = p.tasks.find((x) => x.id === tg.closest(".task").dataset.tid);
     logStatus(p, t, t.status, tg.value); applyArchive(t, t.status, tg.value); t.status = tg.value; save(); render(); return toast(`Statut : ${statusLabel(t.status)}`);
   }
-  if (tg.matches('[data-act="conv"]')) { const cr = activeCr(p); const iid = tg.closest("tr").dataset.iid; const cur = cr.presences[iid] || { p: "", conv: false }; cur.conv = tg.value === "1"; cr.presences[iid] = cur; return save(); }
+  if (tg.matches('[data-act="conv"]')) { const cr = meetingTarget(p); const iid = tg.closest("tr").dataset.iid; const cur = cr.presences[iid] || { p: "", conv: false }; cur.conv = tg.value === "1"; cr.presences[iid] = cur; return save(); }
   if (tg.id === "fStatus") { F.status = tg.value; return render(); }
   if (tg.id === "fWho") { F.who = tg.value; return render(); }
   if (tg.id === "fArch") { F.arch = tg.checked; return render(); }
+  if (tg.dataset.cr === "num" && p.view === "newcr") { DRAFT.num = tg.value; return render(); }
   if (tg.dataset.cr === "num") {
     const cr = activeCr(p); const v = parseInt(tg.value, 10);
     if (!v || p.crs.some((c) => c !== cr && c.num === v)) { toast("Ce numéro est déjà utilisé."); tg.value = cr.num; return; }
     cr.num = v; save(); return render();
   }
-  if (tg.dataset.cr === "date") { render(); }
+  if (tg.dataset.cr === "date" && p.view !== "newcr") { render(); }
 });
 let qTimer;
 document.addEventListener("input", (e) => {
   const tg = e.target; const p = P(); if (!p || tg.closest("dialog")) return;
   if (tg.id === "q") { clearTimeout(qTimer); const v = tg.value.trim(); qTimer = setTimeout(() => { F.q = v; render(); }, 150); return; }
   if (RO) return;
-  if (tg.dataset.cr && tg.dataset.cr !== "num") { activeCr(p)[tg.dataset.cr] = tg.value; save(); return; }
+  if (tg.dataset.cr && tg.dataset.cr !== "num") { meetingTarget(p)[tg.dataset.cr] = tg.value; if (p.view !== "newcr") save(); return; }
   if (tg.dataset.proj) { p[tg.dataset.proj] = tg.value; save(); }
 });
-document.addEventListener("submit", (e) => {
+document.addEventListener("submit", async (e) => {
   const form = e.target.closest("[data-form]"); if (!form) return;
   e.preventDefault(); if (RO) return;
   const p = P(); const t = p.tasks.find((x) => x.id === form.closest(".task").dataset.tid);
-  const text = form.elements.namedItem("text").value.trim(); if (!text) { form.elements.namedItem("text").focus(); return; }
-  t.comments.push({ id: uid(), date: form.elements.namedItem("date").value || defaultDate(p), text, at: Date.now() });
-  save(); render(); toast("Commentaire ajouté");
+  const text = form.elements.namedItem("text").value.trim(); const pend = pendingCom[t.id] || [];
+  if (!text && !pend.length) { form.elements.namedItem("text").focus(); return; }
+  const date = form.elements.namedItem("date").value || defaultDate(p);
+  const files = [];
+  for (const file of pend) { const id = uid(); await putFile(id, file); files.push(fileMeta(file, id)); }
+  delete pendingCom[t.id];
+  t.comments.push({ id: uid(), date, text, files, at: Date.now() });
+  save(); render(); toast(files.length ? `Commentaire ajouté avec ${plural(files.length, "fichier", "fichiers")}` : "Commentaire ajouté");
 });
 window.addEventListener("afterprint", () => { $("#printDoc").innerHTML = ""; });
 
@@ -1838,6 +2019,22 @@ $("#logoFile").addEventListener("change", async (e) => {
   const data = c.toDataURL("image/png");
   memLogo = data; try { localStorage.setItem("cr-logo", data); } catch (err) { }
   render(); toast("Logo enregistré");
+});
+
+let comTarget = null;
+$("#comFile").addEventListener("change", (e) => { if (comTarget) addPending(comTarget, e.target.files); e.target.value = ""; });
+// glisser-déposer et coller une image dans la zone de commentaire
+document.addEventListener("dragover", (e) => { const f = e.target.closest && e.target.closest('.cadd'); if (f && !RO) { e.preventDefault(); f.classList.add("over"); } });
+document.addEventListener("dragleave", (e) => { const f = e.target.closest && e.target.closest('.cadd'); if (f && !f.contains(e.relatedTarget)) f.classList.remove("over"); });
+document.addEventListener("drop", (e) => {
+  const f = e.target.closest && e.target.closest('.cadd'); if (!f || RO) return;
+  e.preventDefault(); f.classList.remove("over"); addPending(f.closest(".task").dataset.tid, e.dataTransfer.files);
+});
+document.addEventListener("paste", (e) => {
+  const ta = e.target.closest && e.target.closest('.cadd textarea'); if (!ta || RO) return;
+  const files = [...(e.clipboardData && e.clipboardData.files || [])]; if (!files.length) return;
+  e.preventDefault();
+  addPending(ta.closest(".task").dataset.tid, files.map((x, i) => x.name && x.name !== "image.png" ? x : new File([x], `capture-${today()}-${i + 1}.png`, { type: x.type || "image/png" })));
 });
 
 /* Démarrage */

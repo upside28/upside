@@ -144,6 +144,10 @@ svg{flex:none}
 .resl{display:flex!important;align-items:flex-start;gap:6px;color:var(--ink)!important;white-space:nowrap;overflow:hidden}
 .resl span{overflow:hidden;text-overflow:ellipsis}
 .resb{display:flex;align-items:flex-start;gap:8px;margin:0;font-size:13.5px;white-space:pre-wrap;background:var(--gold-pale);border-radius:6px;padding:8px 10px}
+.st-retard{background-color:var(--urgent)!important;color:#fff!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23fff' stroke-width='1.6'/%3E%3C/svg%3E")!important}
+.task.late-row>.trow{background:#fef2f2;box-shadow:inset 3px 0 0 var(--urgent)}
+.task.late-row>.trow:hover{background:#fee2e2}
+.task.late-row>.trow .code,.task.late-row>.trow .ttl b,.task.late-row>.trow .ttl small,.task.late-row>.trow .who b,.task.late-row>.trow .who small,.task.late-row>.trow .dates{color:var(--urgent)}
 .okbadge{display:inline-flex;align-items:center;gap:4px;background:var(--termine-bg);color:var(--termine);border:1px solid #bbf7d0;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600;letter-spacing:0;text-transform:none;white-space:nowrap}
 .status-select:disabled{cursor:default;background-image:none;padding-right:11px;opacity:1}
 .ro .pseg button{cursor:default}
@@ -432,6 +436,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .pd-lot tr.main td{border-top:1px solid #d9dde0}
 .pd-lot td.code{width:46px;font-weight:700}
 .pd-lot .cbadge{display:inline-block;padding:1px 6px;border-radius:4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pd-lot tbody.late td{background:#fef2f2;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pd-lot tbody.late .tt{color:#991b1b}.pd-lot .pill.st-retard{color:#991b1b;background:none}.pd-lot .cbadge.st-retard{background:#991b1b;color:#fff}
 .pd-lot .cbadge.st-afaire{background:#fef3c7;color:#92400e}.pd-lot .cbadge.st-encours{background:#dbeafe;color:#1e40af}.pd-lot .cbadge.st-urgent{background:#fee2e2;color:#991b1b}.pd-lot .cbadge.st-memoire{background:#ede9fe;color:#5b21b6}.pd-lot .cbadge.st-termine{background:#dcfce7;color:#166534}.pd-lot .cbadge.st-archive{background:#ebedef;color:#8c9296}
 .pd-lot td.resp{width:150px}
 .pd-lot td.stat{width:105px;text-align:right}
@@ -658,7 +663,7 @@ function fmtShort(iso) {
 }
 function fmtLong(iso) { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); }
 const fmtSize = (b) => b == null ? "" : b < 1024 ? b + " o" : b < 1048576 ? (b / 1024).toFixed(0) + " Ko" : (b / 1048576).toFixed(1).replace(".", ",") + " Mo";
-const statusLabel = (k) => (STATUSES.find((s) => s.k === k) || STATUSES[0]).l;
+const statusLabel = (k) => k === "retard" ? "En retard" : (STATUSES.find((s) => s.k === k) || STATUSES[0]).l;
 const plural = (n, a, b) => `${n} ${n > 1 ? b : a}`;
 const codeSort = (a, b) => (a.code || "").localeCompare(b.code || "", "fr", { numeric: true }) || (a.createdAt || 0) - (b.createdAt || 0);
 const nl = (s) => esc(s).replace(/\n/g, "<br>");
@@ -704,6 +709,34 @@ function startNewCr(p) {
   DRAFT = { num: last ? last.num + 1 : 1, date, nextDate: addDays(date, 7), nextTime: last ? last.nextTime || "09:00" : "09:00", infos: last ? last.infos : "", nota: last ? (last.nota ?? p.nota ?? "") : (p.nota || ""), presences, from: last ? last.num : null };
   p.view = "newcr"; HOME = false;
 }
+/* Archivage automatique : une tâche restée « Terminé » sur 2 CR consécutifs est archivée au CR suivant */
+function doneStreak(p, t) {
+  const crs = sortedCrs(p); let n = 0;
+  for (let k = crs.length - 1; k >= 0; k--) {
+    const cutoff = crs[k + 1] ? crs[k + 1].date : null;
+    if (cutoff && t.createdDate && t.createdDate >= cutoff) break;
+    if (statusAt(t, cutoff) === "termine") n++; else break;
+  }
+  return n;
+}
+const toAutoArchive = (p) => p.tasks.filter((t) => t.status === "termine" && doneStreak(p, t) >= 2);
+/* Données d'un CR validé : figées au moment de la validation, puis remises dans l'état de la date du CR */
+const freeze = (p) => ({ snapTasks: JSON.parse(JSON.stringify(p.tasks)), snapLots: JSON.parse(JSON.stringify(p.lots)) });
+function crSource(p, cr) { return (cr && cr.validated && cr.snapTasks) ? { tasks: cr.snapTasks, lots: cr.snapLots || p.lots } : { tasks: p.tasks, lots: p.lots }; }
+const RO_OPEN = new Set();
+function frozenView(p, cr) {
+  const src = crSource(p, cr); const cutoff = crWindow(p, cr).to;
+  const liveLot = (id) => p.lots.find((l) => l.id === id);
+  const tasks = src.tasks.filter((t) => !cutoff || !t.createdDate || t.createdDate < cutoff).map((t) => {
+    const c = JSON.parse(JSON.stringify(t));
+    c.status = statusAt(t, cutoff); c.comments = t.comments.filter((x) => !cutoff || x.date < cutoff);
+    c.open = RO_OPEN.has(t.id); return c;
+  });
+  const lots = src.lots.map((l) => ({ ...l, open: liveLot(l.id) ? liveLot(l.id).open : l.open }));
+  return { ...p, tasks, lots, intervenants: crInts(p, cr) };
+}
+let VIEW = null; // projet tel qu'affiché (figé pour un CR validé)
+let LREF = today(); // date de référence pour « En retard »
 const meetingTarget = (p) => p.view === "newcr" ? DRAFT : activeCr(p);
 // Reprise de la version précédente (projets / objets)
 function migrateV2(s) {
@@ -733,7 +766,10 @@ function idb() { if (!dbp) dbp = new Promise((res, rej) => { try { const r = ind
 function idbRun(mode, fn) { return idb().then((db) => new Promise((res, rej) => { const tx = db.transaction("files", mode); const q = fn(tx.objectStore("files")); tx.oncomplete = () => res(q ? q.result : undefined); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); })); }
 async function putFile(id, b) { try { await idbRun("readwrite", (s) => s.put(b, id)); } catch (e) { memFiles.set(id, b); } }
 async function getFile(id) { if (memFiles.has(id)) return memFiles.get(id); try { return await idbRun("readonly", (s) => s.get(id)); } catch (e) { return null; } }
-async function delFile(id) { memFiles.delete(id); try { await idbRun("readwrite", (s) => s.delete(id)); } catch (e) { } }
+function usedInSnapshots(id) {
+  return state.projects.some((p) => p.crs.some((c) => c.snapTasks && c.snapTasks.some((t) => (t.files || []).some((f) => f.id === id) || t.comments.some((x) => (x.files || []).some((f) => f.id === id)))));
+}
+async function delFile(id) { if (usedInSnapshots(id)) return; memFiles.delete(id); try { await idbRun("readwrite", (s) => s.delete(id)); } catch (e) { } }
 async function openFile(meta, download) {
   const blob = meta.missing ? null : await getFile(meta.id);
   if (!blob) { toast("Ce fichier n’a pas encore été ajouté."); return; }
@@ -793,6 +829,13 @@ function normInt(i) {
   return i;
 }
 const isLate = (t) => !!t.due && t.due < today() && OPEN_STATUSES.includes(t.status);
+/* « En retard » : statut calculé automatiquement (échéance dépassée, tâche ni terminée, ni pour mémoire, ni archivée) */
+const dispSt = (t, st, ref) => (OPEN_STATUSES.includes(st) && t.due && t.due < ref) ? "retard" : st;
+function lateRef(p, cr) {
+  const latest = sortedCrs(p).slice(-1)[0];
+  if (cr === latest && !cr.validated) return today();
+  return cr.validatedAt || cr.date;
+}
 function whoHTML(p, id) {
   if (id === "TOUS") return "<b>Tous</b>";
   const i = intById(p, id);
@@ -1021,7 +1064,7 @@ function render() {
   RO = !!(cr && cr.validated);
   let body = "";
   if (p.view === "reunion") body = renderReunion(p, cr, false);
-  else body = renderTasks(p, cr);
+  else { LREF = cr ? lateRef(p, cr) : today(); VIEW = RO ? frozenView(p, cr) : null; body = renderTasks(VIEW || p, cr); }
   const qFocus = document.activeElement && document.activeElement.id === "q";
   app.innerHTML = head + body;
   hydrateThumbs(app);
@@ -1075,19 +1118,19 @@ function renderTasks(p, cr) {
 }
 
 function taskHTML(p, t, w) {
-  const late = isLate(t);
+  const late = dispSt(t, t.status, LREF) === "retard";
   const hasNew = t.comments.some((c) => isNewIn(c.date, w));
   const nF = allFiles(t).length;
   const dates = t.start || t.due
     ? `${t.start ? fmtShort(t.start) : ""}${t.start && t.due ? " → " : ""}${t.due ? `<span class="${late ? "late" : ""}">${fmtShort(t.due)}</span>` : ""}`
     : '<span class="none">—</span>';
   const first = (t.desc || "").split("\n")[0];
-  return `<div class="task${t.open ? " open" : ""}${t.status === "archive" ? " archived" : ""}" data-tid="${t.id}">
+  return `<div class="task${t.open ? " open" : ""}${t.status === "archive" ? " archived" : ""}${late ? " late-row" : ""}" data-tid="${t.id}">
     <div class="trow" data-act="toggle-task" role="button" tabindex="0" aria-expanded="${!!t.open}">
       ${I.chev}<span class="code">${esc(t.code)}</span>
       <span class="ttl"><b><span class="tt">${esc(t.title)}</span>${t.status === "archive" ? `<span class="archtag">— archivée${t.archivedAt ? " le " + fmtNum(t.archivedAt) : ""}</span>` : ""}</b>${first ? `<small>${esc(first)}</small>` : ""}${showRes(t.status, t) ? `<small class="resl">${RES_ARROW}<span>${esc(t.resolution.split("\n")[0])}</span></small>` : ""}</span>
       <span class="who">${whoHTML(p, t.resp)}</span>
-      <span class="st"><select class="status-select st-${t.status}" data-act="status" aria-label="Statut de ${esc(t.title)}"${RO ? " disabled" : ""}>${statusOptions(t.status)}</select></span>
+      <span class="st"><select class="status-select st-${late ? "retard" : t.status}" data-act="status" aria-label="Statut de ${esc(t.title)}"${RO ? " disabled" : ""} title="${late ? `En retard — statut d’origine : ${statusLabel(t.status)}` : ""}">${late ? `<option value="" selected disabled>En retard</option>${STATUSES.map((x) => `<option value="${x.k}">${x.l}${x.k === t.status ? " (actuel)" : ""}</option>`).join("")}` : statusOptions(t.status)}</select></span>
       <span class="dates">${dates}</span>
       <span class="meta">${hasNew ? '<span class="newdot" title="Mis à jour dans ce CR"></span>' : ""}${t.comments.length ? `<span class="nb" title="Commentaires">${I.com}${t.comments.length}</span>` : ""}${nF ? `<span class="nb" title="Pièces jointes">${I.clip}${nF}</span>` : ""}</span>
     </div>
@@ -1109,7 +1152,7 @@ function detailHTML(p, t, w) {
       <div class="sec"><h3>Description</h3>${t.desc ? `<p class="desc">${esc(t.desc)}</p>` : '<p class="hempty">Pas de description.</p>'}</div>
       ${showRes(t.status, t) ? `<div class="sec"><h3>Résolution${t.resolvedAt ? " — " + fmtNum(t.resolvedAt) : ""}</h3><p class="resb">${RES_ARROW}<span>${esc(t.resolution)}</span></p>${RO ? "" : `<button class="btn sm ghost" type="button" data-act="edit-res" style="margin-top:6px">${I.edit} Modifier la résolution</button>`}</div>` : ""}
       ${conc.length ? `<div class="sec"><h3>Concerne aussi</h3><div class="chips">${conc.map((i) => `<span class="chip">${esc(fullName(i))}${i.societe ? ` (${esc(i.societe)})` : ""}</span>`).join("")}</div></div>` : ""}
-      <div class="sec"><h3>Dates</h3><p class="kv">${t.start ? "Début : " + fmtNum(t.start) : "Pas de date de début"}${t.due ? ` — Échéance : <span class="${isLate(t) ? "late" : ""}">${fmtNum(t.due)}</span>` : ""}</p></div>
+      <div class="sec"><h3>Dates</h3><p class="kv">${t.start ? "Début : " + fmtNum(t.start) : "Pas de date de début"}${t.due ? ` — Échéance : <span class="${dispSt(t, t.status, LREF) === "retard" ? "late" : ""}">${fmtNum(t.due)}</span>` : ""}</p></div>
       ${RO && !(t.files || []).length ? "" : `<div class="sec"><h3>Pièces jointes</h3>
         ${(t.files || []).length ? `<ul class="pj">${t.files.map((f) => `<li data-file="${f.id}" class="${f.missing ? "missing" : ""}">${I.clip}<button type="button" class="fn" data-act="${f.missing ? (RO ? "" : "replace-file") : "open-file"}">${esc(f.name)}</button><span class="fs">${f.missing ? "fichier à joindre" : fmtSize(f.size)}</span>${f.missing ? "" : `<button type="button" class="btn ghost icon" data-act="dl-file" aria-label="Télécharger ${esc(f.name)}" title="Télécharger">${I.dl}</button>`}</li>`).join("")}</ul>` : ""}
         ${RO ? "" : `<button class="btn sm" type="button" data-act="quick-file">${I.plus} Ajouter un fichier</button>`}
@@ -1140,7 +1183,8 @@ function renderReunion(p, cr, draft) {
       <td><div class="pseg" role="group" aria-label="Présence de ${esc(fullName(i))}">${PRESENCES.map((x) => `<button type="button" data-act="presence" data-v="${x.k}" aria-pressed="${pr.p === x.k}"${RO ? " disabled" : ""} title="${x.l}">${x.k}</button>`).join("")}</div></td>
       <td><select data-act="conv" aria-label="Convocation de ${esc(fullName(i))}"${RO ? " disabled" : ""}><option value="1"${pr.conv ? " selected" : ""}>Convoqué</option><option value="0"${pr.conv ? "" : " selected"}>Non convoqué</option></select></td></tr>`;
   }).join("")).join("");
-  return `${RO && !draft ? `<div class="note ok">Réunion du CR n°${cr.num}, validé : lecture seule. Clique sur « Modifier le CR » pour la corriger.</div>` : ""}<div class="card">
+  const autoN = draft ? toAutoArchive(p).length : 0;
+  return `${autoN ? `<div class="note">${plural(autoN, "tâche terminée depuis 2 CR sera archivée", "tâches terminées depuis 2 CR seront archivées")} automatiquement à la création de ce CR.</div>` : ""}${RO && !draft ? `<div class="note ok">Réunion du CR n°${cr.num}, validé : lecture seule. Clique sur « Modifier le CR » pour la corriger.</div>` : ""}<div class="card">
       <h2>${draft ? `Informations de la réunion — CR n°${cr.num}` : `Compte-rendu n°${cr.num}`}</h2>
       <div class="grid4">
         <div class="field"><label for="crNum">N°</label><input id="crNum" data-cr="num"${RO ? " disabled" : ""} type="number" min="1" value="${cr.num}"></div>
@@ -1576,8 +1620,8 @@ $("#quickFile").addEventListener("change", async (e) => {
    Impression du CR
    ========================================================== */
 async function buildPrint(opts) {
-  const p = P(); const cr = activeCr(p); const w = crWindow(p, cr); const cutoff = w.to;
-  for (const t of p.tasks) for (const c of t.comments) for (const m of c.files || []) {
+  const p = P(); const cr = activeCr(p); const w = crWindow(p, cr); const cutoff = w.to; const SRC = crSource(p, cr);
+  for (const t of SRC.tasks) for (const c of t.comments) for (const m of c.files || []) {
     if (isImg(m) && !thumbCache.has(m.id)) { const b = await getFile(m.id); if (b) thumbCache.set(m.id, URL.createObjectURL(b)); }
   }
   const comFiles = (c) => {
@@ -1590,20 +1634,21 @@ async function buildPrint(opts) {
   const person = (i) => `<div class="pd-person"><div class="r">${esc(roleLine(i))}</div><b>${esc(fullName(i))}${i.societe ? " - " + esc(i.societe) : ""}</b><div>${esc([i.email, i.tel].filter(Boolean).join("  "))}</div><div class="p">${(PRESENCES.find((x) => x.k === pres(i).p) || { l: "—" }).l} | ${pres(i).conv ? "Convoqué à la prochaine réunion" : "Non convoqué"}</div></div>`;
   const ints = crInts(p, cr); const who = (id) => whoTextIn(ints, id);
   const team = ints.filter((i) => i.bloc === "equipe"), moa = ints.filter((i) => i.bloc === "moa"), others = ints.filter((i) => i.bloc === "intervenant");
-  let tasksHTML = "";
-  p.lots.forEach((lot) => {
-    const list = p.tasks.filter((t) => t.lotId === lot.id && (!cutoff || !t.createdDate || t.createdDate < cutoff)).sort(codeSort)
+  let tasksHTML = ""; const REF = lateRef(p, cr);
+  SRC.lots.forEach((lot) => {
+    const list = SRC.tasks.filter((t) => t.lotId === lot.id && (!cutoff || !t.createdDate || t.createdDate < cutoff)).sort(codeSort)
       .map((t) => ({ t, st: statusAt(t, cutoff) })).filter(({ st }) => !(opts.arch === "hide" && st === "archive"));
     if (!list.length) return;
     tasksHTML += `<table class="pd-lot"><thead><tr><th colspan="4" class="lotname">${esc(lot.name)}</th></tr><tr><th colspan="2">Tâche</th><th>Responsable</th><th style="text-align:right">Statut</th></tr></thead>` +
       list.map(({ t, st }) => {
+        const ds = dispSt(t, st, REF);
         let coms = t.comments.filter((c) => !cutoff || c.date < cutoff);
         if (opts.com === "new") coms = coms.filter((c) => isNewIn(c.date, w));
         coms.sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0));
         const conc = t.concerne.map((id) => who(id)).filter(Boolean);
         const files = (t.files || []).map((f) => f.name);
-        return `<tbody class="${st === "archive" ? "arch" : ""}"><tr class="main"><td class="code"><span class="cbadge st-${st}">${esc(t.code)}</span></td><td><span class="tt">${esc(t.title)}</span><div class="ds">${esc(t.desc)}</div>${showRes(st, t) ? `<div class="res"><svg width="14" height="10" viewBox="0 0 16 12"><path d="M1.5 6h10" stroke="#8a6d1c" stroke-width="2.8" stroke-linecap="round"/><path d="M9 1.2L15 6l-6 4.8z" fill="#8a6d1c"/></svg><span>${esc(t.resolution)}</span></div>` : ""}${conc.length ? `<div class="cc">Concerne aussi : ${conc.map(esc).join(", ")}</div>` : ""}</td>
-          <td class="resp">${esc(who(t.resp))}</td><td class="stat"><span class="pill st-${st}">${statusLabel(st)}</span>${st === "archive" && t.archivedAt ? `<span class="dd">le ${fmtNum(t.archivedAt)}</span>` : ""}${t.start || t.due ? `<span class="dd">${fmtNum(t.start)}${t.start && t.due ? " > " : ""}${fmtNum(t.due)}</span>` : ""}</td></tr>
+        return `<tbody class="${st === "archive" ? "arch" : ""}${ds === "retard" ? " late" : ""}"><tr class="main"><td class="code"><span class="cbadge st-${ds}">${esc(t.code)}</span></td><td><span class="tt">${esc(t.title)}</span><div class="ds">${esc(t.desc)}</div>${showRes(st, t) ? `<div class="res"><svg width="14" height="10" viewBox="0 0 16 12"><path d="M1.5 6h10" stroke="#8a6d1c" stroke-width="2.8" stroke-linecap="round"/><path d="M9 1.2L15 6l-6 4.8z" fill="#8a6d1c"/></svg><span>${esc(t.resolution)}</span></div>` : ""}${conc.length ? `<div class="cc">Concerne aussi : ${conc.map(esc).join(", ")}</div>` : ""}</td>
+          <td class="resp">${esc(who(t.resp))}</td><td class="stat"><span class="pill st-${ds}">${statusLabel(ds)}</span>${st === "archive" && t.archivedAt ? `<span class="dd">le ${fmtNum(t.archivedAt)}</span>` : ""}${t.start || t.due ? `<span class="dd">${fmtNum(t.start)}${t.start && t.due ? " > " : ""}${fmtNum(t.due)}</span>` : ""}</td></tr>
           ${coms.length || files.length ? `<tr class="com"><td></td><td colspan="3">${coms.map((c) => `<div class="cm${isNewIn(c.date, w) ? " new" : ""}"><i>Commentaire du ${fmtNum(c.date)} :</i><span>${esc(c.text)}</span>${comFiles(c)}</div>`).join("")}${files.length ? `<div class="fl">${files.map(esc).join(" · ")}</div>` : ""}</td></tr>` : ""}</tbody>`;
       }).join("") + `</table>`;
   });
@@ -1770,14 +1815,14 @@ function pdfText(v) {
     .replace(/[^\n\x20-\x7E\xA0-\xFF]/gu, (c) => CP1252.includes(c) ? c : "");
 }
 const slug = (v) => String(v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const ST_BG = { afaire: [254, 243, 199], encours: [219, 234, 254], urgent: [254, 226, 226], memoire: [237, 233, 254], termine: [220, 252, 231], archive: [235, 237, 239] };
-const ST_RGB = { afaire: [146, 64, 14], encours: [30, 64, 175], urgent: [153, 27, 27], memoire: [91, 33, 182], termine: [22, 101, 52], archive: [140, 146, 150] };
+const ST_BG = { retard: [153, 27, 27], afaire: [254, 243, 199], encours: [219, 234, 254], urgent: [254, 226, 226], memoire: [237, 233, 254], termine: [220, 252, 231], archive: [235, 237, 239] };
+const ST_RGB = { retard: [153, 27, 27], afaire: [146, 64, 14], encours: [30, 64, 175], urgent: [153, 27, 27], memoire: [91, 33, 182], termine: [22, 101, 52], archive: [140, 146, 150] };
 
 async function exportPdf(opts) {
   try { await ensurePdfLib(); }
   catch (e) { toast("Le module PDF n’a pas pu être chargé : vérifie ta connexion internet."); throw e; }
   const { jsPDF } = window.jspdf;
-  const p = P(); const cr = activeCr(p); const w = crWindow(p, cr); const cutoff = w.to;
+  const p = P(); const cr = activeCr(p); const w = crWindow(p, cr); const cutoff = w.to; const SRC = crSource(p, cr);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const FONT = await applyPdfFont(doc);
   const PW = 210, M = 15, CW = PW - 2 * M, TOP = 18, BOTTOM = 278;
@@ -1869,7 +1914,7 @@ async function exportPdf(opts) {
 
   /* Photos des commentaires : chargées et réduites avant la mise en page */
   const pdfImgs = {};
-  for (const t of p.tasks) for (const c of t.comments) for (const m of c.files || []) {
+  for (const t of SRC.tasks) for (const c of t.comments) for (const m of c.files || []) {
     if (!isImg(m) || (cutoff && c.date >= cutoff)) continue;
     try {
       const b = await getFile(m.id); if (!b) continue;
@@ -1886,12 +1931,13 @@ async function exportPdf(opts) {
   /* Tâches et avancement */
   heading("Tâches et avancement");
   let anyTask = false;
-  p.lots.forEach((lot) => {
-    const list = p.tasks.filter((t) => t.lotId === lot.id && (!cutoff || !t.createdDate || t.createdDate < cutoff)).sort(codeSort)
+  SRC.lots.forEach((lot) => {
+    const list = SRC.tasks.filter((t) => t.lotId === lot.id && (!cutoff || !t.createdDate || t.createdDate < cutoff)).sort(codeSort)
       .map((t) => ({ t, st: statusAt(t, cutoff) })).filter(({ st }) => !(opts.arch === "hide" && st === "archive"));
     if (!list.length) return;
     anyTask = true;
     // Une ligne de tableau par tâche : elle n'est jamais coupée entre deux pages.
+    const REF = lateRef(p, cr);
     const FS = 8.5, LH = FS * MM * 1.15, W1 = CW - 14 - 38 - 30 - 5, IMG_H = 22, IMG_W = (W1 - 4 - 6) / 3;
     const rows = list.map(({ t, st }) => {
       const arch = st === "archive"; const L = [];
@@ -1922,12 +1968,13 @@ async function exportPdf(opts) {
         if (others.length) add("Pièces jointes : " + others.map((m) => m.name).join("  ·  "), { ...g, s: 7.5, c: [29, 92, 158] });
       });
       if ((t.files || []).length) { L.push({ t: "" }); add(t.files.map((x) => x.name).join("   ·   "), { s: 7.5, c: [29, 92, 158] }); }
-      const st3 = [statusLabel(st).toUpperCase()];
+      const ds = dispSt(t, st, REF); const late = ds === "retard";
+      const st3 = [statusLabel(ds).toUpperCase()];
       if (st === "archive" && t.archivedAt) st3.push("le " + fmtNum(t.archivedAt));
       if (t.start) st3.push(fmtNum(t.start) + (t.due ? " >" : ""));
       if (t.due) st3.push(fmtNum(t.due));
       let slot = 0; L.forEach((ln) => { ln.slot = slot; slot += ln.span || 1; });
-      return { t, st, arch, L, st3 };
+      return { t, st, ds, late, arch, L, st3 };
     });
     ensure(30);
     doc.autoTable({
@@ -1941,7 +1988,11 @@ async function exportPdf(opts) {
       headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "normal", fontSize: 8.5, cellPadding: 2 },
       columnStyles: { 0: { cellWidth: 14, fontStyle: "bold" }, 1: { cellWidth: W1 + 4 }, 2: { cellWidth: 38 }, 3: { cellWidth: 30, halign: "right" } },
       rowPageBreak: "avoid",
-      didParseCell: (d) => { if (d.section === "body" && rows[d.row.index].arch && d.column.index !== 3) d.cell.styles.textColor = [150, 156, 160]; },
+      didParseCell: (d) => {
+        if (d.section !== "body") return; const r = rows[d.row.index];
+        if (r.arch && d.column.index !== 3) d.cell.styles.textColor = [150, 156, 160];
+        if (r.late) { d.cell.styles.fillColor = [254, 242, 242]; if (d.column.index === 2) d.cell.styles.textColor = [153, 27, 27]; }
+      },
       willDrawCell: (d) => { if (d.section === "body" && (d.column.index <= 1 || d.column.index === 3)) d.cell.text = []; },
       didDrawCell: (d) => {
         if (d.section === "head" && d.row.index === 0 && d.column.index === 0) { doc.setFillColor(...GOLD); doc.rect(d.cell.x, d.cell.y + 2.6, 0.9, d.cell.height - 4, "F"); return; }
@@ -1952,8 +2003,8 @@ async function exportPdf(opts) {
         if (d.column.index === 0 && r.t.code) {
           doc.setFont(FONT, "bold"); doc.setFontSize(8.5);
           const code = T(r.t.code); const bw = Math.min(cell.width - 1.5, doc.getTextWidth(code) + 3.6), bh = 5;
-          doc.setFillColor(...ST_BG[r.st]); doc.roundedRect(cell.x + 1, top - 0.9, bw, bh, 1.1, 1.1, "F");
-          doc.setTextColor(...ST_RGB[r.st]); doc.text(code, cell.x + 1 + bw / 2, top + 2.55, { align: "center" });
+          doc.setFillColor(...ST_BG[r.ds]); doc.roundedRect(cell.x + 1, top - 0.9, bw, bh, 1.1, 1.1, "F");
+          doc.setTextColor(...(r.late ? [255, 255, 255] : ST_RGB[r.ds])); doc.text(code, cell.x + 1 + bw / 2, top + 2.55, { align: "center" });
         }
         if (d.column.index === 1) {
           const x = cell.x + 2;
@@ -1978,7 +2029,7 @@ async function exportPdf(opts) {
             }
             if (!ln.t) return;
             doc.setFont(FONT, ln.b ? "bold" : "normal"); doc.setFontSize(ln.s || FS);
-            doc.setTextColor(...(r.arch ? [150, 156, 160] : ln.c || INK));
+            doc.setTextColor(...(r.arch ? [150, 156, 160] : (r.late && ln === r.L[0]) ? [153, 27, 27] : ln.c || INK));
             if (ln.arrow) {
               const ay = ly + FS * MM * 0.5; doc.setDrawColor(138, 109, 28); doc.setFillColor(138, 109, 28);
               doc.setLineWidth(0.75); doc.setLineCap("round"); doc.line(x + 0.4, ay, x + 2.9, ay); doc.setLineCap("butt");
@@ -1991,7 +2042,7 @@ async function exportPdf(opts) {
           const x = cell.x + cell.width - 2;
           r.st3.forEach((ln, k) => {
             doc.setFont(FONT, k ? "normal" : "bold"); doc.setFontSize(7.5);
-            doc.setTextColor(...(k ? GREY : ST_RGB[r.st]));
+            doc.setTextColor(...(k ? (r.late ? [153, 27, 27] : GREY) : ST_RGB[r.ds]));
             doc.text(ln, x, top + LH * k + FS * MM * 0.8, { align: "right" });
           });
         }
@@ -2023,7 +2074,7 @@ const blobToDataURL = (b) => new Promise((res, rej) => { const r = new FileReade
 function dataURLToBlob(url) { const [h, d] = url.split(","); const mime = (h.match(/data:([^;]+)/) || [])[1] || "application/octet-stream"; const bin = atob(d); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type: mime }); }
 async function exportData() {
   const files = {};
-  for (const p of state.projects) for (const t of p.tasks) for (const f of allFiles(t)) { if (f.missing) continue; const b = await getFile(f.id); if (b) files[f.id] = await blobToDataURL(b); }
+  for (const p of state.projects) for (const t of [...p.tasks, ...p.crs.flatMap((c) => c.snapTasks || [])]) for (const f of allFiles(t)) { if (f.missing || files[f.id]) continue; const b = await getFile(f.id); if (b) files[f.id] = await blobToDataURL(b); }
   const url = URL.createObjectURL(new Blob([JSON.stringify({ app: "cr-reunions", version: 3, exportedAt: new Date().toISOString(), state, files })], { type: "application/json" }));
   const a = document.createElement("a"); a.href = url; a.download = `comptes-rendus-${today()}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
   toast("Sauvegarde exportée");
@@ -2076,7 +2127,7 @@ document.addEventListener("click", (e) => {
   if (act !== "menu") closeMenu();
   if (RO && ["new-lot", "edit-lot", "delete-lot", "lot-up", "lot-down", "new-task", "add-task", "edit-task", "edit-com", "delete-com", "quick-file", "replace-file", "presence"].includes(act)) return toast("Ce CR est validé : clique sur « Modifier le CR » pour le rouvrir.");
   const lotEl = el.closest(".lot"); const lid = lotEl && lotEl.dataset.lid;
-  const taskEl = el.closest(".task"); const t = taskEl && p ? p.tasks.find((x) => x.id === taskEl.dataset.tid) : null;
+  const taskEl = el.closest(".task"); const t = taskEl && p ? ((RO && VIEW ? VIEW.tasks : p.tasks).find((x) => x.id === taskEl.dataset.tid)) : null;
   switch (act) {
     case "new-project": return openProject(null);
     case "home": HOME = true; render(); $("#main").scrollTop = 0; return;
@@ -2096,8 +2147,11 @@ document.addEventListener("click", (e) => {
       if (!num || !d.date) return toast("Indique le numéro et la date de la réunion.");
       if (p.crs.some((c) => c.num === num)) return toast(`Le CR n°${num} existe déjà.`);
       const cr = { id: uid(), num, date: d.date, nextDate: d.nextDate, nextTime: d.nextTime, infos: d.infos, nota: d.nota || "", presences: d.presences };
-      p.crs.push(cr); p.activeCr = cr.id; p.view = "taches"; DRAFT = null; save(); render(); $("#main").scrollTop = 0;
-      return toast(`CR n°${num} créé : mets à jour les tâches`);
+      const auto = toAutoArchive(p);
+      p.crs.push(cr); p.activeCr = cr.id;
+      auto.forEach((t) => { logStatus(p, t, "termine", "archive"); t.status = "archive"; t.archivedAt = cr.date; t.open = false; });
+      p.view = "taches"; DRAFT = null; save(); render(); $("#main").scrollTop = 0;
+      return toast(`CR n°${num} créé${auto.length ? ` — ${plural(auto.length, "tâche terminée archivée", "tâches terminées archivées")} automatiquement` : " : mets à jour les tâches"}`);
     }
     case "pdf-cr": p.activeCr = el.dataset.crid; save(); render(); return openExport("pdf");
     case "delete-cr": return deleteCr();
@@ -2106,12 +2160,12 @@ document.addEventListener("click", (e) => {
     case "validate": {
       const cr = activeCr(p);
       if (!confirm(`Valider le CR n°${cr.num} du ${fmtNum(cr.date)} ?\n\nIl passera en lecture seule et tu pourras l’exporter en PDF. Tu pourras le rouvrir si besoin.`)) return;
-      cr.validated = true; cr.validatedAt = today(); cr.snap = JSON.parse(JSON.stringify(p.intervenants)); save(); render(); return openExport("pdf");
+      cr.validated = true; cr.validatedAt = today(); cr.snap = JSON.parse(JSON.stringify(p.intervenants)); Object.assign(cr, freeze(p)); save(); render(); return openExport("pdf");
     }
     case "reopen": {
       const cr = activeCr(p);
       if (!confirm(`Modifier le CR n°${cr.num} ? Il repassera « En cours » : il faudra le valider de nouveau avant de réexporter le PDF.`)) return;
-      cr.validated = false; delete cr.validatedAt; delete cr.snap; save(); render(); return toast("CR rouvert : tu peux le modifier");
+      cr.validated = false; delete cr.validatedAt; delete cr.snap; delete cr.snapTasks; delete cr.snapLots; save(); render(); return toast("CR rouvert : tu peux le modifier");
     }
     case "new-lot": return openLot(null);
     case "edit-lot": return openLot(lid);
@@ -2122,7 +2176,7 @@ document.addEventListener("click", (e) => {
     case "toggle-lots": { const all = p.lots.every((l) => l.open); p.lots.forEach((l) => (l.open = !all)); save(); return render(); }
     case "new-task": return openTask(null, null);
     case "add-task": return openTask(null, lid);
-    case "toggle-task": t.open = !t.open; save(); return render();
+    case "toggle-task": if (RO) { RO_OPEN.has(t.id) ? RO_OPEN.delete(t.id) : RO_OPEN.add(t.id); return render(); } t.open = !t.open; save(); return render();
     case "edit-task": return openTask(t.id);
     case "edit-res": return askResolution(t, (txt) => { t.resolution = txt; save(); render(); toast("Résolution modifiée"); });
     case "edit-com": return openCom(t.id, el.closest(".hc").dataset.cid);
@@ -2161,6 +2215,7 @@ document.addEventListener("change", (e) => {
   if (RO && (tg.matches('[data-act="status"], [data-act="conv"]') || tg.dataset.cr || tg.dataset.proj)) return;
   if (tg.matches('[data-act="status"]')) {
     const t = p.tasks.find((x) => x.id === tg.closest(".task").dataset.tid);
+    if (!tg.value || tg.value === t.status) return render();
     if (tg.value === "termine" && t.status !== "termine") {
       return askResolution(t, (txt) => { logStatus(p, t, t.status, "termine"); t.status = "termine"; t.resolution = txt; t.resolvedAt = defaultDate(p); save(); render(); toast("Tâche terminée"); });
     }
@@ -2245,6 +2300,7 @@ state.projects.forEach((p) => {
   p.crs.forEach((c) => {
     if (c.nota === undefined) c.nota = p.nota || "";
     if (c.validated && !c.snap) c.snap = JSON.parse(JSON.stringify(p.intervenants));
+    if (c.validated && !c.snapTasks) Object.assign(c, freeze(p));
   });
 });
 

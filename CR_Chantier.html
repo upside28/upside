@@ -657,6 +657,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const pad = (n) => String(n).padStart(2, "0");
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 function addDays(iso, n) { const [y, m, d] = iso.split("-").map(Number); const dt = new Date(y, m - 1, d + n); return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`; }
+const fmtDot = (iso) => { if (!iso) return ""; const [y, m, d] = iso.split("-"); return `${d}.${m}.${y.slice(2)}`; };
 const fmtNum = (iso) => iso ? iso.split("-").reverse().join("/") : "";
 function fmtShort(iso) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -1655,7 +1656,7 @@ async function buildPrint(opts) {
       }).join("") + `</table>`;
   });
   $("#printDoc").innerHTML = `<div class="pd">
-    <header class="pd-head">${logoData() ? `<img src="${logoData()}" alt="" style="height:34px;float:left">` : ""}${p.clientLogo ? `<img src="${p.clientLogo}" alt="" style="height:34px;float:right">` : ""}<h1>${esc(p.crTitle)}</h1><p class="ref">${esc(p.name)} — CR n°${cr.num} — ${fmtNum(cr.date)}</p>${p.operation ? `<p><b>Opération :</b> ${esc(p.operation)}</p>` : ""}${p.adresse ? `<p><b>Adresse :</b> ${esc(p.adresse)}</p>` : ""}</header>
+    <header class="pd-head">${logoData() ? `<img src="${logoData()}" alt="" style="height:34px;float:left">` : ""}${p.clientLogo ? `<img src="${p.clientLogo}" alt="" style="height:34px;float:right">` : ""}<h1>${esc(p.crTitle)}</h1><p class="ref">${esc(p.name)} — CR n°${cr.num} — Réunion du ${fmtDot(cr.date)}</p>${p.operation ? `<p><b>Opération :</b> ${esc(p.operation)}</p>` : ""}${p.adresse ? `<p><b>Adresse :</b> ${esc(p.adresse)}</p>` : ""}</header>
     ${team.length || moa.length ? `<div class="pd-team"><div>${team.length ? "<h2>AMO</h2>" + team.map(person).join("") : ""}</div><div>${moa.length ? "<h2>Maîtrise d’ouvrage</h2>" + moa.map(person).join("") : ""}</div></div>` : ""}
     ${others.length ? `<h2>Intervenants</h2><p class="legend">P • Présent / ABS • Absent / E • Excusé / R • Représenté</p>
       <table class="pd-int"><thead><tr><th>Intervenant</th><th style="text-align:center">Présence</th><th style="text-align:center">Prochaine réunion</th></tr></thead><tbody>
@@ -1884,7 +1885,7 @@ async function exportPdf(opts) {
   const logoH = fl || fr ? LOGO_H : 0, clientH = 0;
   const hx = side ? M + side + 4 : M, hw = side ? CW - 2 * (side + 4) : CW;
   text(p.crTitle, { size: 17, style: "bold", color: NAVY, align: "center", x: hx, width: hw }); y += 1;
-  text(`${p.name} — CR n°${cr.num} — ${fmtNum(cr.date)}`, { size: 10, color: GREY, align: "center", x: hx, width: hw }); y += 1.5;
+  text(`${p.name} — CR n°${cr.num} — Réunion du ${fmtDot(cr.date)}`, { size: 10, color: GREY, align: "center", x: hx, width: hw }); y += 1.5;
   if (p.operation) text(`Opération : ${p.operation}`, { size: 9.5, align: "center", x: hx, width: hw });
   if (p.adresse) text(`Adresse : ${p.adresse}`, { size: 9.5, align: "center", x: hx, width: hw });
   y = Math.max(y, TOP - 4 + Math.max(logoH, clientH)) + 3;
@@ -2086,9 +2087,10 @@ async function exportPdf(opts) {
   for (let i = 1; i <= n; i++) {
     doc.setPage(i);
     doc.setFont(FONT, "normal"); doc.setFontSize(8); doc.setTextColor(...GREY);
-    if (i > 1) doc.text(T(`${p.name} — CR n°${cr.num}`), PW / 2, 10, { align: "center" });
+    if (i > 1) doc.text(T(`${p.name} — CR n°${cr.num} — Réunion du ${fmtDot(cr.date)}`), PW / 2, 10, { align: "center" });
     doc.setDrawColor(...GOLD); doc.setLineWidth(0.3); doc.line(M, 284, PW - M, 284);
     doc.text(T(p.crTitle), M, 289);
+    doc.text(T(`Exporté le ${fmtDot(today())}`), PW / 2, 289, { align: "center" });
     doc.text(`Page ${i} / ${n}`, PW - M, 289, { align: "right" });
   }
   doc.setProperties({ title: T(`${p.crTitle} - ${p.name} - CR n°${cr.num}`) });

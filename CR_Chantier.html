@@ -922,7 +922,7 @@ const SI = {
   cr: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3M5.5 8h5M5.5 10.5h5"/></svg>',
   plus: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke-linecap="round"/></svg>'
 };
-let HOME = !state.active;
+let HOME = true; // à chaque ouverture de l’outil : page d’accueil avec la liste des projets
 
 /* Logo (en-tête et PDF) : fichier image choisi par l'utilisateur */
 function logoData() { try { return localStorage.getItem("cr-logo") || memLogo; } catch (e) { return memLogo; } }

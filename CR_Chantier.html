@@ -128,6 +128,8 @@ svg{flex:none}
 .crlist .crrow{cursor:pointer}
 .crlist .crrow:hover td{background:var(--surface-2)}
 .crlist td{vertical-align:middle}
+.cract{display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap}
+.cract .btn{height:30px;line-height:1}
 .draftbadge{display:inline-flex;background:var(--afaire-bg);color:var(--afaire);border:1px solid #fde68a;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600}
 .formfoot{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px}
@@ -1246,7 +1248,7 @@ function renderCrList(p) {
       <td>${c.nextDate ? fmtNum(c.nextDate) + (c.nextTime ? " à " + c.nextTime : "") : '<span class="none">—</span>'}</td>
       <td>${nP(c)}</td>
       <td>${c.validated ? `<span class="okbadge">✓ Validé le ${fmtNum(c.validatedAt)}</span>` : '<span class="draftbadge">En cours</span>'}</td>
-      <td style="text-align:right;white-space:nowrap">${c.validated ? `<button class="btn sm" type="button" data-act="pdf-cr" data-crid="${c.id}">${I.dl} PDF</button> ` : ""}<button class="btn sm" type="button" data-opencr="${c.id}">Ouvrir →</button></td>
+      <td><div class="cract">${c.validated ? `<button class="btn sm" type="button" data-act="pdf-cr" data-crid="${c.id}">${I.dl} PDF</button>` : ""}<button class="btn sm" type="button" data-opencr="${c.id}">Ouvrir →</button></div></td>
     </tr>`).join("")}</tbody></table></div></div>`;
 }
 
@@ -1701,6 +1703,27 @@ async function ensurePdfLib() {
   if (!(window.jspdf && window.jspdf.jsPDF)) await loadScript(PDF_LIBS[0]);
   if (!window.jspdf.jsPDF.API.autoTable) await loadScript(PDF_LIBS[1]);
 }
+/* Rogne les marges transparentes ou blanches d'un logo, pour que deux logos aient la même taille visible */
+async function trimLogo(url) {
+  if (!url) return null;
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+    const cx = c.getContext("2d"); cx.drawImage(img, 0, 0);
+    const d = cx.getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+      const k = (y * c.width + x) * 4; const a = d[k + 3];
+      const blank = a < 16 || (d[k] > 245 && d[k + 1] > 245 && d[k + 2] > 245);
+      if (!blank) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) return { data: url, w: img.width, h: img.height };
+    const w = x1 - x0 + 1, h = y1 - y0 + 1; const o = document.createElement("canvas"); o.width = w; o.height = h;
+    o.getContext("2d").drawImage(c, x0, y0, w, h, 0, 0, w, h);
+    return { data: o.toDataURL("image/png"), w, h };
+  } catch (e) { return null; }
+}
+
 /* ---- Police Aptos pour le PDF ----
    Aptos est une police Microsoft : elle ne peut pas être livrée avec l'outil.
    On utilise donc celle installée sur l'ordinateur (ou des fichiers .ttf fournis),
@@ -1843,17 +1866,23 @@ async function exportPdf(opts) {
   const pres = (i) => cr.presences[i.id] || { p: "", conv: false };
   const presLabel = (i) => (PRESENCES.find((x) => x.k === pres(i).p) || { l: "—" }).l;
 
-  /* En-tête : logo à gauche, titre centré, filet doré */
-  const logo = logoData(); let logoH = 0;
-  if (logo) {
-    try { const pr = doc.getImageProperties(logo); const lw = Math.min(34, 12 * pr.width / pr.height); logoH = lw * pr.height / pr.width; doc.addImage(logo, "PNG", M, TOP - 4, lw, logoH); } catch (e) { logoH = 0; }
-  }
-  let clientH = 0;
-  if (p.clientLogo) {
-    try { const pr = doc.getImageProperties(p.clientLogo); const lw = Math.min(34, 12 * pr.width / pr.height); clientH = lw * pr.height / pr.width; doc.addImage(p.clientLogo, "PNG", PW - M - lw, TOP - 4, lw, clientH); } catch (e) { clientH = 0; }
-  }
-  const anyLogo = logoH || clientH;
-  const hx = anyLogo ? M + 38 : M, hw = anyLogo ? CW - 76 : CW;
+  /* En-tête : logo Upside à gauche, logo client à droite (même règle de taille), titre centré, filet doré */
+  const logoL = await trimLogo(logoData()), logoR = await trimLogo(p.clientLogo);
+  // même surface visible pour les deux logos (un logo carré n'a pas l'air plus petit qu'un logo allongé)
+  const LOGO_AREA = 330, LOGO_HMAX = 15, LOGO_WMAX = 40;
+  const fit = (im) => {
+    if (!im) return null; const r = im.w / im.h;
+    let w = Math.sqrt(LOGO_AREA * r), h = w / r;
+    if (h > LOGO_HMAX) { h = LOGO_HMAX; w = h * r; } if (w > LOGO_WMAX) { w = LOGO_WMAX; h = w / r; }
+    return { ...im, dw: w, dh: h };
+  };
+  const LOGO_H = Math.max(fit(logoL) ? fit(logoL).dh : 0, fit(logoR) ? fit(logoR).dh : 0);
+  const fl = fit(logoL), fr = fit(logoR);
+  if (fl) { try { doc.addImage(fl.data, "PNG", M, TOP - 4 + (LOGO_H - fl.dh) / 2, fl.dw, fl.dh); } catch (e) { } }
+  if (fr) { try { doc.addImage(fr.data, "PNG", PW - M - fr.dw, TOP - 4 + (LOGO_H - fr.dh) / 2, fr.dw, fr.dh); } catch (e) { } }
+  const side = Math.max(fl ? fl.dw : 0, fr ? fr.dw : 0);
+  const logoH = fl || fr ? LOGO_H : 0, clientH = 0;
+  const hx = side ? M + side + 4 : M, hw = side ? CW - 2 * (side + 4) : CW;
   text(p.crTitle, { size: 17, style: "bold", color: NAVY, align: "center", x: hx, width: hw }); y += 1;
   text(`${p.name} — CR n°${cr.num} — ${fmtNum(cr.date)}`, { size: 10, color: GREY, align: "center", x: hx, width: hw }); y += 1.5;
   if (p.operation) text(`Opération : ${p.operation}`, { size: 9.5, align: "center", x: hx, width: hw });

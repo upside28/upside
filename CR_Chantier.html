@@ -108,6 +108,10 @@ svg{flex:none}
 .crlist td{vertical-align:middle}
 .draftbadge{display:inline-flex;background:var(--afaire-bg);color:var(--afaire);border:1px solid #fde68a;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600}
 .formfoot{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px}
+.stat b{display:block;font-size:20px;font-weight:700;color:var(--navy)}
+.stat span{font-size:12px;color:var(--muted)}
 .okbadge{display:inline-flex;align-items:center;gap:4px;background:var(--termine-bg);color:var(--termine);border:1px solid #bbf7d0;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600;letter-spacing:0;text-transform:none;white-space:nowrap}
 .status-select:disabled{cursor:default;background-image:none;padding-right:11px;opacity:1}
 .ro .pseg button{cursor:default}
@@ -266,7 +270,10 @@ dialog{border:0;border-radius:var(--radius);padding:0;background:var(--surface);
 dialog.small{width:min(470px,calc(100vw - 24px))}
 dialog.wide{width:min(1000px,calc(100vw - 24px))}
 .irows{display:flex;flex-direction:column;gap:6px}
-.irow,.irow-head{display:grid;grid-template-columns:1.2fr 1fr 1fr 1.3fr .9fr 170px 34px;gap:6px;align-items:center}
+.irow,.irow-head{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 34px;gap:6px;align-items:center}
+.irow{padding:8px;border:1px solid var(--line-soft);border-radius:var(--radius);background:var(--surface-2)}
+.irow .rm{grid-column:5;grid-row:1 / span 2;align-self:center}
+.irow-head span{font-size:11px}
 .irow-head{font-size:12.5px;color:var(--muted);font-weight:500;padding:0 2px}
 .irow input,.irow select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 9px;min-width:0;width:100%;font-size:14px}
 .irow .rm{border:0;background:none;color:var(--muted);cursor:pointer;border-radius:6px;padding:6px}
@@ -285,8 +292,8 @@ dialog.wide{width:min(1000px,calc(100vw - 24px))}
 .fontbox small{display:block;color:var(--muted);margin-top:8px;font-size:12.5px;line-height:1.4}
 @media (max-width:860px){
   .irow-head{display:none}
-  .irow{grid-template-columns:1fr 1fr;padding:10px;border:1px solid var(--line-soft);border-radius:10px}
-  .irow .rm{justify-self:end}
+  .irow{grid-template-columns:1fr 1fr}
+  .irow .rm{grid-column:auto;grid-row:auto;justify-self:end}
 }
 dialog::backdrop{background:rgba(0,0,0,.5)}
 .dlg-form{display:flex;flex-direction:column;max-height:calc(100dvh - 24px)}
@@ -391,7 +398,9 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .pd-lot tbody{break-inside:avoid}
 .pd-lot td{padding:7px 8px;vertical-align:top;font-size:9.5pt}
 .pd-lot tr.main td{border-top:1px solid #d9dde0}
-.pd-lot td.code{width:42px;font-weight:700}
+.pd-lot td.code{width:46px;font-weight:700}
+.pd-lot .cbadge{display:inline-block;padding:1px 6px;border-radius:4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pd-lot .cbadge.st-afaire{background:#fef3c7;color:#92400e}.pd-lot .cbadge.st-encours{background:#dbeafe;color:#1e40af}.pd-lot .cbadge.st-urgent{background:#fee2e2;color:#991b1b}.pd-lot .cbadge.st-memoire{background:#ede9fe;color:#5b21b6}.pd-lot .cbadge.st-termine{background:#dcfce7;color:#166534}.pd-lot .cbadge.st-archive{background:#ebedef;color:#8c9296}
 .pd-lot td.resp{width:150px}
 .pd-lot td.stat{width:105px;text-align:right}
 .pd-lot .tt{font-weight:700;display:block;margin-bottom:2px}
@@ -499,8 +508,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <div class="field"><label for="pAddr">Adresse</label><input id="pAddr" type="text" maxlength="200"></div>
       <div class="field">
         <span class="lbl">Intervenants</span>
-        <p class="ihint">Les personnes de l’encart « Équipe » et « Maîtrise d’ouvrage » apparaissent en haut du CR, les autres dans le tableau des intervenants. Tu pourras en ajouter ou en modifier à tout moment.</p>
-        <div class="irow-head" aria-hidden="true"><span>Nom</span><span>Société</span><span>Rôle</span><span>E-mail</span><span>Téléphone</span><span>Place dans le CR</span><span></span></div>
+        <p class="ihint">Les personnes de l’encart « AMO » et « Maîtrise d’ouvrage » apparaissent en haut du CR, les autres dans le tableau des intervenants. Tu pourras en ajouter ou en modifier à tout moment.</p>
         <div class="irows" id="pInts"></div>
         <div class="irow-actions">
           <button type="button" class="btn sm" id="pAddInt">+ Ajouter un intervenant</button>
@@ -508,7 +516,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
           <button type="button" class="btn sm ghost" id="pPasteToggle">Coller une liste depuis Excel</button>
         </div>
         <div class="pastebox" id="pPasteBox" hidden>
-          <p class="help">Une personne par ligne, colonnes dans cet ordre : Nom, Société, Rôle, E-mail, Téléphone. Les colonnes copiées depuis Excel sont reconnues, tout comme le point-virgule.</p>
+          <p class="help">Une personne par ligne, colonnes dans cet ordre : Nom, Prénom, Société, Rôle, Responsabilité, E-mail, Téléphone. Les colonnes copiées depuis Excel sont reconnues, tout comme le point-virgule.</p>
           <textarea id="pPaste" aria-label="Liste à coller"></textarea>
           <div><button type="button" class="btn sm primary" id="pPasteGo">Ajouter ces personnes</button></div>
         </div>
@@ -526,16 +534,20 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <div class="dlg-head"><h2 id="intDlgTitle">Nouvel intervenant</h2><button class="btn ghost icon" type="button" data-close aria-label="Fermer">✕</button></div>
     <div class="dlg-body">
       <div class="grid2">
-        <div class="field"><label for="iNom">Nom</label><input class="big" id="iNom" type="text" maxlength="80"></div>
+        <div class="field"><label for="iNom">Nom</label><input class="big" id="iNom" type="text" maxlength="80" placeholder="DUPONT" style="text-transform:uppercase"></div>
+        <div class="field"><label for="iPrenom">Prénom</label><input class="big" id="iPrenom" type="text" maxlength="80" placeholder="Marie"></div>
+      </div>
+      <div class="grid2">
         <div class="field"><label for="iSoc">Société</label><input id="iSoc" type="text" list="socList" maxlength="80"></div>
+        <div class="field"><label for="iBloc">Place dans le CR</label><select id="iBloc"><option value="intervenant">Liste des intervenants</option><option value="equipe">Encart « AMO »</option><option value="moa">Encart « Maîtrise d’ouvrage »</option></select></div>
       </div>
       <div class="grid2">
-        <div class="field"><label for="iRole">Rôle</label><input id="iRole" type="text" list="roleList" placeholder="Ex. : BET CVC" maxlength="80"></div>
-        <div class="field"><label for="iBloc">Place dans le CR</label><select id="iBloc"><option value="intervenant">Liste des intervenants</option><option value="equipe">Encart « Équipe »</option><option value="moa">Encart « Maîtrise d’ouvrage »</option></select></div>
+        <div class="field"><label for="iRole">Rôle</label><input id="iRole" type="text" list="roleList" placeholder="Ex. : MOA - Maîtrise d'Ouvrage" maxlength="80"></div>
+        <div class="field"><label for="iResp">Responsabilité</label><input id="iResp" type="text" list="respList" placeholder="Ex. : Responsable IT" maxlength="80"></div>
       </div>
       <div class="grid2">
-        <div class="field"><label for="iMail">E-mail</label><input id="iMail" type="email" maxlength="120"></div>
-        <div class="field"><label for="iTel">Téléphone</label><input id="iTel" type="tel" maxlength="30"></div>
+        <div class="field"><label for="iMail">E-mail</label><input id="iMail" type="email" maxlength="120" placeholder="prenom.nom@societe.fr"></div>
+        <div class="field"><label for="iTel">Téléphone</label><input id="iTel" type="tel" maxlength="30" placeholder="06.12.34.56.78"></div>
       </div>
     </div>
     <div class="dlg-foot"><button class="btn danger ghost" type="button" id="deleteInt">Supprimer</button><span class="spacer"></span><button class="btn" type="button" data-close>Annuler</button><button class="btn primary" type="submit">Enregistrer</button></div>
@@ -559,6 +571,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 </dialog>
 
 <datalist id="roleList"></datalist>
+<datalist id="respList"><option value="Responsable IT"><option value="Responsable travaux"><option value="Responsable services généraux"><option value="Directeur de projet"><option value="Chef de projet"><option value="Conducteur de travaux"><option value="Directeur immobilier"><option value="Responsable sécurité"><option value="Responsable RH"><option value="Office manager"></datalist>
 <datalist id="socList"></datalist>
 <input type="file" id="quickFile" multiple hidden>
 <input type="file" id="comFile" multiple hidden>
@@ -578,7 +591,7 @@ const STATUSES = [
   { k: "memoire", l: "Pour mémoire" }, { k: "termine", l: "Terminé" }, { k: "archive", l: "Archivé" }
 ];
 const PRESENCES = [{ k: "P", l: "Présent" }, { k: "ABS", l: "Absent" }, { k: "E", l: "Excusé" }, { k: "R", l: "Représenté" }];
-const BLOCS = { equipe: "Équipe", moa: "Maîtrise d’ouvrage", intervenant: "Intervenants" };
+const BLOCS = { equipe: "AMO", moa: "Maîtrise d’ouvrage", intervenant: "Intervenants" };
 const ROLES = ["Architecte", "AMO", "MOA - Maîtrise d'Ouvrage", "Contractant général", "BET CFO/CFA", "BET CVC", "BET Structure", "Entreprise CVC", "Bureau de Contrôle", "CSPS", "CSSI", "Mobilier", "IT / Audiovisuel"];
 const COLORS = ["#0E7C86", "#7B4FC4", "#D0561B", "#2F6BC0", "#4C8A2E", "#B33A74", "#8C7A1E", "#5B6B75"];
 const OPEN_STATUSES = ["afaire", "encours", "urgent"];
@@ -707,13 +720,36 @@ function statusAt(t, cutoff) {
   return later.length ? later[0].from : t.status;
 }
 const intById = (p, id) => p.intervenants.find((i) => i.id === id);
+/* Intervenants : NOM en majuscules, Prénom avec majuscule initiale, téléphone XX.XX.XX.XX.XX */
+const normNom = (v) => String(v || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("fr-FR");
+const normPrenom = (v) => String(v || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("fr-FR").replace(/(^|[\s\-'’])(\p{L})/gu, (m, a, b) => a + b.toLocaleUpperCase("fr-FR"));
+function normTel(v) {
+  const raw = String(v || "").trim(); let d = raw.replace(/\D/g, "");
+  if (d.length === 11 && d.startsWith("33")) d = "0" + d.slice(2);
+  if (d.length === 12 && d.startsWith("330")) d = d.slice(2);
+  return d.length === 10 ? d.match(/../g).join(".") : raw;
+}
+const fullName = (i) => [i.prenom, i.nom].filter(Boolean).join(" ");
+const roleLine = (i) => [i.role, i.resp].filter(Boolean).join(" — ");
+function normInt(i) {
+  if (i.prenom === undefined) { // ancienne fiche : « Prénom NOM » dans un seul champ
+    const w = String(i.nom || "").trim().split(/\s+/).filter(Boolean);
+    const up = w.filter((x) => x.length > 1 && x === x.toLocaleUpperCase("fr-FR") && /\p{L}/u.test(x));
+    if (up.length && up.length < w.length) { i.nom = up.join(" "); i.prenom = w.filter((x) => !up.includes(x)).join(" "); }
+    else if (w.length > 1) { i.prenom = w.slice(0, -1).join(" "); i.nom = w[w.length - 1]; }
+    else { i.prenom = ""; }
+  }
+  if (i.resp === undefined) i.resp = "";
+  i.nom = normNom(i.nom); i.prenom = normPrenom(i.prenom); i.tel = normTel(i.tel);
+  return i;
+}
 const isLate = (t) => !!t.due && t.due < today() && OPEN_STATUSES.includes(t.status);
 function whoHTML(p, id) {
   if (id === "TOUS") return "<b>Tous</b>";
   const i = intById(p, id);
-  return i ? `<b>${esc(i.nom)}</b><small>${esc(i.societe)}</small>` : '<span class="none">Non attribuée</span>';
+  return i ? `<b>${esc(fullName(i))}</b><small>${esc(i.societe)}</small>` : '<span class="none">Non attribuée</span>';
 }
-const whoText = (p, id) => id === "TOUS" ? "Tous" : (intById(p, id) ? `${intById(p, id).nom}${intById(p, id).societe ? " (" + intById(p, id).societe + ")" : ""}` : "");
+const whoText = (p, id) => id === "TOUS" ? "Tous" : (intById(p, id) ? `${fullName(intById(p, id))}${intById(p, id).societe ? " (" + intById(p, id).societe + ")" : ""}` : "");
 function applyArchive(t, from, to) {
   if (to === "archive" && from !== "archive") { t.archivedAt = today(); t.open = false; }
   if (to !== "archive") delete t.archivedAt;
@@ -786,6 +822,7 @@ const SI = {
   taches: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 2.5h11v11h-11zM5 6h6M5 8.5h6M5 11h4"/></svg>',
   reunion: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="5.5" cy="5.5" r="2"/><circle cx="11" cy="5.5" r="2"/><path d="M1.5 13c.5-2.3 2-3.5 4-3.5s3.5 1.2 4 3.5M9 9.6c.6-.1 1.3-.1 2 0 1.9.3 3.1 1.5 3.5 3.4"/></svg>',
   intervenants: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><circle cx="6" cy="7" r="1.6"/><path d="M3.8 11.2c.4-1.2 1.2-1.8 2.2-1.8s1.8.6 2.2 1.8M10 6.5h2.5M10 9h2.5"/></svg>',
+  projet: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 14V5.5L8 2l5.5 3.5V14zM6 14v-4h4v4M6 7.5h.01M10 7.5h.01"/></svg>',
   cr: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3M5.5 8h5M5.5 10.5h5"/></svg>',
   plus: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke-linecap="round"/></svg>'
 };
@@ -804,8 +841,9 @@ function renderSidebar(p) {
   let h = `<div class="sidebar-section-label">Navigation</div>` + item('data-act="home"', SI.home, "Accueil", HOME || !p);
   if (p && !HOME) {
     h += `<div class="sidebar-divider"></div><div class="sidebar-section-label">Projet actif</div>`
-      + item('data-view="crs"', SI.taches, "Comptes-rendus", p.view === "crs")
-      + item('data-view="intervenants"', SI.intervenants, "Intervenants", p.view === "intervenants");
+      + item('data-view="projet"', SI.projet, "ID Projet", p.view === "projet")
+      + item('data-view="intervenants"', SI.intervenants, "Intervenants", p.view === "intervenants")
+      + item('data-view="crs"', SI.taches, "Comptes-rendus", p.view === "crs");
     const cr = activeCr(p); const inCr = p.view === "taches" || p.view === "reunion";
     h += `<div class="sidebar-divider"></div><div class="sidebar-section-label">CR du projet</div>`
       + sortedCrs(p).reverse().map((c) => item(`data-crpick="${c.id}"`, SI.cr, `CR n°${c.num} · ${fmtNum(c.date)}`, inCr && c === cr, c.validated ? '<span class="ok" title="Validé">✓</span>' : "")).join("")
@@ -823,7 +861,7 @@ function renderHome() {
     const last = sortedCrs(x).slice(-1)[0];
     const open = x.tasks.filter((t) => OPEN_STATUSES.includes(t.status)).length;
     return `<button type="button" class="project-card" data-pid="${x.id}">
-      <div class="pc-eyebrow">${last ? `CR n°${last.num} · ${fmtNum(last.date)}${last.validated ? " · validé" : ""}` : "Aucun CR"}</div>
+      <div class="pc-eyebrow">${last ? `Dernier CR : CR n°${last.num} · ${fmtNum(last.date)}${last.validated ? " · validé" : ""}` : "Aucun CR pour l’instant"}</div>
       <div class="project-card-name">${esc(x.name)}</div>
       <div class="project-card-desc">${esc(x.operation) || "&nbsp;"}</div>
       <div class="project-card-meta">${[x.adresse ? esc(x.adresse) : "", plural(open, "tâche à traiter", "tâches à traiter"), plural(x.intervenants.length, "intervenant", "intervenants")].filter(Boolean).join(" · ")}</div>
@@ -871,8 +909,8 @@ function render() {
   $("#socList").innerHTML = [...new Set(p.intervenants.map((i) => i.societe).filter(Boolean))].map((r) => `<option value="${esc(r)}">`).join("");
   if (p.view === "newcr" && !DRAFT) p.view = "crs";
   if ((p.view === "taches" || p.view === "reunion") && !activeCr(p)) p.view = "crs";
-  if (!["crs", "newcr", "taches", "reunion", "intervenants"].includes(p.view)) p.view = "crs";
-  if (p.view === "crs" || p.view === "newcr" || p.view === "intervenants") {
+  if (!["projet", "crs", "newcr", "taches", "reunion", "intervenants"].includes(p.view)) p.view = "crs";
+  if (["projet", "crs", "newcr", "intervenants"].includes(p.view)) {
     RO = false;
     const projMenu = `<button class="btn icon" type="button" data-act="menu" aria-label="Plus d’options" aria-haspopup="true" aria-expanded="false">${I.dots}</button>
         <div class="menu" id="menu" role="menu">
@@ -883,7 +921,7 @@ function render() {
           <hr>
           <button type="button" data-act="delete-project" class="danger">Supprimer le projet</button>
         </div>`;
-    const eyebrow = { crs: "Comptes-rendus du projet", newcr: DRAFT && DRAFT.from ? `Nouveau CR — prérempli à partir du CR n°${DRAFT.from}` : "Nouveau CR", intervenants: "Intervenants du projet" }[p.view];
+    const eyebrow = { projet: "ID Projet", crs: "Comptes-rendus du projet", newcr: DRAFT && DRAFT.from ? `Nouveau CR — prérempli à partir du CR n°${DRAFT.from}` : "Nouveau CR", intervenants: "Intervenants du projet" }[p.view];
     const actions = p.view === "crs" ? `<button class="btn primary" type="button" data-act="new-cr">${I.plus} Nouveau CR</button>${projMenu}`
       : p.view === "newcr" ? `<button class="btn" type="button" data-act="cancel-newcr">Annuler</button><button class="btn primary" type="button" data-act="create-cr">Créer le CR et passer aux tâches →</button>`
       : projMenu;
@@ -892,7 +930,7 @@ function render() {
         <h1 class="page-title">${esc(p.name)}</h1>
         <div class="page-subtitle">${[p.operation, p.adresse].filter(Boolean).map(esc).join(" — ") || "&nbsp;"}</div>
       </div><div class="crbar">${actions}</div></header>`
-      + (p.view === "crs" ? renderCrList(p) : p.view === "newcr" ? renderReunion(p, DRAFT, true) : renderIntervenants(p));
+      + (p.view === "projet" ? renderProjet(p) : p.view === "crs" ? renderCrList(p) : p.view === "newcr" ? renderReunion(p, DRAFT, true) : renderIntervenants(p));
     return;
   }
   const cr = activeCr(p);
@@ -907,13 +945,12 @@ function render() {
       </div>
       <div class="crbar">
         ${cr && cr.validated
-          ? `<button class="btn primary" type="button" data-act="pdf">${I.dl} Exporter en PDF</button>`
+          ? `<button class="btn primary" type="button" data-act="pdf">${I.dl} Exporter en PDF</button><button class="btn" type="button" data-act="reopen">${I.edit} Modifier le CR</button>`
           : cr ? `<button class="btn primary" type="button" data-act="validate">✓ Valider le CR</button>` : ""}
         ${p.view === "reunion" ? `<button class="btn" type="button" data-view="taches">← Retour aux tâches</button>` : `<button class="btn" type="button" data-view="reunion">Réunion et présences</button>`}
         <button class="btn icon" type="button" data-act="menu" aria-label="Plus d’options" aria-haspopup="true" aria-expanded="false">${I.dots}</button>
         <div class="menu" id="menu" role="menu">
           <button type="button" data-act="print">${cr && cr.validated ? "Imprimer le CR" : "Aperçu avant validation"}</button>
-          ${cr && cr.validated ? `<button type="button" data-act="reopen">Rouvrir ce CR pour le modifier</button>` : ""}
           <hr>
           <button type="button" data-act="edit-project">Modifier le projet</button>
           <button type="button" data-act="delete-cr" class="danger">Supprimer ce CR</button>
@@ -925,7 +962,7 @@ function render() {
         </div>
       </div>
     </header>
-    ${cr && cr.validated ? `<div class="note ok">Le CR n°${cr.num} est validé : il est en lecture seule et prêt à être exporté en PDF. Pour la réunion suivante, crée un nouveau CR.</div>` : ""}
+    ${cr && cr.validated ? `<div class="note ok">Le CR n°${cr.num} est validé : il est en lecture seule et prêt à être exporté en PDF. Pour le corriger, clique sur « Modifier le CR ». Pour la réunion suivante, crée un nouveau CR.</div>` : ""}
     ${cr && !isLast && !cr.validated ? `<div class="note">Tu consultes le CR n°${cr.num}, qui n’est pas le dernier. Les commentaires et changements de statut que tu ajoutes maintenant seront datés du ${fmtNum(cr.date)}.</div>` : ""}`;
   RO = !!(cr && cr.validated);
   let body = "";
@@ -944,7 +981,7 @@ function renderTasks(p, cr) {
   const toolbar = `<div class="toolbar" role="search">
     <div class="search"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><input id="q" type="search" placeholder="Rechercher…" aria-label="Rechercher une tâche" value="${esc(F.q)}"></div>
     <select id="fStatus" aria-label="Filtrer par statut">${[["", "Tous les statuts"], ["new", "Nouveautés de ce CR"], ["open", "À traiter (à faire, en cours, urgent)"], ["late", "En retard"], ...STATUSES.map((s) => [s.k, s.l])].map(([v, l]) => `<option value="${v}"${F.status === v ? " selected" : ""}>${l}</option>`).join("")}</select>
-    <select id="fWho" aria-label="Filtrer par personne"><option value="">Tout le monde</option><option value="TOUS"${F.who === "TOUS" ? " selected" : ""}>Tous (responsable)</option>${p.intervenants.map((i) => `<option value="${i.id}"${F.who === i.id ? " selected" : ""}>${esc(i.nom)}</option>`).join("")}</select>
+    <select id="fWho" aria-label="Filtrer par personne"><option value="">Tout le monde</option><option value="TOUS"${F.who === "TOUS" ? " selected" : ""}>Tous (responsable)</option>${p.intervenants.map((i) => `<option value="${i.id}"${F.who === i.id ? " selected" : ""}>${esc(fullName(i))}</option>`).join("")}</select>
     <label class="check"><input type="checkbox" id="fArch"${F.arch ? " checked" : ""}> Voir les tâches archivées</label>
     <div class="tb-actions">
       <button class="btn" type="button" data-act="toggle-lots">${allOpen ? "Tout replier" : "Tout déplier"}</button>
@@ -1016,7 +1053,7 @@ function detailHTML(p, t, w) {
   return `<div class="tdetail">
     <div>
       <div class="sec"><h3>Description</h3>${t.desc ? `<p class="desc">${esc(t.desc)}</p>` : '<p class="hempty">Pas de description.</p>'}</div>
-      ${conc.length ? `<div class="sec"><h3>Concerne aussi</h3><div class="chips">${conc.map((i) => `<span class="chip">${esc(i.nom)}${i.societe ? ` (${esc(i.societe)})` : ""}</span>`).join("")}</div></div>` : ""}
+      ${conc.length ? `<div class="sec"><h3>Concerne aussi</h3><div class="chips">${conc.map((i) => `<span class="chip">${esc(fullName(i))}${i.societe ? ` (${esc(i.societe)})` : ""}</span>`).join("")}</div></div>` : ""}
       <div class="sec"><h3>Dates</h3><p class="kv">${t.start ? "Début : " + fmtNum(t.start) : "Pas de date de début"}${t.due ? ` — Échéance : <span class="${isLate(t) ? "late" : ""}">${fmtNum(t.due)}</span>` : ""}</p></div>
       ${RO && !(t.files || []).length ? "" : `<div class="sec"><h3>Pièces jointes</h3>
         ${(t.files || []).length ? `<ul class="pj">${t.files.map((f) => `<li data-file="${f.id}" class="${f.missing ? "missing" : ""}">${I.clip}<button type="button" class="fn" data-act="${f.missing ? (RO ? "" : "replace-file") : "open-file"}">${esc(f.name)}</button><span class="fs">${f.missing ? "fichier à joindre" : fmtSize(f.size)}</span>${f.missing ? "" : `<button type="button" class="btn ghost icon" data-act="dl-file" aria-label="Télécharger ${esc(f.name)}" title="Télécharger">${I.dl}</button>`}</li>`).join("")}</ul>` : ""}
@@ -1043,9 +1080,9 @@ function renderReunion(p, cr, draft) {
   const groups = ["equipe", "moa", "intervenant"].map((b) => [b, p.intervenants.filter((i) => i.bloc === b)]).filter(([, l]) => l.length);
   const rows = groups.map(([b, list]) => `<tr class="grp"><td colspan="3">${BLOCS[b]}</td></tr>` + list.map((i) => {
     const pr = cr.presences[i.id] || { p: "", conv: false };
-    return `<tr data-iid="${i.id}"><td class="nm"><b>${esc(i.nom)}</b><small>${esc([i.role, i.societe].filter(Boolean).join(" — "))}</small></td>
-      <td><div class="pseg" role="group" aria-label="Présence de ${esc(i.nom)}">${PRESENCES.map((x) => `<button type="button" data-act="presence" data-v="${x.k}" aria-pressed="${pr.p === x.k}"${RO ? " disabled" : ""} title="${x.l}">${x.k}</button>`).join("")}</div></td>
-      <td><select data-act="conv" aria-label="Convocation de ${esc(i.nom)}"${RO ? " disabled" : ""}><option value="1"${pr.conv ? " selected" : ""}>Convoqué</option><option value="0"${pr.conv ? "" : " selected"}>Non convoqué</option></select></td></tr>`;
+    return `<tr data-iid="${i.id}"><td class="nm"><b>${esc(fullName(i))}</b><small>${esc([roleLine(i), i.societe].filter(Boolean).join(" — "))}</small></td>
+      <td><div class="pseg" role="group" aria-label="Présence de ${esc(fullName(i))}">${PRESENCES.map((x) => `<button type="button" data-act="presence" data-v="${x.k}" aria-pressed="${pr.p === x.k}"${RO ? " disabled" : ""} title="${x.l}">${x.k}</button>`).join("")}</div></td>
+      <td><select data-act="conv" aria-label="Convocation de ${esc(fullName(i))}"${RO ? " disabled" : ""}><option value="1"${pr.conv ? " selected" : ""}>Convoqué</option><option value="0"${pr.conv ? "" : " selected"}>Non convoqué</option></select></td></tr>`;
   }).join("")).join("");
   return `<div class="card">
       <h2>${draft ? `Informations de la réunion — CR n°${cr.num}` : `Compte-rendu n°${cr.num}`}</h2>
@@ -1066,6 +1103,26 @@ function renderReunion(p, cr, draft) {
     </div>
     ${draft ? `<div class="formfoot"><button class="btn" type="button" data-act="cancel-newcr">Annuler</button><button class="btn primary" type="button" data-act="create-cr">Créer le CR et passer aux tâches →</button></div>`
       : `<div class="formfoot"><button class="btn primary" type="button" data-view="taches">Retour aux tâches →</button></div>`}`;
+}
+
+/* --- ID Projet --- */
+function renderProjet(p) {
+  const last = sortedCrs(p).slice(-1)[0];
+  const open = p.tasks.filter((t) => OPEN_STATUSES.includes(t.status)).length;
+  const stat = (n, l) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`;
+  return `<div class="stats">${stat(p.crs.length, p.crs.length > 1 ? "comptes-rendus" : "compte-rendu")}${stat(last ? fmtNum(last.date) : "—", "dernière réunion")}${stat(open, open > 1 ? "tâches à traiter" : "tâche à traiter")}${stat(p.intervenants.length, p.intervenants.length > 1 ? "intervenants" : "intervenant")}</div>
+    <div class="card">
+      <h2>Identité du projet</h2>
+      <div class="field"><label for="pfName">Nom du projet</label><input class="big" id="pfName" data-pf="name" type="text" maxlength="120" value="${esc(p.name)}"></div>
+      <div class="grid2">
+        <div class="field"><label for="pfOp">Opération</label><input id="pfOp" data-pf="operation" type="text" maxlength="200" value="${esc(p.operation)}" placeholder="Ex. : Réaménagement des espaces de bureau"></div>
+        <div class="field"><label for="pfAddr">Adresse</label><input id="pfAddr" data-pf="adresse" type="text" maxlength="200" value="${esc(p.adresse)}" placeholder="N°, rue, code postal, ville"></div>
+      </div>
+      <div class="field"><label for="pfTitle">Titre des comptes-rendus</label><input id="pfTitle" data-pf="crTitle" type="text" maxlength="80" value="${esc(p.crTitle)}" placeholder="Ex. : Compte-rendu de chantier"></div>
+      <div class="field"><label for="pfNota">Nota (en bas des informations importantes de chaque CR)</label><textarea id="pfNota" data-pf="nota" style="min-height:60px">${esc(p.nota)}</textarea></div>
+      <div class="field" style="margin:0"><span class="lbl" id="pfColorLbl">Couleur du projet</span><div class="swatches" role="radiogroup" aria-labelledby="pfColorLbl">${COLORS.map((c, i) => `<label><input type="radio" name="pfcolor" value="${c}"${c === p.color ? " checked" : ""} aria-label="Couleur ${i + 1}"><span style="--c:${c}"></span></label>`).join("")}</div></div>
+    </div>
+    <p class="hempty" style="font-size:12.5px">Les modifications sont enregistrées automatiquement.</p>`;
 }
 
 /* --- Liste des CR d'un projet --- */
@@ -1089,8 +1146,8 @@ function renderCrList(p) {
 function renderIntervenants(p) {
   const groups = ["equipe", "moa", "intervenant"].map((b) => [b, p.intervenants.filter((i) => i.bloc === b)]);
   const rows = groups.filter(([, l]) => l.length).map(([b, list]) => `<tr class="grp"><td colspan="5">${BLOCS[b]}</td></tr>` + list.map((i) =>
-    `<tr data-iid="${i.id}"><td class="nm"><b>${esc(i.nom)}</b><small>${esc(i.societe)}</small></td><td>${esc(i.role)}</td><td>${i.email ? `<a href="mailto:${esc(i.email)}">${esc(i.email)}</a>` : ""}</td><td style="white-space:nowrap">${esc(i.tel)}</td>
-     <td style="text-align:right"><button class="btn ghost icon" type="button" data-act="edit-int" aria-label="Modifier ${esc(i.nom)}" title="Modifier">${I.edit}</button></td></tr>`).join("")).join("");
+    `<tr data-iid="${i.id}"><td class="nm"><b>${esc(fullName(i))}</b><small>${esc(i.societe)}</small></td><td>${esc(i.role)}${i.resp ? `<small style="display:block;color:var(--muted)">${esc(i.resp)}</small>` : ""}</td><td>${i.email ? `<a href="mailto:${esc(i.email)}">${esc(i.email)}</a>` : ""}</td><td style="white-space:nowrap">${esc(i.tel)}</td>
+     <td style="text-align:right"><button class="btn ghost icon" type="button" data-act="edit-int" aria-label="Modifier ${esc(fullName(i))}" title="Modifier">${I.edit}</button></td></tr>`).join("")).join("");
   return `<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px"><h2 style="margin:0">Intervenants du projet</h2><button class="btn primary" type="button" data-act="new-int">${I.plus} Intervenant</button></div>
     ${p.intervenants.length ? `<div class="table-wrap"><table class="ptable"><thead><tr><th>Nom</th><th>Rôle</th><th>E-mail</th><th>Téléphone</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="hempty">Aucun intervenant pour l’instant.</p>'}
@@ -1123,20 +1180,22 @@ function openProject(pid) {
 
 /* Liste des intervenants dans la fiche projet */
 let projInts = [];
-const blankInt = () => ({ id: uid(), nom: "", societe: "", role: "", email: "", tel: "", bloc: "intervenant" });
+const blankInt = () => ({ id: uid(), nom: "", prenom: "", resp: "", societe: "", role: "", email: "", tel: "", bloc: "intervenant" });
 function renderProjInts() {
   $("#pInts").innerHTML = projInts.map((r, k) => `<div class="irow" data-k="${k}">
-    <input data-f="nom" type="text" value="${esc(r.nom)}" placeholder="Nom" aria-label="Nom" maxlength="80">
-    <input data-f="societe" type="text" list="socList" value="${esc(r.societe)}" placeholder="Société" aria-label="Société" maxlength="80">
-    <input data-f="role" type="text" list="roleList" value="${esc(r.role)}" placeholder="Rôle" aria-label="Rôle" maxlength="80">
-    <input data-f="email" type="email" value="${esc(r.email)}" placeholder="E-mail" aria-label="E-mail" maxlength="120">
-    <input data-f="tel" type="tel" value="${esc(r.tel)}" placeholder="Téléphone" aria-label="Téléphone" maxlength="30">
-    <select data-f="bloc" aria-label="Place dans le CR">${Object.entries({ intervenant: "Intervenants", equipe: "Équipe", moa: "Maîtrise d’ouvrage" }).map(([v, l]) => `<option value="${v}"${r.bloc === v ? " selected" : ""}>${l}</option>`).join("")}</select>
+    <input data-f="nom" type="text" value="${esc(r.nom)}" placeholder="NOM" aria-label="Nom" title="Nom" maxlength="80">
+    <input data-f="prenom" type="text" value="${esc(r.prenom || "")}" placeholder="Prénom" aria-label="Prénom" title="Prénom" maxlength="80">
+    <input data-f="societe" type="text" list="socList" value="${esc(r.societe)}" placeholder="Société" aria-label="Société" title="Société" maxlength="80">
+    <select data-f="bloc" aria-label="Place dans le CR" title="Place dans le CR">${Object.entries({ intervenant: "Liste des intervenants", equipe: "Encart AMO", moa: "Encart Maîtrise d’ouvrage" }).map(([v, l]) => `<option value="${v}"${r.bloc === v ? " selected" : ""}>${l}</option>`).join("")}</select>
     <button type="button" class="rm" data-rm aria-label="Retirer cette ligne" title="Retirer">✕</button>
+    <input data-f="role" type="text" list="roleList" value="${esc(r.role)}" placeholder="Rôle" aria-label="Rôle" title="Rôle" maxlength="80">
+    <input data-f="resp" type="text" list="respList" value="${esc(r.resp || "")}" placeholder="Responsabilité" aria-label="Responsabilité" title="Responsabilité" maxlength="80">
+    <input data-f="email" type="email" value="${esc(r.email)}" placeholder="E-mail" aria-label="E-mail" title="E-mail" maxlength="120">
+    <input data-f="tel" type="tel" value="${esc(r.tel)}" placeholder="06.12.34.56.78" aria-label="Téléphone" title="Téléphone" maxlength="30">
   </div>`).join("");
 }
 function addProjInts(list) {
-  const key = (i) => (i.nom + "|" + i.societe).toLowerCase();
+  const key = (i) => (normNom(i.nom) + "|" + normPrenom(i.prenom) + "|" + i.societe).toLowerCase();
   const seen = new Set(projInts.filter((i) => i.nom.trim()).map(key));
   projInts = projInts.filter((i) => i.nom.trim() || i.societe.trim() || i.email.trim());
   let n = 0;
@@ -1144,7 +1203,12 @@ function addProjInts(list) {
   renderProjInts(); return n;
 }
 $("#pInts").addEventListener("input", (e) => { const row = e.target.closest(".irow"); if (row && e.target.dataset.f) projInts[+row.dataset.k][e.target.dataset.f] = e.target.value; });
-$("#pInts").addEventListener("change", (e) => { const row = e.target.closest(".irow"); if (row && e.target.dataset.f) projInts[+row.dataset.k][e.target.dataset.f] = e.target.value; });
+$("#pInts").addEventListener("change", (e) => {
+  const row = e.target.closest(".irow"); const fld = e.target.dataset.f; if (!row || !fld) return;
+  const norm = { nom: normNom, prenom: normPrenom, tel: normTel }[fld];
+  if (norm) e.target.value = norm(e.target.value);
+  projInts[+row.dataset.k][fld] = e.target.value;
+});
 $("#pInts").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (!b) return; projInts.splice(+b.closest(".irow").dataset.k, 1); renderProjInts(); });
 $("#pAddInt").addEventListener("click", () => { projInts.push(blankInt()); renderProjInts(); $("#pInts .irow:last-child input").focus(); });
 $("#pCopyFrom").addEventListener("change", (e) => {
@@ -1155,7 +1219,7 @@ $("#pCopyFrom").addEventListener("change", (e) => {
 $("#pPasteToggle").addEventListener("click", () => { const b = $("#pPasteBox"); b.hidden = !b.hidden; if (!b.hidden) $("#pPaste").focus(); });
 $("#pPasteGo").addEventListener("click", () => {
   const lines = $("#pPaste").value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const list = lines.map((l) => { const c = l.split(l.includes("\t") ? "\t" : ";").map((x) => x.trim()); return { ...blankInt(), nom: c[0] || "", societe: c[1] || "", role: c[2] || "", email: c[3] || "", tel: c[4] || "" }; });
+  const list = lines.map((l) => { const c = l.split(l.includes("\t") ? "\t" : ";").map((x) => x.trim()); return normInt({ ...blankInt(), nom: c[0] || "", prenom: c[1] || "", societe: c[2] || "", role: c[3] || "", resp: c[4] || "", email: c[5] || "", tel: c[6] || "" }); });
   const n = addProjInts(list);
   if (n) { $("#pPaste").value = ""; $("#pPasteBox").hidden = true; }
   toast(n ? `${plural(n, "intervenant ajouté", "intervenants ajoutés")}` : "Aucune ligne reconnue.");
@@ -1164,13 +1228,13 @@ $("#projForm").addEventListener("submit", (e) => {
   e.preventDefault();
   const name = $("#pName").value.trim(); if (!name) { $("#pName").focus(); return; }
   const color = ($('input[name="pcolor"]:checked') || {}).value || COLORS[0];
-  const rows = projInts.map((r) => ({ ...r, nom: r.nom.trim(), societe: r.societe.trim(), role: r.role.trim(), email: r.email.trim(), tel: r.tel.trim() })).filter((r) => r.nom);
+  const rows = projInts.map((r) => ({ ...r, nom: normNom(r.nom), prenom: normPrenom(r.prenom), societe: r.societe.trim(), role: r.role.trim(), resp: (r.resp || "").trim(), email: r.email.trim(), tel: normTel(r.tel) })).filter((r) => r.nom);
   let p;
   if (editingProject) {
     p = state.projects.find((x) => x.id === editingProject);
     const removed = p.intervenants.filter((i) => !rows.some((r) => r.id === i.id));
     const used = removed.filter((i) => p.tasks.some((t) => t.resp === i.id || t.concerne.includes(i.id)));
-    if (used.length && !confirm(`${used.map((i) => i.nom).join(", ")} ${used.length > 1 ? "sont associés" : "est associé(e)"} à des tâches. Les retirer quand même ?`)) return;
+    if (used.length && !confirm(`${used.map(fullName).join(", ")} ${used.length > 1 ? "sont associés" : "est associé(e)"} à des tâches. Les retirer quand même ?`)) return;
     removed.forEach((i) => { p.tasks.forEach((t) => { if (t.resp === i.id) t.resp = ""; t.concerne = t.concerne.filter((x) => x !== i.id); }); p.crs.forEach((c) => delete c.presences[i.id]); });
     const cr = activeCr(p);
     rows.forEach((r) => { if (cr && !p.intervenants.some((i) => i.id === r.id)) cr.presences[r.id] = { p: "", conv: true }; });
@@ -1256,8 +1320,8 @@ function openTask(tid, lid) {
   $("#taskDlgTitle").textContent = ex ? "Modifier la tâche" : "Nouvelle tâche";
   $("#tCode").value = t.code; prevLot = t.lotId; $("#tTitle").value = t.title; $("#tDesc").value = t.desc; $("#tStart").value = t.start; $("#tDue").value = t.due;
   $("#tLot").innerHTML = p.lots.map((l) => `<option value="${l.id}"${l.id === t.lotId ? " selected" : ""}>${esc(l.name)}</option>`).join("");
-  $("#tResp").innerHTML = `<option value="">Non attribuée</option><option value="TOUS"${t.resp === "TOUS" ? " selected" : ""}>Tous</option>` + p.intervenants.map((i) => `<option value="${i.id}"${i.id === t.resp ? " selected" : ""}>${esc(i.nom)}${i.societe ? " (" + esc(i.societe) + ")" : ""}</option>`).join("");
-  $("#tConc").innerHTML = p.intervenants.length ? p.intervenants.map((i) => `<label><input type="checkbox" value="${i.id}"${t.concerne.includes(i.id) ? " checked" : ""}> ${esc(i.nom)} <small>${esc(i.societe)}</small></label>`).join("") : '<span class="hempty">Ajoute des intervenants pour pouvoir les associer.</span>';
+  $("#tResp").innerHTML = `<option value="">Non attribuée</option><option value="TOUS"${t.resp === "TOUS" ? " selected" : ""}>Tous</option>` + p.intervenants.map((i) => `<option value="${i.id}"${i.id === t.resp ? " selected" : ""}>${esc(fullName(i))}${i.societe ? " (" + esc(i.societe) + ")" : ""}</option>`).join("");
+  $("#tConc").innerHTML = p.intervenants.length ? p.intervenants.map((i) => `<label><input type="checkbox" value="${i.id}"${t.concerne.includes(i.id) ? " checked" : ""}> ${esc(fullName(i))} <small>${esc(i.societe)}</small></label>`).join("") : '<span class="hempty">Ajoute des intervenants pour pouvoir les associer.</span>';
   $(`input[name="tstatus"][value="${t.status}"]`).checked = true;
   $("#deleteTask").hidden = !ex;
   renderDlgFiles(); $("#taskDlg").showModal(); (ex ? $("#tTitle") : $("#tCode")).focus();
@@ -1382,12 +1446,15 @@ let editingInt = null;
 function openInt(iid) {
   const i = iid ? intById(P(), iid) : null; editingInt = iid || null;
   $("#intDlgTitle").textContent = i ? "Modifier l’intervenant" : "Nouvel intervenant";
-  $("#iNom").value = i ? i.nom : ""; $("#iSoc").value = i ? i.societe : ""; $("#iRole").value = i ? i.role : ""; $("#iMail").value = i ? i.email : ""; $("#iTel").value = i ? i.tel : ""; $("#iBloc").value = i ? i.bloc : "intervenant";
+  $("#iNom").value = i ? i.nom : ""; $("#iPrenom").value = i ? i.prenom || "" : ""; $("#iResp").value = i ? i.resp || "" : ""; $("#iSoc").value = i ? i.societe : ""; $("#iRole").value = i ? i.role : ""; $("#iMail").value = i ? i.email : ""; $("#iTel").value = i ? i.tel : ""; $("#iBloc").value = i ? i.bloc : "intervenant";
   $("#deleteInt").hidden = !i; $("#intDlg").showModal(); $("#iNom").focus();
 }
+$("#iNom").addEventListener("change", (e) => { e.target.value = normNom(e.target.value); });
+$("#iPrenom").addEventListener("change", (e) => { e.target.value = normPrenom(e.target.value); });
+$("#iTel").addEventListener("change", (e) => { e.target.value = normTel(e.target.value); });
 $("#intForm").addEventListener("submit", (e) => {
-  e.preventDefault(); const p = P(); const nom = $("#iNom").value.trim(); if (!nom) { $("#iNom").focus(); return; }
-  const data = { nom, societe: $("#iSoc").value.trim(), role: $("#iRole").value.trim(), email: $("#iMail").value.trim(), tel: $("#iTel").value.trim(), bloc: $("#iBloc").value };
+  e.preventDefault(); const p = P(); const nom = normNom($("#iNom").value); if (!nom) { $("#iNom").focus(); return; }
+  const data = { nom, prenom: normPrenom($("#iPrenom").value), societe: $("#iSoc").value.trim(), role: $("#iRole").value.trim(), resp: $("#iResp").value.trim(), email: $("#iMail").value.trim(), tel: normTel($("#iTel").value), bloc: $("#iBloc").value };
   if (editingInt) Object.assign(intById(p, editingInt), data);
   else { const i = { id: uid(), ...data }; p.intervenants.push(i); const cr = activeCr(p); if (cr) cr.presences[i.id] = { p: "", conv: true }; }
   save(); render(); $("#intDlg").close();
@@ -1395,7 +1462,7 @@ $("#intForm").addEventListener("submit", (e) => {
 $("#deleteInt").addEventListener("click", () => {
   const p = P(); const i = intById(p, editingInt);
   const used = p.tasks.filter((t) => t.resp === i.id || t.concerne.includes(i.id)).length;
-  if (!confirm(`Supprimer ${i.nom} ?${used ? ` Il ou elle est associé(e) à ${plural(used, "tâche", "tâches")}, qui ne lui seront plus attribuées.` : ""}`)) return;
+  if (!confirm(`Supprimer ${fullName(i)} ?${used ? ` Il ou elle est associé(e) à ${plural(used, "tâche", "tâches")}, qui ne lui seront plus attribuées.` : ""}`)) return;
   p.tasks.forEach((t) => { if (t.resp === i.id) t.resp = ""; t.concerne = t.concerne.filter((x) => x !== i.id); });
   p.crs.forEach((c) => delete c.presences[i.id]);
   p.intervenants = p.intervenants.filter((x) => x !== i); save(); render(); $("#intDlg").close();
@@ -1429,7 +1496,7 @@ async function buildPrint(opts) {
       + (others.length ? `<div class="pf">Pièces jointes : ${others.map((m) => esc(m.name)).join(" · ")}</div>` : "");
   };
   const pres = (i) => cr.presences[i.id] || { p: "", conv: false };
-  const person = (i) => `<div class="pd-person"><div class="r">${esc(i.role)}</div><b>${esc(i.nom)}${i.societe ? " - " + esc(i.societe) : ""}</b><div>${esc([i.email, i.tel].filter(Boolean).join("  "))}</div><div class="p">${(PRESENCES.find((x) => x.k === pres(i).p) || { l: "—" }).l} | ${pres(i).conv ? "Convoqué à la prochaine réunion" : "Non convoqué"}</div></div>`;
+  const person = (i) => `<div class="pd-person"><div class="r">${esc(roleLine(i))}</div><b>${esc(fullName(i))}${i.societe ? " - " + esc(i.societe) : ""}</b><div>${esc([i.email, i.tel].filter(Boolean).join("  "))}</div><div class="p">${(PRESENCES.find((x) => x.k === pres(i).p) || { l: "—" }).l} | ${pres(i).conv ? "Convoqué à la prochaine réunion" : "Non convoqué"}</div></div>`;
   const team = p.intervenants.filter((i) => i.bloc === "equipe"), moa = p.intervenants.filter((i) => i.bloc === "moa"), others = p.intervenants.filter((i) => i.bloc === "intervenant");
   let tasksHTML = "";
   p.lots.forEach((lot) => {
@@ -1443,17 +1510,17 @@ async function buildPrint(opts) {
         coms.sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0));
         const conc = t.concerne.map((id) => whoText(p, id)).filter(Boolean);
         const files = (t.files || []).map((f) => f.name);
-        return `<tbody class="${st === "archive" ? "arch" : ""}"><tr class="main"><td class="code">${esc(t.code)}</td><td><span class="tt">${esc(t.title)}</span><div class="ds">${esc(t.desc)}</div>${conc.length ? `<div class="cc">Concerne aussi : ${conc.map(esc).join(", ")}</div>` : ""}</td>
+        return `<tbody class="${st === "archive" ? "arch" : ""}"><tr class="main"><td class="code"><span class="cbadge st-${st}">${esc(t.code)}</span></td><td><span class="tt">${esc(t.title)}</span><div class="ds">${esc(t.desc)}</div>${conc.length ? `<div class="cc">Concerne aussi : ${conc.map(esc).join(", ")}</div>` : ""}</td>
           <td class="resp">${esc(whoText(p, t.resp))}</td><td class="stat"><span class="pill st-${st}">${statusLabel(st)}</span>${st === "archive" && t.archivedAt ? `<span class="dd">le ${fmtNum(t.archivedAt)}</span>` : ""}${t.start || t.due ? `<span class="dd">${fmtNum(t.start)}${t.start && t.due ? " > " : ""}${fmtNum(t.due)}</span>` : ""}</td></tr>
           ${coms.length || files.length ? `<tr class="com"><td></td><td colspan="3">${coms.map((c) => `<div class="cm${isNewIn(c.date, w) ? " new" : ""}"><i>Commentaire du ${fmtNum(c.date)} :</i><span>${esc(c.text)}</span>${comFiles(c)}</div>`).join("")}${files.length ? `<div class="fl">${files.map(esc).join(" · ")}</div>` : ""}</td></tr>` : ""}</tbody>`;
       }).join("") + `</table>`;
   });
   $("#printDoc").innerHTML = `<div class="pd">
     <header class="pd-head">${logoData() ? `<img src="${logoData()}" alt="" style="height:34px;float:left">` : ""}<h1>${esc(p.crTitle)}</h1><p class="ref">${esc(p.name)} — CR n°${cr.num} — ${fmtNum(cr.date)}</p>${p.operation ? `<p><b>Opération :</b> ${esc(p.operation)}</p>` : ""}${p.adresse ? `<p><b>Adresse :</b> ${esc(p.adresse)}</p>` : ""}</header>
-    ${team.length || moa.length ? `<div class="pd-team"><div>${team.length ? "<h2>Équipe</h2>" + team.map(person).join("") : ""}</div><div>${moa.length ? "<h2>Maîtrise d’ouvrage</h2>" + moa.map(person).join("") : ""}</div></div>` : ""}
+    ${team.length || moa.length ? `<div class="pd-team"><div>${team.length ? "<h2>AMO</h2>" + team.map(person).join("") : ""}</div><div>${moa.length ? "<h2>Maîtrise d’ouvrage</h2>" + moa.map(person).join("") : ""}</div></div>` : ""}
     ${others.length ? `<h2>Intervenants</h2><p class="legend">P • Présent / ABS • Absent / E • Excusé / R • Représenté</p>
       <table class="pd-int"><thead><tr><th>Intervenant</th><th style="text-align:center">Présence</th><th style="text-align:center">Prochaine réunion</th></tr></thead><tbody>
-      ${others.map((i) => `<tr><td><span class="r">${esc(i.role)}</span><b>${esc(i.nom)}${i.societe ? " - " + esc(i.societe) : ""}</b>${esc([i.email, i.tel].filter(Boolean).join("  "))}</td><td class="c">${pres(i).p || "—"}</td><td class="c">${pres(i).conv ? "Convoqué" : "Non convoqué"}</td></tr>`).join("")}
+      ${others.map((i) => `<tr><td><span class="r">${esc(roleLine(i))}</span><b>${esc(fullName(i))}${i.societe ? " - " + esc(i.societe) : ""}</b>${esc([i.email, i.tel].filter(Boolean).join("  "))}</td><td class="c">${pres(i).p || "—"}</td><td class="c">${pres(i).conv ? "Convoqué" : "Non convoqué"}</td></tr>`).join("")}
       </tbody></table>` : ""}
     <h2>Informations importantes</h2>
     <div class="infos">${cr.nextDate ? `<p class="next">Prochaine réunion : ${fmtNum(cr.nextDate)}${cr.nextTime ? " à " + cr.nextTime.replace(":", ":") : ""}</p>` : ""}${cr.infos ? `<p class="txt">${esc(cr.infos)}</p>` : ""}${p.nota ? `<p class="nota">Nota : ${esc(p.nota)}</p>` : ""}</div>
@@ -1611,6 +1678,7 @@ function pdfText(v) {
     .replace(/[^\n\x20-\x7E\xA0-\xFF]/gu, (c) => CP1252.includes(c) ? c : "");
 }
 const slug = (v) => String(v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const ST_BG = { afaire: [254, 243, 199], encours: [219, 234, 254], urgent: [254, 226, 226], memoire: [237, 233, 254], termine: [220, 252, 231], archive: [235, 237, 239] };
 const ST_RGB = { afaire: [146, 64, 14], encours: [30, 64, 175], urgent: [153, 27, 27], memoire: [91, 33, 182], termine: [22, 101, 52], archive: [140, 146, 150] };
 
 async function exportPdf(opts) {
@@ -1651,16 +1719,16 @@ async function exportPdf(opts) {
   y = Math.max(y, TOP - 4 + logoH) + 3;
   doc.setDrawColor(...GOLD); doc.setLineWidth(0.6); doc.line(M, y, PW - M, y); y += 5;
 
-  /* Équipe et maîtrise d'ouvrage, sur deux colonnes */
+  /* AMO et maîtrise d'ouvrage, sur deux colonnes */
   const team = p.intervenants.filter((i) => i.bloc === "equipe"), moa = p.intervenants.filter((i) => i.bloc === "moa"), others = p.intervenants.filter((i) => i.bloc === "intervenant");
   if (team.length || moa.length) {
     const colW = CW / 2 - 4; const y0 = y; let maxY = y;
-    [[team, "Équipe", M], [moa, "Maîtrise d’ouvrage", M + CW / 2 + 4]].forEach(([list, title, x]) => {
+    [[team, "AMO", M], [moa, "Maîtrise d’ouvrage", M + CW / 2 + 4]].forEach(([list, title, x]) => {
       if (!list.length) return;
       y = y0; text(title, { x, width: colW, size: 13, style: "bold", color: NAVY, noBreak: true }); y += 2;
       list.forEach((i) => {
-        if (i.role) text(i.role, { x, width: colW, size: 8, color: GREY, noBreak: true });
-        text(`${i.nom}${i.societe ? " - " + i.societe : ""}`, { x, width: colW, size: 9.5, style: "bold", noBreak: true });
+        if (roleLine(i)) text(roleLine(i), { x, width: colW, size: 8, color: GREY, noBreak: true });
+        text(`${fullName(i)}${i.societe ? " - " + i.societe : ""}`, { x, width: colW, size: 9.5, style: "bold", noBreak: true });
         const ct = [i.email, i.tel].filter(Boolean).join("   "); if (ct) text(ct, { x, width: colW, size: 8.5, noBreak: true });
         text(`${presLabel(i)} | ${pres(i).conv ? "Convoqué à la prochaine réunion" : "Non convoqué"}`, { x, width: colW, size: 8, color: GREY, noBreak: true });
         y += 3;
@@ -1678,7 +1746,7 @@ async function exportPdf(opts) {
     doc.autoTable({
       startY: y, margin: { left: M, right: M, top: TOP, bottom: 20 }, theme: "plain",
       head: [["Intervenant", "Présence", "Prochaine réunion"]],
-      body: others.map((i) => { info.push(i); return [T([i.role, `${i.nom}${i.societe ? " - " + i.societe : ""}`, [i.email, i.tel].filter(Boolean).join("   ")].join("\n")), pres(i).p || "—", pres(i).conv ? "Convoqué" : "Non convoqué"]; }),
+      body: others.map((i) => { info.push(i); return [T([roleLine(i), `${fullName(i)}${i.societe ? " - " + i.societe : ""}`, [i.email, i.tel].filter(Boolean).join("   ")].join("\n")), pres(i).p || "—", pres(i).conv ? "Convoqué" : "Non convoqué"]; }),
       styles: { font: FONT, fontSize: 8.5, cellPadding: { top: 2, bottom: 2, left: 2.5, right: 2.5 }, textColor: INK, valign: "middle", lineColor: LINE },
       headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "normal", fontSize: 8.5 },
       bodyStyles: { lineWidth: { bottom: 0.2 } },
@@ -1687,8 +1755,8 @@ async function exportPdf(opts) {
       didDrawCell: (d) => {
         if (d.section !== "body" || d.column.index !== 0) return;
         const i = info[d.row.index]; let yy = d.cell.y + 2 + 3; const x = d.cell.x + 2.5;
-        doc.setFont(FONT, "normal"); doc.setFontSize(7.5); doc.setTextColor(...GREY); doc.text(T(i.role), x, yy); yy += 3.5;
-        doc.setFont(FONT, "bold"); doc.setFontSize(9); doc.setTextColor(...INK); doc.text(T(`${i.nom}${i.societe ? " - " + i.societe : ""}`), x, yy); yy += 3.6;
+        doc.setFont(FONT, "normal"); doc.setFontSize(7.5); doc.setTextColor(...GREY); doc.text(T(roleLine(i)), x, yy); yy += 3.5;
+        doc.setFont(FONT, "bold"); doc.setFontSize(9); doc.setTextColor(...INK); doc.text(T(`${fullName(i)}${i.societe ? " - " + i.societe : ""}`), x, yy); yy += 3.6;
         doc.setFont(FONT, "normal"); doc.setFontSize(8); doc.text(T([i.email, i.tel].filter(Boolean).join("   ")), x, yy);
       }
     });
@@ -1772,13 +1840,19 @@ async function exportPdf(opts) {
       columnStyles: { 0: { cellWidth: 14, fontStyle: "bold" }, 1: { cellWidth: W1 + 4 }, 2: { cellWidth: 38 }, 3: { cellWidth: 30, halign: "right" } },
       rowPageBreak: "avoid",
       didParseCell: (d) => { if (d.section === "body" && rows[d.row.index].arch && d.column.index !== 3) d.cell.styles.textColor = [150, 156, 160]; },
-      willDrawCell: (d) => { if (d.section === "body" && (d.column.index === 1 || d.column.index === 3)) d.cell.text = []; },
+      willDrawCell: (d) => { if (d.section === "body" && (d.column.index <= 1 || d.column.index === 3)) d.cell.text = []; },
       didDrawCell: (d) => {
         if (d.section === "head" && d.row.index === 0 && d.column.index === 0) { doc.setFillColor(...GOLD); doc.rect(d.cell.x, d.cell.y + 2.6, 0.9, d.cell.height - 4, "F"); return; }
         if (d.section !== "body") return;
         const r = rows[d.row.index]; const cell = d.cell;
         if (d.column.index === 0 && d.row.index > 0) { doc.setDrawColor(...LINE); doc.setLineWidth(0.25); doc.line(M, cell.y, PW - M, cell.y); }
         const top = cell.y + 3;
+        if (d.column.index === 0 && r.t.code) {
+          doc.setFont(FONT, "bold"); doc.setFontSize(8.5);
+          const code = T(r.t.code); const bw = Math.min(cell.width - 1.5, doc.getTextWidth(code) + 3.6), bh = 5;
+          doc.setFillColor(...ST_BG[r.st]); doc.roundedRect(cell.x + 1, top - 0.9, bw, bh, 1.1, 1.1, "F");
+          doc.setTextColor(...ST_RGB[r.st]); doc.text(code, cell.x + 1 + bw / 2, top + 2.55, { align: "center" });
+        }
         if (d.column.index === 1) {
           const x = cell.x + 2;
           // fonds des commentaires (par groupe de lignes consécutives)
@@ -1856,7 +1930,7 @@ $("#importFile").addEventListener("change", async (e) => {
     else throw new Error("format");
     if (state.projects.length && !confirm("Importer cette sauvegarde ? Elle remplacera tous les projets actuels.")) return;
     for (const p of state.projects) for (const t of p.tasks) for (const f of allFiles(t)) await delFile(f.id);
-    state = next; HOME = !state.active; for (const [id, u] of Object.entries(data.files || {})) await putFile(id, dataURLToBlob(u));
+    state = next; HOME = !state.active; state.projects.forEach((p) => p.intervenants.forEach(normInt)); for (const [id, u] of Object.entries(data.files || {})) await putFile(id, dataURLToBlob(u));
     resetFilters(); save(); render(); toast("Sauvegarde importée");
   } catch (err) { toast("Ce fichier n’est pas une sauvegarde valide."); }
 });
@@ -1893,7 +1967,7 @@ document.addEventListener("click", (e) => {
   if (!el) { closeMenu(); return; }
   const act = el.dataset.act; const p = P();
   if (act !== "menu") closeMenu();
-  if (RO && ["new-lot", "edit-lot", "delete-lot", "lot-up", "lot-down", "new-task", "add-task", "edit-task", "edit-com", "delete-com", "quick-file", "replace-file", "presence"].includes(act)) return toast("Ce CR est validé : rouvre-le (menu ⋯) pour le modifier.");
+  if (RO && ["new-lot", "edit-lot", "delete-lot", "lot-up", "lot-down", "new-task", "add-task", "edit-task", "edit-com", "delete-com", "quick-file", "replace-file", "presence"].includes(act)) return toast("Ce CR est validé : clique sur « Modifier le CR » pour le rouvrir.");
   const lotEl = el.closest(".lot"); const lid = lotEl && lotEl.dataset.lid;
   const taskEl = el.closest(".task"); const t = taskEl && p ? p.tasks.find((x) => x.id === taskEl.dataset.tid) : null;
   switch (act) {
@@ -1927,8 +2001,8 @@ document.addEventListener("click", (e) => {
     }
     case "reopen": {
       const cr = activeCr(p);
-      if (!confirm(`Rouvrir le CR n°${cr.num} ? Il faudra le valider de nouveau avant de réexporter le PDF.`)) return;
-      cr.validated = false; delete cr.validatedAt; save(); render(); return toast("CR rouvert");
+      if (!confirm(`Modifier le CR n°${cr.num} ? Il repassera « En cours » : il faudra le valider de nouveau avant de réexporter le PDF.`)) return;
+      cr.validated = false; delete cr.validatedAt; save(); render(); return toast("CR rouvert : tu peux le modifier");
     }
     case "new-lot": return openLot(null);
     case "edit-lot": return openLot(lid);
@@ -1973,6 +2047,12 @@ document.addEventListener("change", (e) => {
     logStatus(p, t, t.status, tg.value); applyArchive(t, t.status, tg.value); t.status = tg.value; save(); render(); return toast(`Statut : ${statusLabel(t.status)}`);
   }
   if (tg.matches('[data-act="conv"]')) { const cr = meetingTarget(p); const iid = tg.closest("tr").dataset.iid; const cur = cr.presences[iid] || { p: "", conv: false }; cur.conv = tg.value === "1"; cr.presences[iid] = cur; return save(); }
+  if (tg.dataset.pf) {
+    if (tg.dataset.pf === "name" && !tg.value.trim()) { p.name = "Projet sans nom"; }
+    if (tg.dataset.pf === "crTitle" && !tg.value.trim()) { p.crTitle = "Compte-rendu de réunion"; }
+    save(); return render();
+  }
+  if (tg.name === "pfcolor") { p.color = tg.value; save(); return render(); }
   if (tg.id === "fStatus") { F.status = tg.value; return render(); }
   if (tg.id === "fWho") { F.who = tg.value; return render(); }
   if (tg.id === "fArch") { F.arch = tg.checked; return render(); }
@@ -1988,6 +2068,7 @@ let qTimer;
 document.addEventListener("input", (e) => {
   const tg = e.target; const p = P(); if (!p || tg.closest("dialog")) return;
   if (tg.id === "q") { clearTimeout(qTimer); const v = tg.value.trim(); qTimer = setTimeout(() => { F.q = v; render(); }, 150); return; }
+  if (tg.dataset.pf) { p[tg.dataset.pf] = tg.value; save(); if (tg.dataset.pf === "name") { $("#topProject").textContent = tg.value; document.title = tg.value; } return; }
   if (RO) return;
   if (tg.dataset.cr && tg.dataset.cr !== "num") { meetingTarget(p)[tg.dataset.cr] = tg.value; if (p.view !== "newcr") save(); return; }
   if (tg.dataset.proj) { p[tg.dataset.proj] = tg.value; save(); }
@@ -2036,6 +2117,8 @@ document.addEventListener("paste", (e) => {
   e.preventDefault();
   addPending(ta.closest(".task").dataset.tid, files.map((x, i) => x.name && x.name !== "image.png" ? x : new File([x], `capture-${today()}-${i + 1}.png`, { type: x.type || "image/png" })));
 });
+
+state.projects.forEach((p) => p.intervenants.forEach(normInt));
 
 /* Démarrage */
 if (!persistOK) $("#banner").classList.add("show");

@@ -130,10 +130,12 @@ svg{flex:none}
 .lot.open>.lhead .chev,.task.open>.trow .chev{transform:rotate(0)}
 .lname{font-weight:700;font-size:13px;color:var(--navy);padding-left:10px;border-left:3px solid var(--gold);letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lcount{color:var(--muted);font-size:13px;white-space:nowrap}
+.lnum{display:inline-block;min-width:22px;padding:1px 6px;margin-right:8px;border-radius:4px;background:var(--gold-pale);color:#7a5f14;font-size:11.5px;font-weight:700;text-align:center;letter-spacing:0}
 .lflag{font-size:11px;font-weight:500;white-space:nowrap;padding:2px 8px;border-radius:20px}
 .lflag.u{background:var(--urgent-bg);color:var(--urgent);border:1px solid #fecaca}
 .lflag.n{background:var(--encours-bg);color:var(--new);border:1px solid #bfdbfe}
-.lactions{display:flex;gap:0}
+.lactions{display:flex;gap:2px;align-items:center}
+.lactions .btn.sm{margin-right:6px}
 .lbody-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .22s ease}
 .lot.open .lbody-wrap{grid-template-rows:1fr}
 .lbody{overflow:hidden;min-height:0}
@@ -163,7 +165,8 @@ svg{flex:none}
 .newdot{width:8px;height:8px;border-radius:50%;background:var(--new)}
 .none{color:var(--muted);font-weight:400}
 .task.archived>.trow{opacity:.5}
-.task.archived>.trow .ttl b{text-decoration:line-through;text-decoration-color:var(--line)}
+.task.archived>.trow .ttl b .tt{text-decoration:line-through;text-decoration-color:var(--line)}
+.archtag{font-weight:500;font-size:12px;color:var(--archive);margin-left:8px;text-decoration:none}
 .task.archived>.trow:hover{opacity:.8}
 
 .status-select{appearance:none;-webkit-appearance:none;border:0;border-radius:20px;padding:4px 24px 4px 10px;font-size:11.5px;font-weight:600;cursor:pointer;width:100%;background-repeat:no-repeat;background-position:right 8px center;background-size:10px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.6'/%3E%3C/svg%3E")}
@@ -410,7 +413,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
         <div class="field"><label for="tCode">N°</label><input id="tCode" type="text" placeholder="Ex. : 4.3" maxlength="12"></div>
         <div class="field"><label for="tTitle">Intitulé</label><input class="big" id="tTitle" type="text" placeholder="Ex. : Signalétique phase 2" maxlength="200"></div>
       </div>
-      <div class="field"><label for="tLot">Lot</label><select id="tLot"></select></div>
+      <div class="field"><label for="tLot">Catégorie</label><select id="tLot"></select></div>
       <div class="field"><label for="tDesc">Description</label><textarea id="tDesc" placeholder="Ce qui est attendu, les décisions prises…"></textarea></div>
       <div class="field"><label for="tResp">Responsable</label><select id="tResp"></select></div>
       <div class="field"><span class="lbl">Concerne aussi</span><div class="conc" id="tConc"></div></div>
@@ -443,9 +446,15 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 <!-- Lot -->
 <dialog id="lotDlg" class="small" aria-labelledby="lotDlgTitle">
   <form class="dlg-form" id="lotForm" novalidate>
-    <div class="dlg-head"><h2 id="lotDlgTitle">Nouveau lot</h2><button class="btn ghost icon" type="button" data-close aria-label="Fermer">✕</button></div>
-    <div class="dlg-body"><div class="field"><label for="lName">Nom du lot</label><input class="big" id="lName" type="text" placeholder="Ex. : LOT N°6 - PEINTURE" maxlength="120"></div></div>
-    <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>Annuler</button><button class="btn primary" type="submit" id="lotSubmit">Créer le lot</button></div>
+    <div class="dlg-head"><h2 id="lotDlgTitle">Nouvelle catégorie</h2><button class="btn ghost icon" type="button" data-close aria-label="Fermer">✕</button></div>
+    <div class="dlg-body">
+      <div class="grid-code">
+        <div class="field"><label for="lNum">N°</label><input id="lNum" type="number" min="0" max="999"></div>
+        <div class="field"><label for="lName">Nom de la catégorie</label><input class="big" id="lName" type="text" placeholder="Ex. : AUDIOVISUEL ou LOT N°6 - PEINTURE" maxlength="120"></div>
+      </div>
+      <p class="help">Les tâches de cette catégorie seront numérotées automatiquement <span id="lNumHelp">1.1, 1.2, 1.3…</span></p>
+    </div>
+    <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>Annuler</button><button class="btn primary" type="submit" id="lotSubmit">Créer la catégorie</button></div>
   </form>
 </dialog>
 
@@ -529,7 +538,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <div class="dlg-head"><h2 id="printDlgTitle">Imprimer le compte-rendu</h2><button class="btn ghost icon" type="button" data-close aria-label="Fermer">✕</button></div>
     <div class="dlg-body">
       <p class="help" id="printHelp"></p>
-      <div class="field"><label for="prArch">Tâches archivées</label><select id="prArch"><option value="grey">Grisées, dans leur lot</option><option value="hide">Masquées</option></select></div>
+      <div class="field"><label for="prArch">Tâches archivées</label><select id="prArch"><option value="grey">Grisées, dans leur catégorie</option><option value="hide">Masquées</option></select></div>
       <div class="field"><label for="prCom">Commentaires</label><select id="prCom"><option value="all">Tout l’historique</option><option value="new">Uniquement ceux de ce CR</option></select></div>
       <div class="field" id="fontField"><span class="lbl">Police du PDF</span><div class="fontbox" id="fontBox"></div></div>
       <input type="file" id="fontFiles" accept=".ttf,font/ttf" multiple hidden>
@@ -680,8 +689,31 @@ function whoHTML(p, id) {
   return i ? `<b>${esc(i.nom)}</b><small>${esc(i.societe)}</small>` : '<span class="none">Non attribuée</span>';
 }
 const whoText = (p, id) => id === "TOUS" ? "Tous" : (intById(p, id) ? `${intById(p, id).nom}${intById(p, id).societe ? " (" + intById(p, id).societe + ")" : ""}` : "");
+function applyArchive(t, from, to) {
+  if (to === "archive" && from !== "archive") { t.archivedAt = today(); t.open = false; }
+  if (to !== "archive") delete t.archivedAt;
+}
 function logStatus(p, t, from, to) { t.log = t.log || []; t.log.push({ id: uid(), type: "status", from, to, date: defaultDate(p), at: Date.now() }); }
-function ensureActive() { if (!P()) state.active = state.projects[0] ? state.projects[0].id : null; }
+/* Numérotation automatique : n° de catégorie . n° de tâche */
+const numFromName = (name) => { const m = String(name).match(/N°\s*(\d+)/i) || String(name).match(/^\s*(\d+)\b/); return m ? +m[1] : null; };
+function nextLotNum(p, name) {
+  const used = new Set(p.lots.map((l) => l.num));
+  const fromName = numFromName(name || "");
+  if (fromName != null && !used.has(fromName)) return fromName;
+  return Math.max(0, ...p.lots.map((l) => l.num || 0)) + 1;
+}
+function normalizeLots(p) {
+  if (!p) return;
+  p.lots.forEach((l) => { if (l.num == null) l.num = nextLotNum(p, l.name); });
+}
+function nextTaskCode(p, lotId, exceptId) {
+  const lot = p.lots.find((l) => l.id === lotId); if (!lot) return "";
+  const re = new RegExp("^" + lot.num + "\\.(\\d+)$");
+  const nums = p.tasks.filter((t) => t.lotId === lotId && t.id !== exceptId).map((t) => { const m = (t.code || "").trim().match(re); return m ? +m[1] : 0; });
+  return `${lot.num}.${Math.max(0, ...nums) + 1}`;
+}
+const isAutoCode = (code) => !code || /^\d+\.\d+$/.test(code.trim());
+function ensureActive() { if (!P()) state.active = state.projects[0] ? state.projects[0].id : null; normalizeLots(P()); }
 
 /* Filtres */
 const F = { q: "", status: "", who: "", arch: true };
@@ -861,14 +893,13 @@ function renderTasks(p, cr) {
     <div class="search"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><input id="q" type="search" placeholder="Rechercher…" aria-label="Rechercher une tâche" value="${esc(F.q)}"></div>
     <select id="fStatus" aria-label="Filtrer par statut">${[["", "Tous les statuts"], ["new", "Nouveautés de ce CR"], ["open", "À traiter (à faire, en cours, urgent)"], ["late", "En retard"], ...STATUSES.map((s) => [s.k, s.l])].map(([v, l]) => `<option value="${v}"${F.status === v ? " selected" : ""}>${l}</option>`).join("")}</select>
     <select id="fWho" aria-label="Filtrer par personne"><option value="">Tout le monde</option><option value="TOUS"${F.who === "TOUS" ? " selected" : ""}>Tous (responsable)</option>${p.intervenants.map((i) => `<option value="${i.id}"${F.who === i.id ? " selected" : ""}>${esc(i.nom)}</option>`).join("")}</select>
-    <label class="check"><input type="checkbox" id="fArch"${F.arch ? " checked" : ""}> Archivées</label>
+    <label class="check"><input type="checkbox" id="fArch"${F.arch ? " checked" : ""}> Voir les tâches archivées</label>
     <div class="tb-actions">
       <button class="btn" type="button" data-act="toggle-lots">${allOpen ? "Tout replier" : "Tout déplier"}</button>
-      ${RO ? "" : `<button class="btn" type="button" data-act="new-lot">${I.plus} Lot</button>
-      <button class="btn primary" type="button" data-act="new-task">${I.plus} Tâche</button>`}
+      ${RO ? "" : `<button class="btn primary" type="button" data-act="new-lot">${I.plus} Catégorie</button>`}
     </div>
   </div>`;
-  if (!p.lots.length) return toolbar + `<div class="empty"><h2>Aucun lot</h2><p>Les tâches sont rangées par lot (tâches générales, plâtrerie, CVC…). Crée un premier lot.</p><button class="btn primary" type="button" data-act="new-lot">${I.plus} Créer un lot</button></div>`;
+  if (!p.lots.length) return toolbar + `<div class="empty"><h2>Aucune catégorie</h2><p>Les tâches sont rangées par catégorie (tâches générales, audiovisuel, mobilier…). Crée une première catégorie.</p><button class="btn primary" type="button" data-act="new-lot">${I.plus} Créer une catégorie</button></div>`;
   let html = "";
   p.lots.forEach((lot, idx) => {
     const all = p.tasks.filter((t) => t.lotId === lot.id);
@@ -880,19 +911,19 @@ function renderTasks(p, cr) {
     const open = lot.open || filtering();
     html += `<section class="lot${open ? " open" : ""}" data-lid="${lot.id}">
       <div class="lhead">
-        <button class="ltoggle" type="button" data-act="toggle-lot" aria-expanded="${open}">${I.chev}<span class="lname">${esc(lot.name)}</span><span class="lcount">${plural(active, "tâche", "tâches")}${all.length - active ? `, ${all.length - active} archivée${all.length - active > 1 ? "s" : ""}` : ""}</span></button>
+        <button class="ltoggle" type="button" data-act="toggle-lot" aria-expanded="${open}">${I.chev}<span class="lname"><span class="lnum">${lot.num ?? ""}</span>${esc(lot.name)}</span><span class="lcount">${plural(active, "tâche", "tâches")}${all.length - active ? `, ${all.length - active} archivée${all.length - active > 1 ? "s" : ""}` : ""}</span></button>
         ${urg ? `<span class="lflag u">${urg} urgente${urg > 1 ? "s" : ""} ou en retard</span>` : ""}
         ${nNew ? `<span class="lflag n">${nNew} mise${nNew > 1 ? "s" : ""} à jour</span>` : ""}
         ${RO ? "" : `<div class="lactions">
-          <button class="btn ghost icon" type="button" data-act="add-task" title="Ajouter une tâche" aria-label="Ajouter une tâche au lot ${esc(lot.name)}">${I.plus}</button>
-          <button class="btn ghost icon" type="button" data-act="lot-up" title="Monter" aria-label="Monter le lot"${idx === 0 ? " disabled" : ""}>${I.up}</button>
-          <button class="btn ghost icon" type="button" data-act="lot-down" title="Descendre" aria-label="Descendre le lot"${idx === p.lots.length - 1 ? " disabled" : ""}>${I.down}</button>
-          <button class="btn ghost icon" type="button" data-act="edit-lot" title="Renommer" aria-label="Renommer le lot">${I.edit}</button>
-          <button class="btn ghost icon" type="button" data-act="delete-lot" title="Supprimer" aria-label="Supprimer le lot">${I.trash}</button>
+          <button class="btn sm" type="button" data-act="add-task" title="Ajouter une tâche dans cette catégorie" aria-label="Ajouter une tâche dans ${esc(lot.name)}">${I.plus} Tâche</button>
+          <button class="btn ghost icon" type="button" data-act="lot-up" title="Monter" aria-label="Monter la catégorie"${idx === 0 ? " disabled" : ""}>${I.up}</button>
+          <button class="btn ghost icon" type="button" data-act="lot-down" title="Descendre" aria-label="Descendre la catégorie"${idx === p.lots.length - 1 ? " disabled" : ""}>${I.down}</button>
+          <button class="btn ghost icon" type="button" data-act="edit-lot" title="Renommer" aria-label="Renommer la catégorie">${I.edit}</button>
+          <button class="btn ghost icon" type="button" data-act="delete-lot" title="Supprimer" aria-label="Supprimer la catégorie">${I.trash}</button>
         </div>`}
       </div>
       <div class="lbody-wrap"><div class="lbody">
-        ${all.length ? `<div class="thead" aria-hidden="true"><span></span><span>N°</span><span>Tâche</span><span>Responsable</span><span>Statut</span><span>Dates</span><span></span></div>` + shown.map((t) => taskHTML(p, t, w)).join("") : `<div class="lempty">Aucune tâche dans ce lot.</div>`}
+        ${all.length ? `<div class="thead" aria-hidden="true"><span></span><span>N°</span><span>Tâche</span><span>Responsable</span><span>Statut</span><span>Dates</span><span></span></div>` + shown.map((t) => taskHTML(p, t, w)).join("") : `<div class="lempty">Aucune tâche dans cette catégorie.</div>`}
         ${RO ? "" : `<button class="addrow" type="button" data-act="add-task">${I.plus} Ajouter une tâche</button>`}
       </div></div>
     </section>`;
@@ -911,7 +942,7 @@ function taskHTML(p, t, w) {
   return `<div class="task${t.open ? " open" : ""}${t.status === "archive" ? " archived" : ""}" data-tid="${t.id}">
     <div class="trow" data-act="toggle-task" role="button" tabindex="0" aria-expanded="${!!t.open}">
       ${I.chev}<span class="code">${esc(t.code)}</span>
-      <span class="ttl"><b>${esc(t.title)}</b>${first ? `<small>${esc(first)}</small>` : ""}</span>
+      <span class="ttl"><b><span class="tt">${esc(t.title)}</span>${t.status === "archive" ? `<span class="archtag">— archivée${t.archivedAt ? " le " + fmtNum(t.archivedAt) : ""}</span>` : ""}</b>${first ? `<small>${esc(first)}</small>` : ""}</span>
       <span class="who">${whoHTML(p, t.resp)}</span>
       <span class="st"><select class="status-select st-${t.status}" data-act="status" aria-label="Statut de ${esc(t.title)}"${RO ? " disabled" : ""}>${statusOptions(t.status)}</select></span>
       <span class="dates">${dates}</span>
@@ -924,7 +955,7 @@ function taskHTML(p, t, w) {
 function detailHTML(p, t, w) {
   const items = [
     ...t.comments.map((c) => ({ kind: "c", date: c.date, at: c.at || 0, c })),
-    ...(t.log || []).map((l) => ({ kind: "l", date: l.date, at: l.at || 0, l }))
+
   ].sort((a, b) => b.date.localeCompare(a.date) || b.at - a.at);
   const hist = items.length ? `<ul class="hist">${items.map((it) => it.kind === "c"
     ? `<li class="hc${isNewIn(it.date, w) ? " new" : ""}" data-cid="${it.c.id}"><div class="h">Commentaire du ${fmtNum(it.date)}${isNewIn(it.date, w) ? '<span class="badge">Ce CR</span>' : ""}${RO ? "" : '<span class="acts"><button type="button" data-act="edit-com">Modifier</button><button type="button" data-act="delete-com">Supprimer</button></span>'}</div><div class="tx">${esc(it.c.text)}</div></li>`
@@ -942,7 +973,7 @@ function detailHTML(p, t, w) {
       ${RO ? "" : `<div class="sec"><button class="btn sm" type="button" data-act="edit-task">${I.edit} Modifier la tâche</button></div>`}
     </div>
     <div class="sec">
-      <h3>Commentaires et historique</h3>
+      <h3>Commentaires</h3>
       ${RO ? "" : `<form class="cadd" data-form="add-com">
         <textarea name="text" placeholder="Nouveau commentaire pour ce CR…" aria-label="Nouveau commentaire"></textarea>
         <div class="row"><label>Commentaire du <input name="date" type="date" value="${defaultDate(p)}"></label><button class="btn sm primary" type="submit">Ajouter le commentaire</button></div>
@@ -1124,18 +1155,38 @@ function deleteCr() {
 let editingLot = null;
 function openLot(lid) {
   const l = lid ? P().lots.find((x) => x.id === lid) : null; editingLot = lid || null;
-  $("#lotDlgTitle").textContent = l ? "Renommer le lot" : "Nouveau lot"; $("#lotSubmit").textContent = l ? "Enregistrer" : "Créer le lot";
-  $("#lName").value = l ? l.name : ""; $("#lotDlg").showModal(); $("#lName").focus();
+  $("#lotDlgTitle").textContent = l ? "Renommer la catégorie" : "Nouvelle catégorie"; $("#lotSubmit").textContent = l ? "Enregistrer" : "Créer la catégorie";
+  $("#lName").value = l ? l.name : "";
+  $("#lNum").value = l ? l.num : nextLotNum(P(), ""); lNumTouched = !!l; updLNumHelp();
+  $("#lotDlg").showModal(); $("#lName").focus();
 }
+let lNumTouched = false;
+function updLNumHelp() { const n = $("#lNum").value || "?"; $("#lNumHelp").textContent = `${n}.1, ${n}.2, ${n}.3…`; }
+$("#lNum").addEventListener("input", () => { lNumTouched = true; updLNumHelp(); });
+$("#lName").addEventListener("input", () => {
+  if (lNumTouched) return;
+  const n = numFromName($("#lName").value); const p = P();
+  $("#lNum").value = n != null && !p.lots.some((l) => l.num === n) ? n : nextLotNum(p, ""); updLNumHelp();
+});
 $("#lotForm").addEventListener("submit", (e) => {
   e.preventDefault(); const name = $("#lName").value.trim(); if (!name) { $("#lName").focus(); return; }
-  const p = P();
-  if (editingLot) p.lots.find((x) => x.id === editingLot).name = name; else p.lots.push({ id: uid(), name, open: true });
+  const p = P(); const num = parseInt($("#lNum").value, 10);
+  if (isNaN(num) || num < 0) { $("#lNum").focus(); return toast("Indique un numéro de catégorie."); }
+  if (p.lots.some((x) => x.num === num && x.id !== editingLot)) { $("#lNum").focus(); return toast(`Le n°${num} est déjà utilisé par une autre catégorie.`); }
+  if (editingLot) {
+    const l = p.lots.find((x) => x.id === editingLot); const old = l.num;
+    if (old !== num) {
+      const mine = p.tasks.filter((t) => t.lotId === l.id && new RegExp("^" + old + "\\.\\d+$").test((t.code || "").trim()));
+      if (mine.length && confirm(`Renuméroter aussi les ${plural(mine.length, "tâche", "tâches")} de cette catégorie (${old}.x → ${num}.x) ?`))
+        mine.forEach((t) => { t.code = t.code.trim().replace(new RegExp("^" + old + "\\."), num + "."); });
+    }
+    Object.assign(l, { name, num });
+  } else p.lots.push({ id: uid(), name, num, open: true });
   save(); render(); $("#lotDlg").close();
 });
 async function deleteLot(lid) {
   const p = P(); const l = p.lots.find((x) => x.id === lid); const tasks = p.tasks.filter((t) => t.lotId === lid);
-  if (!confirm(tasks.length ? `Supprimer le lot « ${l.name} » et ses ${plural(tasks.length, "tâche", "tâches")} ? Pour garder une trace, archive plutôt les tâches.` : `Supprimer le lot « ${l.name} » ?`)) return;
+  if (!confirm(tasks.length ? `Supprimer la catégorie « ${l.name} » et ses ${plural(tasks.length, "tâche", "tâches")} ? Pour garder une trace, archive plutôt les tâches.` : `Supprimer la catégorie « ${l.name} » ?`)) return;
   for (const t of tasks) for (const f of t.files || []) await delFile(f.id);
   p.tasks = p.tasks.filter((t) => t.lotId !== lid); p.lots = p.lots.filter((x) => x !== l); save(); render();
 }
@@ -1148,11 +1199,11 @@ let editing = null;
 $("#tStatus").innerHTML = STATUSES.map((s) => `<label><input type="radio" name="tstatus" value="${s.k}"><span class="st-${s.k}">${s.l}</span></label>`).join("");
 function openTask(tid, lid) {
   const p = P(); const ex = tid ? p.tasks.find((t) => t.id === tid) : null;
-  if (!p.lots.length) { toast("Crée d’abord un lot."); return openLot(null); }
-  const t = ex || { id: uid(), lotId: lid || p.lots[0].id, code: "", title: "", desc: "", resp: "", concerne: [], status: "afaire", start: defaultDate(p), due: "", files: [], comments: [], log: [], createdAt: Date.now(), createdDate: defaultDate(p), open: true };
+  if (!p.lots.length) { toast("Crée d’abord une catégorie."); return openLot(null); }
+  const t = ex || { id: uid(), lotId: lid || p.lots[0].id, code: nextTaskCode(p, lid || p.lots[0].id), title: "", desc: "", resp: "", concerne: [], status: "afaire", start: defaultDate(p), due: "", files: [], comments: [], log: [], createdAt: Date.now(), createdDate: defaultDate(p), open: true };
   editing = { isNew: !ex, draft: JSON.parse(JSON.stringify(t)), added: [], removed: [], saved: false };
   $("#taskDlgTitle").textContent = ex ? "Modifier la tâche" : "Nouvelle tâche";
-  $("#tCode").value = t.code; $("#tTitle").value = t.title; $("#tDesc").value = t.desc; $("#tStart").value = t.start; $("#tDue").value = t.due;
+  $("#tCode").value = t.code; prevLot = t.lotId; $("#tTitle").value = t.title; $("#tDesc").value = t.desc; $("#tStart").value = t.start; $("#tDue").value = t.due;
   $("#tLot").innerHTML = p.lots.map((l) => `<option value="${l.id}"${l.id === t.lotId ? " selected" : ""}>${esc(l.name)}</option>`).join("");
   $("#tResp").innerHTML = `<option value="">Non attribuée</option><option value="TOUS"${t.resp === "TOUS" ? " selected" : ""}>Tous</option>` + p.intervenants.map((i) => `<option value="${i.id}"${i.id === t.resp ? " selected" : ""}>${esc(i.nom)}${i.societe ? " (" + esc(i.societe) + ")" : ""}</option>`).join("");
   $("#tConc").innerHTML = p.intervenants.length ? p.intervenants.map((i) => `<label><input type="checkbox" value="${i.id}"${t.concerne.includes(i.id) ? " checked" : ""}> ${esc(i.nom)} <small>${esc(i.societe)}</small></label>`).join("") : '<span class="hempty">Ajoute des intervenants pour pouvoir les associer.</span>';
@@ -1167,6 +1218,15 @@ async function addDlgFiles(list) {
   for (const file of [...list]) { const id = uid(); await putFile(id, file); editing.draft.files.push({ id, name: file.name, size: file.size, type: file.type }); editing.added.push(id); }
   renderDlgFiles();
 }
+// Changement de catégorie dans la fiche : le numéro suit s'il était automatique
+let prevLot = null;
+$("#tLot").addEventListener("change", () => {
+  const p = P(); const code = $("#tCode").value;
+  const prev = p.lots.find((l) => l.id === prevLot);
+  const wasAuto = !code.trim() || (prev && new RegExp("^" + prev.num + "\\.\\d+$").test(code.trim()));
+  if (wasAuto) $("#tCode").value = nextTaskCode(p, $("#tLot").value, editing && editing.draft.id);
+  prevLot = $("#tLot").value;
+});
 $("#fileList").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-fact]"); if (!b) return;
   const id = b.closest("li").dataset.file; const meta = editing.draft.files.find((f) => f.id === id);
@@ -1187,10 +1247,11 @@ $("#taskForm").addEventListener("submit", async (e) => {
   Object.assign(d, { code: $("#tCode").value.trim(), title, desc: $("#tDesc").value.trim(), lotId: $("#tLot").value, resp: $("#tResp").value,
     concerne: [...document.querySelectorAll("#tConc input:checked")].map((x) => x.value), status: $('input[name="tstatus"]:checked').value, start: $("#tStart").value, due: $("#tDue").value });
   if (before && before.status !== d.status) logStatus(p, d, before.status, d.status);
+  applyArchive(d, before ? before.status : "", d.status);
   for (const f of editing.removed) if (!f.missing) await delFile(f.id);
   if (before) p.tasks[p.tasks.indexOf(before)] = d; else p.tasks.push(d);
   const lot = p.lots.find((l) => l.id === d.lotId); if (lot) lot.open = true;
-  d.open = true; editing.saved = true; save(); render(); $("#taskDlg").close(); toast(before ? "Tâche enregistrée" : "Tâche ajoutée");
+  d.open = d.status !== "archive"; editing.saved = true; save(); render(); $("#taskDlg").close(); toast(before ? "Tâche enregistrée" : "Tâche ajoutée");
 });
 $("#taskDlg").addEventListener("close", async () => { if (editing && !editing.saved) for (const id of editing.added) await delFile(id); editing = null; });
 $("#deleteTask").addEventListener("click", async () => {
@@ -1271,7 +1332,7 @@ function buildPrint(opts) {
         const conc = t.concerne.map((id) => whoText(p, id)).filter(Boolean);
         const files = (t.files || []).map((f) => f.name);
         return `<tbody class="${st === "archive" ? "arch" : ""}"><tr class="main"><td class="code">${esc(t.code)}</td><td><span class="tt">${esc(t.title)}</span><div class="ds">${esc(t.desc)}</div>${conc.length ? `<div class="cc">Concerne aussi : ${conc.map(esc).join(", ")}</div>` : ""}</td>
-          <td class="resp">${esc(whoText(p, t.resp))}</td><td class="stat"><span class="pill st-${st}">${statusLabel(st)}</span>${t.start || t.due ? `<span class="dd">${fmtNum(t.start)}${t.start && t.due ? " > " : ""}${fmtNum(t.due)}</span>` : ""}</td></tr>
+          <td class="resp">${esc(whoText(p, t.resp))}</td><td class="stat"><span class="pill st-${st}">${statusLabel(st)}</span>${st === "archive" && t.archivedAt ? `<span class="dd">le ${fmtNum(t.archivedAt)}</span>` : ""}${t.start || t.due ? `<span class="dd">${fmtNum(t.start)}${t.start && t.due ? " > " : ""}${fmtNum(t.due)}</span>` : ""}</td></tr>
           ${coms.length || files.length ? `<tr class="com"><td></td><td colspan="3">${coms.map((c) => `<div class="cm${isNewIn(c.date, w) ? " new" : ""}"><i>Commentaire du ${fmtNum(c.date)} :</i><span>${esc(c.text)}</span></div>`).join("")}${files.length ? `<div class="fl">${files.map(esc).join(" · ")}</div>` : ""}</td></tr>` : ""}</tbody>`;
       }).join("") + `</table>`;
   });
@@ -1559,6 +1620,7 @@ async function exportPdf(opts) {
       });
       if ((t.files || []).length) { L.push({ t: "" }); add(t.files.map((x) => x.name).join("   ·   "), { s: 7.5, c: [29, 92, 158] }); }
       const st3 = [statusLabel(st).toUpperCase()];
+      if (st === "archive" && t.archivedAt) st3.push("le " + fmtNum(t.archivedAt));
       if (t.start) st3.push(fmtNum(t.start) + (t.due ? " >" : ""));
       if (t.due) st3.push(fmtNum(t.due));
       return { t, st, arch, L, st3 };
@@ -1733,7 +1795,7 @@ document.addEventListener("change", (e) => {
   if (RO && (tg.matches('[data-act="status"], [data-act="conv"]') || tg.dataset.cr || tg.dataset.proj)) return;
   if (tg.matches('[data-act="status"]')) {
     const t = p.tasks.find((x) => x.id === tg.closest(".task").dataset.tid);
-    logStatus(p, t, t.status, tg.value); t.status = tg.value; save(); render(); return toast(`Statut : ${statusLabel(t.status)}`);
+    logStatus(p, t, t.status, tg.value); applyArchive(t, t.status, tg.value); t.status = tg.value; save(); render(); return toast(`Statut : ${statusLabel(t.status)}`);
   }
   if (tg.matches('[data-act="conv"]')) { const cr = activeCr(p); const iid = tg.closest("tr").dataset.iid; const cur = cr.presences[iid] || { p: "", conv: false }; cur.conv = tg.value === "1"; cr.presences[iid] = cur; return save(); }
   if (tg.id === "fStatus") { F.status = tg.value; return render(); }

@@ -1714,7 +1714,7 @@ async function buildPrint(opts) {
       ${others.map((i) => `<tr><td><span class="r">${esc(roleLine(i))}</span><b>${esc(fullName(i))}${i.societe ? " - " + esc(i.societe) : ""}</b>${esc([i.email, i.tel].filter(Boolean).join("  "))}</td><td class="c${pres(i).p === "P" ? " isp" : ""}">${pres(i).p || "—"}</td><td class="c">${pres(i).conv ? "Convoqué" : "Non convoqué"}</td></tr>`).join("")}
       </tbody></table>` : ""}
     <h2>Informations importantes</h2>
-    <div class="infos">${cr.nextDate ? `<p class="next">Prochaine réunion : ${fmtNum(cr.nextDate)}${cr.nextTime ? " à " + cr.nextTime.replace(":", ":") : ""}</p>` : ""}${cr.infos ? `<p class="txt">${esc(cr.infos)}</p>` : ""}${cr.nota ? `<p class="nota">Nota : ${esc(cr.nota)}</p>` : ""}</div>
+    <div class="infos">${cr.nextDate ? `<p class="next">Prochaine réunion : <b>${fmtNum(cr.nextDate)}${cr.nextTime ? " à " + cr.nextTime : ""}</b></p>` : ""}${cr.infos ? `<p class="txt">${esc(cr.infos)}</p>` : ""}${cr.nota ? `<p class="nota">Nota : ${esc(cr.nota)}</p>` : ""}</div>
     <h2 class="pd-break">Tâches et avancement</h2>${tasksHTML || "<p>Aucune tâche.</p>"}
   </div>`;
 }
@@ -1996,7 +1996,16 @@ async function exportPdf(opts) {
 
   /* Informations importantes */
   heading("Informations importantes");
-  if (cr.nextDate) { text(`Prochaine réunion : ${fmtNum(cr.nextDate)}${cr.nextTime ? " à " + cr.nextTime : ""}`, { size: 10.5, align: "center" }); y += 2; }
+  if (cr.nextDate) { // « Prochaine réunion : » normal, date et heure en gras, le tout centré
+    ensure(6);
+    const a = T("Prochaine réunion : "), bb = T(`${fmtNum(cr.nextDate)}${cr.nextTime ? " à " + cr.nextTime : ""}`);
+    doc.setFontSize(10.5); doc.setFont(FONT, "normal"); const wa = doc.getTextWidth(a);
+    doc.setFont(FONT, "bold"); const wb = doc.getTextWidth(bb);
+    const x0 = PW / 2 - (wa + wb) / 2, by = y + 10.5 * MM * 0.85;
+    doc.setTextColor(...INK); doc.setFont(FONT, "normal"); doc.text(a, x0, by);
+    doc.setFont(FONT, "bold"); doc.text(bb, x0 + wa, by);
+    y += 10.5 * MM * 1.3 + 2;
+  }
   if (cr.infos) { text(cr.infos, { size: 9.5, style: "bold" }); y += 2; }
   if (cr.nota) text(`Nota : ${cr.nota}`, { size: 9, style: "italic" });
 

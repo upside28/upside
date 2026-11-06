@@ -637,6 +637,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <p class="help" id="printHelp"></p>
       <div class="field"><label for="prArch">Tâches archivées</label><select id="prArch"><option value="grey">Grisées, dans leur catégorie</option><option value="hide">Masquées</option></select></div>
       <div class="field"><label for="prCom">Commentaires</label><select id="prCom"><option value="all">Tout l’historique</option><option value="new">Uniquement ceux de ce CR</option></select></div>
+      <div class="field" id="annexField"><label for="prAnnex">PDF joints aux tâches et commentaires</label><select id="prAnnex"><option value="annex">Ajoutés en annexe, avec liens cliquables dans le CR</option><option value="none">Non joints (seulement cités)</option></select></div>
       <div class="field" id="fontField"><span class="lbl">Police du PDF</span><div class="fontbox" id="fontBox"></div></div>
       <input type="file" id="fontFiles" accept=".ttf,font/ttf" multiple hidden>
       <p class="help" id="printHint"></p>
@@ -1725,13 +1726,13 @@ function openExport(mode) {
   $("#printSubmit").textContent = mode === "pdf" ? "Télécharger le PDF" : "Imprimer";
   $("#printHelp").textContent = `CR n°${cr.num} du ${fmtNum(cr.date)}, tel qu’il était à cette réunion.`;
   $("#printHint").textContent = mode === "pdf" ? "Le fichier PDF est téléchargé directement, prêt à être envoyé aux intervenants." : "Pour obtenir un PDF depuis cette fenêtre, choisis « Enregistrer au format PDF » comme imprimante.";
-  $("#fontField").hidden = mode !== "pdf";
+  $("#fontField").hidden = mode !== "pdf"; $("#annexField").hidden = mode !== "pdf";
   renderFontBox();
   $("#printDlg").showModal();
 }
 $("#printForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const opts = { arch: $("#prArch").value, com: $("#prCom").value };
+  const opts = { arch: $("#prArch").value, com: $("#prCom").value, annex: $("#prAnnex").value === "annex" };
   if (printMode === "pdf") {
     const btn = $("#printSubmit"); btn.disabled = true; btn.textContent = "Création du PDF…";
     try { await exportPdf(opts); $("#printDlg").close(); }
@@ -2015,6 +2016,14 @@ async function exportPdf(opts) {
     } catch (e) { }
   }
 
+  /* Annexes : PDF joints aux tâches et commentaires */
+  const annexes = [], annexLinks = [];
+  const isPdfFile = (m) => !m.missing && (/pdf/i.test(m.type || "") || /\.pdf$/i.test(m.name || ""));
+  function annexFor(m, t) {
+    const i = annexes.findIndex((a) => a.id === m.id); if (i >= 0) return i + 1;
+    annexes.push({ id: m.id, name: m.name, task: `${t.code ? t.code + " " : ""}${t.title}` }); return annexes.length;
+  }
+
   /* Tâches et avancement */
   doc.addPage(); y = TOP - 4;
   heading("Tâches et avancement");
@@ -2053,9 +2062,16 @@ async function exportPdf(opts) {
         const imgs = fs.filter((m) => pdfImgs[m.id]).slice(0, 6), others = fs.filter((m) => !pdfImgs[m.id]);
         for (let r = 0; r < imgs.length; r += 3) L.push({ t: "", ...g, imgs: imgs.slice(r, r + 3), span: Math.ceil((IMG_H + 1.5) / LH) });
         if (fs.filter((m) => pdfImgs[m.id]).length > 6) add(`+ ${fs.filter((m) => pdfImgs[m.id]).length - 6} autre(s) photo(s)`, { ...g, s: 7.5, c: GREY });
-        if (others.length) add("Pièces jointes : " + others.map((m) => m.name).join("  ·  "), { ...g, s: 7.5, c: [29, 92, 158] });
+        const pdfs = opts.annex ? others.filter(isPdfFile) : [], rest = others.filter((m) => !pdfs.includes(m));
+        pdfs.forEach((m) => { const k = annexFor(m, t); add(`Annexe ${k} : ${m.name}`, { ...g, s: 7.5, c: [29, 92, 158], link: k, u: true }); });
+        if (rest.length) add("Pièces jointes : " + rest.map((m) => m.name).join("  ·  "), { ...g, s: 7.5, c: [29, 92, 158] });
       });
-      if ((t.files || []).length) { L.push({ t: "" }); add(t.files.map((x) => x.name).join("   ·   "), { s: 7.5, c: [29, 92, 158] }); }
+      if ((t.files || []).length) {
+        const pdfs = opts.annex ? t.files.filter(isPdfFile) : [], rest = t.files.filter((m) => !pdfs.includes(m));
+        L.push({ t: "" });
+        pdfs.forEach((m) => { const k = annexFor(m, t); add(`Annexe ${k} : ${m.name}`, { s: 7.5, c: [29, 92, 158], link: k, u: true }); });
+        if (rest.length) add(rest.map((x) => x.name).join("   ·   "), { s: 7.5, c: [29, 92, 158] });
+      }
       const ds = dispSt(t, st, REF); const late = ds === "retard";
       const st3 = [statusLabel(ds).toUpperCase()];
       if (st === "archive" && t.archivedAt) st3.push("le " + fmtNum(t.archivedAt));
@@ -2124,6 +2140,11 @@ async function exportPdf(opts) {
               doc.triangle(x + 2.4, ay - 1.25, x + 4.4, ay, x + 2.4, ay + 1.25, "F");
             }
             doc.text(ln.t, x + (ln.bg ? 2 : 0) + (ln.ind || 0), ly + FS * MM * 0.8);
+            if (ln.link) {
+              const lx = x + (ln.bg ? 2 : 0), lw = doc.getTextWidth(ln.t), lbase = ly + FS * MM * 0.8;
+              if (ln.u) { doc.setDrawColor(29, 92, 158); doc.setLineWidth(0.15); doc.line(lx, lbase + 0.5, lx + lw, lbase + 0.5); }
+              annexLinks.push({ k: ln.link, page: doc.internal.getCurrentPageInfo().pageNumber, x: lx, y: ly - 0.3, w: lw, h: LH + 0.3 });
+            }
           });
         }
         if (d.column.index === 3) {
@@ -2140,6 +2161,26 @@ async function exportPdf(opts) {
   });
   if (!anyTask) text("Aucune tâche.", { size: 9, color: GREY });
 
+  /* Sommaire des annexes */
+  const annexData = [];
+  if (opts.annex && annexes.length) {
+    for (const a of annexes) { const b = await getFile(a.id); annexData.push(b ? await b.arrayBuffer() : null); }
+    doc.addPage(); y = TOP - 4; // les annexes commencent sur une nouvelle page
+    heading("Annexes"); y += 1;
+    annexes.forEach((a, i) => {
+      ensure(9);
+      doc.setFont(FONT, "bold"); doc.setFontSize(9); doc.setTextColor(...INK);
+      const lab = T(`Annexe ${i + 1}`); doc.text(lab, M + 3, y + 3.2);
+      doc.setFont(FONT, "normal"); doc.setTextColor(29, 92, 158);
+      const nm = T(a.name), nx = M + 26; doc.text(nm, nx, y + 3.2);
+      const nw = doc.getTextWidth(nm);
+      if (annexData[i]) { doc.setDrawColor(29, 92, 158); doc.setLineWidth(0.15); doc.line(nx, y + 3.8, nx + nw, y + 3.8); annexLinks.push({ k: i + 1, page: doc.internal.getCurrentPageInfo().pageNumber, x: M + 3, y: y - 0.5, w: nx + nw - M - 3, h: 5 }); }
+      doc.setFontSize(8); doc.setTextColor(...GREY);
+      doc.text(T(`Tâche ${a.task}${annexData[i] ? "" : " — fichier introuvable"}`), nx, y + 7);
+      y += 10;
+    });
+  }
+
   /* En-têtes et pieds de page */
   const n = doc.getNumberOfPages();
   for (let i = 1; i <= n; i++) {
@@ -2153,9 +2194,52 @@ async function exportPdf(opts) {
   }
   doc.setProperties({ title: T(`${p.crTitle} - ${p.name} - CR n°${cr.num}`) });
   const fname = `${slug(p.name) || "projet"}_CR-${cr.num}_${cr.date}.pdf`;
-  if (opts.asBlob) return { blob: doc.output("blob"), name: fname };
-  doc.save(fname);
-  toast("PDF téléchargé");
+  let blob = doc.output("blob"); let skipped = 0;
+  if (opts.annex && annexes.length) {
+    try { const r = await appendAnnexes(doc.output("arraybuffer"), annexes, annexData, annexLinks, `${p.name} — CR n°${cr.num}`); blob = r.blob; skipped = r.skipped; }
+    catch (e) { console.error(e); toast("Les annexes n’ont pas pu être ajoutées : le CR est exporté sans elles."); }
+  }
+  if (opts.asBlob) return { blob, name: fname };
+  const url = URL.createObjectURL(blob); const a = document.createElement("a");
+  a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast(annexes.length && opts.annex ? `PDF téléchargé avec ${plural(annexes.length - skipped, "annexe", "annexes")}${skipped ? ` (${skipped} non intégrable${skipped > 1 ? "s" : ""})` : ""}` : "PDF téléchargé");
+}
+
+/* Fusion : CR + PDF joints en annexe, liens cliquables vers chaque annexe */
+const PDFLIB = "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js";
+async function appendAnnexes(crBytes, annexes, datas, links, title) {
+  if (!window.PDFLib) await loadScript(PDFLIB);
+  const { PDFDocument, StandardFonts, rgb, PDFName, PDFNull } = window.PDFLib;
+  const out = await PDFDocument.load(crBytes);
+  const font = await out.embedFont(StandardFonts.Helvetica);
+  const fontB = await out.embedFont(StandardFonts.HelveticaBold);
+  const first = []; let skipped = 0;
+  for (let i = 0; i < annexes.length; i++) {
+    first[i] = null; if (!datas[i]) { skipped++; continue; }
+    let src; try { src = await PDFDocument.load(datas[i], { ignoreEncryption: true }); } catch (e) { skipped++; continue; }
+    let pages; try { pages = await out.copyPages(src, src.getPageIndices()); } catch (e) { skipped++; continue; }
+    pages.forEach((pg, j) => {
+      out.addPage(pg); if (j === 0) first[i] = pg;
+      // bandeau « Annexe n » en haut de chaque page
+      const { width, height } = pg.getSize();
+      const label = pdfText(`Annexe ${i + 1} — ${annexes[i].name}${pages.length > 1 ? ` (${j + 1}/${pages.length})` : ""}`).slice(0, 120);
+      const lw = Math.min(width - 20, fontB.widthOfTextAtSize(label, 8) + 12);
+      pg.drawRectangle({ x: 10, y: height - 20, width: lw, height: 14, color: rgb(0.10, 0.14, 0.20), opacity: 0.9 });
+      pg.drawText(label, { x: 16, y: height - 15.5, size: 8, font: fontB, color: rgb(1, 1, 1), maxWidth: lw - 10 });
+    });
+  }
+  // liens du CR vers la première page de chaque annexe
+  const MMPT = 72 / 25.4;
+  links.forEach((L) => {
+    const target = first[L.k - 1]; if (!target) return;
+    const page = out.getPage(L.page - 1); const H = page.getHeight();
+    const rect = [L.x * MMPT, H - (L.y + L.h) * MMPT, (L.x + L.w) * MMPT, H - L.y * MMPT];
+    const annot = out.context.register(out.context.obj({ Type: "Annot", Subtype: "Link", Rect: rect, Border: [0, 0, 0], Dest: [target.ref, PDFName.of("XYZ"), PDFNull, PDFNull, PDFNull] }));
+    page.node.addAnnot(annot);
+  });
+  out.setTitle(pdfText(title));
+  const bytes = await out.save();
+  return { blob: new Blob([bytes], { type: "application/pdf" }), skipped };
 }
 
 /* Archive ZIP : un PDF par CR validé */
@@ -2174,7 +2258,7 @@ async function exportZip(pid) {
     state.active = p.id;
     for (const c of crs) {
       p.activeCr = c.id;
-      const out = await exportPdf({ arch: "grey", com: "all", asBlob: true });
+      const out = await exportPdf({ arch: "grey", com: "all", annex: true, asBlob: true });
       folder.file(out.name, out.blob);
     }
   } catch (e) { toast("Erreur pendant la création des PDF."); return; }

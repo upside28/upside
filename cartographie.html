@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartographie de l’offre – Upside</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+:root{color-scheme:light;--bg:#eef0f3;--surface:#fff;--ink:#1a2235;--muted:#5c6577;--line:#d5d9e0;--soft:#e9ecf1;--warn:#a24c18;--ok:#2d6a4f;--gold:#c9a84c;--gold-text:#93762a;--nuit:#1a2235;--nuit2:#253350;box-sizing:border-box}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+header.top{flex:none;background:var(--nuit);border-bottom:3px solid var(--gold);color:#fff}
+.bar{padding:10px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{font-weight:700;font-size:16px;display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand .mark{color:var(--gold);letter-spacing:.14em;font-weight:800;cursor:pointer}
+.brand a{color:#fff;text-decoration:none}
+.brand .sep{color:rgba(255,255,255,.4)}
+.btn{font-weight:600;border:1px solid var(--line);background:var(--surface);padding:7px 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;line-height:1.2;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--nuit);color:#fff;border-color:var(--nuit)}
+.btn.gold{background:var(--gold);color:var(--nuit);border-color:var(--gold)}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted)}
+.btn.danger{color:var(--warn)}
+.btn:disabled{opacity:.5;cursor:default}
+header .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
+header .btn.gold{background:var(--gold);color:var(--nuit);border-color:var(--gold)}
+.view{flex:1;min-height:0;display:flex;flex-direction:column}
+.view[hidden]{display:none}
+.banner{background:#fff4e5;border-left:3px solid var(--warn);padding:10px 16px;margin:14px 20px 0}
+.banner[hidden]{display:none}
+/* home */
+.home{max-width:1100px;width:100%;margin:0 auto;padding:30px 20px 60px;overflow:auto}
+.home h1{font-size:30px;letter-spacing:-.02em;margin:0 0 6px}
+.home .lede{color:var(--muted);margin:0 0 22px;max-width:62ch}
+.newp{display:flex;gap:10px;margin:0 0 24px;max-width:620px}
+.newp input{flex:1}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:grid;gap:6px;cursor:pointer;text-align:left}
+.pcard:hover{border-color:var(--gold)}
+.pcard h3{margin:0;font-size:16px}
+.pcard .m{color:var(--muted);font-size:13px}
+.pcard .acts{display:flex;gap:6px;margin-top:6px}
+input[type=text],input[type=search],input[type=number],select,textarea{border:1px solid var(--line);border-radius:7px;background:var(--surface);padding:7px 10px;width:100%}
+/* project */
+.ptabs{flex:none;display:flex;gap:4px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.ptabs button{border:0;background:none;padding:12px 14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
+.ptabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--gold)}
+.pane{flex:1;min-height:0}
+.pane[hidden]{display:none}
+.dep{overflow:auto;padding:22px 20px 60px;max-width:1000px;width:100%;margin:0 auto}
+.drop{border:1.5px dashed var(--line);border-radius:14px;padding:28px 18px;text-align:center;background:var(--surface)}
+.drop.over{border-color:var(--gold);background:#fbf7ec}
+.drop p{margin:0 0 10px;font-weight:600;font-size:16px}
+.drop .hint{color:var(--muted);font-size:13px;margin-top:8px}
+.imp{margin-top:16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.imp[hidden]{display:none}
+.imp .ih{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.imp label.r{display:grid;grid-template-columns:20px 72px 1fr auto;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);align-items:center;cursor:pointer}
+.imp label.r img,.imp label.r .noimg{width:72px;height:48px;object-fit:cover;border-radius:5px;background:var(--soft)}
+.imp input[type=checkbox]{width:16px;height:16px;accent-color:var(--gold)}
+.imp .t{font-size:12px;font-weight:600;color:var(--ok)}
+.imp .t.dup{color:var(--gold-text)}
+.rn{font-weight:600}.rs{color:var(--muted);font-size:12.5px}
+h2.sec{font-size:16px;margin:28px 0 10px}
+.deps{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.deps li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:4px}
+.deps .dn{font-weight:600;overflow-wrap:anywhere;display:flex;justify-content:space-between;gap:10px}
+.deps .dn a{color:var(--ink)}
+.deps .dm{color:var(--muted);font-size:12.5px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:2px 9px;font-size:12px;cursor:pointer}
+.chip:hover{border-color:var(--gold)}
+.linkbtn{border:0;background:none;padding:0;color:var(--gold-text);font-weight:600;font-size:12.5px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.status{color:var(--muted);font-size:13px;min-height:19px}
+.status.err{color:var(--warn)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* carto */
+.carto{display:grid;grid-template-columns:360px minmax(0,1fr);height:100%}
+.side{display:flex;flex-direction:column;min-height:0;background:var(--surface);border-right:1px solid var(--line)}
+.tools{padding:12px 14px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.tools .r2{display:flex;gap:4px;align-items:center;flex-wrap:nowrap}
+.tools .r2 .btn{font-size:12.5px}
+.tools .ck{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.list{flex:1;overflow:auto;min-height:0}
+.lh{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:12px 14px 6px}
+.item{display:grid;grid-template-columns:16px 26px 1fr auto;gap:2px 9px;padding:9px 12px 9px 8px;border-bottom:1px solid var(--line);cursor:pointer;align-items:center;background:var(--surface)}
+.item:hover{background:var(--soft)}
+.item.sel{box-shadow:inset 3px 0 0 var(--gold);background:var(--soft)}
+.item.off{opacity:.55}
+.item .grip{cursor:grab;color:#9aa3b3;font-size:14px;line-height:1;user-select:none;text-align:center}
+.item.drag{opacity:.4}
+.item.over{box-shadow:inset 0 2px 0 var(--gold)}
+.num{width:24px;height:24px;border-radius:50%;background:#4D77B5;color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center}
+.num.off{background:#b9bec7}
+.item .nm{font-weight:600;line-height:1.25}
+.item .sub{color:var(--muted);font-size:12px}
+.sw{position:relative;width:34px;height:20px;border-radius:10px;background:#c9ced6;border:0;cursor:pointer;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.sw[aria-checked="true"]{background:var(--gold)}
+.sw[aria-checked="true"]::after{left:16px}
+.mapwrap{position:relative;min-height:0}
+#map{position:absolute;inset:0}
+.pin{width:26px;height:26px;border-radius:50%;background:#4D77B5;color:#fff;font:700 12px/26px "Schibsted Grotesk",sans-serif;text-align:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.pin.sel{background:#B57F35;transform:scale(1.15)}
+.pin.off{background:#9aa3b3;width:16px;height:16px;line-height:16px;font-size:0}
+.card{position:absolute;right:12px;top:12px;bottom:12px;width:min(380px,calc(100% - 24px));overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px -12px rgba(0,0,0,.35);z-index:1000}
+.card[hidden]{display:none}
+.card .photo{width:100%;height:170px;object-fit:cover;display:block;background:var(--soft)}
+.card .in{padding:14px 16px}
+.card h3{margin:0;font-size:17px;display:flex;gap:8px;align-items:center}
+.card .addr{color:var(--muted);font-size:13px;margin:2px 0 10px}
+.card .x{position:absolute;right:10px;top:10px;width:30px;height:30px;border-radius:50%;border:0;background:rgba(255,255,255,.92);font-size:18px;cursor:pointer;z-index:2}
+.form{display:grid;gap:8px}
+.form label{font-size:12px;color:var(--muted);display:grid;gap:3px}
+.form .r2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.note{background:var(--soft);border-left:3px solid var(--gold);padding:8px 10px;font-size:12.5px;margin:0 0 10px}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:0;width:min(520px,94vw)}
+dialog::backdrop{background:rgba(8,14,20,.55)}
+.dh,.df{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px}
+.dh{border-bottom:1px solid var(--line)}.dh h2{margin:0;font-size:17px}
+.df{border-top:1px solid var(--line)}.df .status{margin-right:auto}
+.db{padding:16px 18px;display:grid;gap:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:none;padding:6px 14px;font-weight:600;cursor:pointer;color:var(--muted)}
+.seg button[aria-checked="true"]{background:var(--nuit);color:#fff}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;z-index:3000;max-width:90vw}
+.toast[hidden]{display:none}
+.leaflet-container{font-family:"Schibsted Grotesk",sans-serif}
+@media (max-width:860px){.carto{grid-template-columns:1fr;grid-template-rows:45% 55%}}
+</style>
+</head>
+<body>
+<header class="top"><div class="bar">
+  <div class="brand"><span class="mark" id="goHome" title="Accueil">UPSIDE</span><span>Cartographie de l’offre</span><span class="sep" id="crumbSep" hidden>/</span><span id="crumb"></span></div>
+  <a class="btn" id="lecteurLink" href="#" target="_blank" rel="noopener">Lecteur de descriptifs</a>
+  <button class="btn gold" id="openExport" hidden>Exporter en PowerPoint</button>
+</div></header>
+<div class="banner" id="cfgBanner" hidden>Renseignez l’URL et la clé publique de votre projet Supabase en haut du fichier HTML (constantes SUPABASE_URL et SUPABASE_KEY), puis lancez le script SQL fourni.</div>
+
+<section class="view" id="vHome">
+  <div class="home">
+    <h1>Projets</h1>
+    <p class="lede">Un projet regroupe les descriptifs reçus pour une recherche, la carte des immeubles et la sélection présentée au client.</p>
+    <div class="newp"><input type="text" id="newName" placeholder="Nom du nouveau projet, ex. Client X – ouest parisien" aria-label="Nom du nouveau projet"><button class="btn primary" id="newBtn">Créer le projet</button></div>
+    <div class="cards" id="cards"></div>
+  </div>
+</section>
+
+<section class="view" id="vProj" hidden>
+  <nav class="ptabs" role="tablist">
+    <button role="tab" id="tDep" aria-selected="true">Dépôt des descriptifs</button>
+    <button role="tab" id="tMap" aria-selected="false">Cartographie</button>
+  </nav>
+  <div class="pane" id="pDep" style="overflow:auto">
+    <div class="dep">
+      <div class="drop" id="drop"><p>Déposez ici le fichier du lecteur (.upside.json) et, si vous le souhaitez, les PDF d’origine</p><label class="btn">Choisir des fichiers<input type="file" id="fileIn" accept=".json,.pdf,application/json,application/pdf" multiple hidden></label><div class="hint">Le fichier .upside.json s’obtient avec le lecteur de descriptifs sur claude.ai.</div></div>
+      <div class="imp" id="imp" hidden>
+        <div class="ih"><strong id="impTitle"></strong><div style="display:flex;gap:8px;align-items:center"><span class="status" id="impStatus"></span><button class="btn ghost" id="impCancel">Annuler</button><button class="btn primary" id="impGo">Importer</button></div></div>
+        <div id="impList"></div>
+      </div>
+      <h2 class="sec">Descriptifs déposés</h2>
+      <ul class="deps" id="deps"></ul>
+    </div>
+  </div>
+  <div class="pane" id="pMap" hidden>
+    <div class="carto">
+      <aside class="side">
+        <div class="tools">
+          <input type="search" id="q" placeholder="Rechercher un immeuble, une commune, un broker" aria-label="Rechercher">
+          <div class="r2"><label class="ck"><input type="checkbox" id="showOff" checked> Afficher les écartés</label><span style="margin-left:auto"></span><button class="btn ghost" id="allOn" style="padding:3px 6px">Tout retenir</button><button class="btn ghost" id="allOff" style="padding:3px 6px">Tout écarter</button></div>
+        </div>
+        <div class="list" id="list"></div>
+      </aside>
+      <div class="mapwrap"><div id="map"></div><div class="card" id="card" hidden></div></div>
+    </div>
+  </div>
+</section>
+
+<dialog id="dExp">
+  <div class="dh"><h2>Exporter la sélection</h2><button class="btn ghost" data-close>Fermer</button></div>
+  <div class="db">
+    <p class="note" id="expInfo"></p>
+    <div style="display:flex;gap:18px;flex-wrap:wrap">
+      <div><div class="status">Langue</div><div class="seg" id="segLang"><button aria-checked="true" data-v="fr">Français</button><button aria-checked="false" data-v="en">English</button></div></div>
+      <div><div class="status">Format</div><div class="seg" id="segFmt"><button aria-checked="true" data-v="169">16:9</button><button aria-checked="false" data-v="43">4:3</button></div></div>
+    </div>
+    <label class="form" style="display:grid;gap:3px"><span class="status">Titre</span><input type="text" id="expTitle"></label>
+    <label class="form" style="display:grid;gap:3px"><span class="status">Sous-titre</span><input type="text" id="expSub"></label>
+  </div>
+  <div class="df"><span class="status" id="expStatus"></span><button class="btn primary" id="expGo">Télécharger</button></div>
+</dialog>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ===== CONFIGURATION : à renseigner ===== */
+const SUPABASE_URL = 'https://VOTRE-PROJET.supabase.co';
+const SUPABASE_KEY = 'VOTRE_CLE_ANON_PUBLIQUE';
+const LECTEUR_URL = 'https://claude.ai/artifact/Q4o39RQbD3hAYVfaQ7vDfu';
+/* ======================================== */
+const STATIONS = [["Châtelet",48.8598,2.3465,"1; 4; 7; 11; 14"],["Châtelet - Les Halles",48.8617,2.347,"A; B; D"],["Concorde",48.8661,2.3246,"1; 8; 12"],["Les Halles",48.8627,2.3459,"4"],["Louvre - Rivoli",48.8611,2.3404,"1"],["Madeleine",48.8695,2.3259,"8; 12; 14"],["Palais Royal - Musée du Louvre",48.8626,2.3366,"1; 7"],["Pont Neuf",48.8585,2.3417,"7"],["Pyramides",48.8661,2.3343,"7; 14"],["Tuileries",48.8647,2.3291,"1"],["Étienne Marcel",48.8637,2.349,"4"],["Bourse",48.8687,2.3407,"3"],["Grands Boulevards",48.8712,2.3433,"8; 9"],["Opéra",48.8702,2.3324,"3; 7; 8"],["Quatre Septembre",48.8696,2.3364,"3"],["Richelieu - Drouot",48.8717,2.3393,"8; 9"],["Réaumur - Sébastopol",48.8663,2.3518,"3; 4"],["Sentier",48.8674,2.3469,"3"],["Strasbourg - Saint-Denis",48.8694,2.3536,"4; 8; 9"],["Arts et Métiers",48.8655,2.3569,"3; 11"],["Chemin Vert",48.8571,2.3681,"8"],["Filles du Calvaire",48.863,2.3666,"8"],["Rambuteau",48.8612,2.3533,"11"],["République",48.8673,2.3637,"3; 5; 8; 9; 11"],["Saint-Sébastien - Froissart",48.861,2.3671,"8"],["Temple",48.8667,2.3616,"3"],["Bastille",48.8533,2.3689,"1; 5; 8"],["Cité",48.8549,2.3473,"4"],["Hôtel de Ville",48.8569,2.3516,"1; 11"],["Pont Marie (Cité des Arts)",48.8535,2.3573,"7"],["Saint-Paul (Le Marais)",48.8552,2.3609,"1"],["Sully - Morland",48.8513,2.3623,"7"],["Cardinal Lemoine",48.8466,2.3515,"10"],["Censier - Daubenton",48.8404,2.3517,"7"],["Cluny - La Sorbonne",48.8509,2.3449,"10"],["Jussieu",48.8461,2.3547,"7; 10"],["Luxembourg",48.846,2.3404,"B"],["Maubert - Mutualité",48.8499,2.3487,"10"],["Place Monge",48.8427,2.3521,"7"],["Port Royal",48.8402,2.3371,"B"],["Saint-Michel Notre-Dame",48.853,2.345,"B; C"],["Mabillon",48.8529,2.335,"10"],["Montparnasse Bienvenue",48.8439,2.3241,"4; 6; 12; 13"],["Notre-Dame-des-Champs",48.845,2.3287,"12"],["Odéon",48.8522,2.3402,"4; 10"],["Rennes",48.8483,2.3279,"12"],["Saint-Germain-des-Prés",48.8537,2.3337,"4"],["Saint-Michel",48.8537,2.3437,"4"],["Saint-Placide",48.8471,2.327,"4"],["Saint-Sulpice",48.851,2.3318,"4"],["Vaneau",48.8487,2.3212,"10"],["Vavin",48.8422,2.3291,"4"],["Assemblée Nationale",48.8614,2.3208,"12"],["Duroc",48.8475,2.3161,"10; 13"],["Invalides",48.8612,2.3148,"8; 13; C"],["La Tour-Maubourg",48.8576,2.3104,"8"],["Musée d'Orsay",48.8604,2.3266,"C"],["Pont de l'Alma",48.8625,2.3004,"C"],["Rue du Bac",48.8559,2.3257,"12"],["Saint-François-Xavier",48.8516,2.3143,"13"],["Solférino",48.8585,2.3231,"12"],["Sèvres - Babylone",48.8516,2.3266,"10; 12"],["Ségur",48.8473,2.307,"10"],["Varenne",48.8564,2.315,"13"],["École Militaire",48.8545,2.306,"8"],["Alma - Marceau",48.8649,2.3018,"9"],["Champs-Élysées - Clemenceau",48.8677,2.3138,"1; 13"],["Charles de Gaulle - Étoile",48.8747,2.2967,"1; 2; 6; A"],["Europe",48.8788,2.3226,"3"],["Franklin D. Roosevelt",48.8689,2.3096,"1; 9"],["Gare Saint-Lazare",48.8775,2.3244,"J; L; TER"],["George V",48.872,2.3008,"1"],["Miromesnil",48.8736,2.3148,"9; 13"],["Paris Saint-Lazare",48.8777,2.3248,"TER"],["Rome",48.8823,2.3214,"2"],["Saint-Augustin",48.8747,2.3203,"9"],["Saint-Lazare",48.8754,2.3245,"3; 12; 13; 14"],["Saint-Philippe-du-Roule",48.8727,2.3105,"9"],["Villiers",48.8812,2.3162,"2; 3"],["Auber",48.8726,2.3297,"A"],["Cadet",48.876,2.3438,"7"],["Chaussée d'Antin - La Fayette",48.873,2.3338,"7; 9"],["Haussmann Saint-Lazare",48.875,2.3287,"E"],["Havre-Caumartin",48.8736,2.3276,"3; 9"],["Le Peletier",48.8747,2.3396,"7"],["Liège",48.8796,2.327,"13"],["Notre-Dame-de-Lorette",48.876,2.3377,"12"],["Pigalle",48.8823,2.3373,"2; 12"],["Place de Clichy",48.8833,2.3277,"2; 13"],["Poissonnière",48.8771,2.3487,"7"],["Saint-Georges",48.8784,2.3375,"12"],["Trinité - d'Estienne d'Orves",48.8763,2.3333,"12"],["Barbès - Rochechouart",48.8833,2.35,"2; 4"],["Belleville",48.8721,2.3767,"2; 11"],["Bonne Nouvelle",48.8706,2.3487,"8; 9"],["Château Landon",48.8786,2.3621,"7"],["Château d'Eau",48.8724,2.3561,"4"],["Colonel Fabien",48.8777,2.3705,"2"],["Gare de l'Est",48.876,2.3581,"4; 5; 7"],["Gare de l'Est",48.8786,2.3603,"P; TER"],["Gare du Nord",48.8807,2.3572,"4; 5; B; D; H; K; TER"],["Jacques Bonsergent",48.8709,2.3609,"5"],["La Chapelle",48.8844,2.3604,"2"],["Louis Blanc",48.8813,2.3649,"7; 7B"],["Magenta",48.8808,2.3587,"E"],["Paris Est",48.8787,2.3602,"TER"],["Stalingrad",48.8843,2.3658,"2; 5; 7"],["Bréguet-Sabin",48.8562,2.3702,"5"],["Charonne",48.8546,2.3854,"9"],["Couronnes",48.8689,2.3804,"2"],["Faidherbe - Chaligny",48.8501,2.3848,"8"],["Goncourt",48.8698,2.3709,"11"],["Nation",48.8487,2.3959,"1; 2; 6; 9; A"],["Oberkampf",48.8647,2.3684,"5; 9"],["Parmentier",48.8652,2.3747,"3"],["Philippe Auguste",48.858,2.3902,"2"],["Père Lachaise",48.8628,2.3869,"2; 3"],["Richard-Lenoir",48.8598,2.3719,"5"],["Rue Saint-Maur",48.8641,2.3805,"3"],["Rue des Boulets",48.8521,2.3896,"9"],["Saint-Ambroise",48.8613,2.3742,"9"],["Voltaire",48.8579,2.38,"9"],["Alexandra David-Néel",48.8437,2.4101,"T3a"],["Baron le Roy",48.8303,2.3931,"T3a"],["Bel-Air",48.8413,2.4009,"6"],["Bercy",48.8398,2.3799,"6; 14"],["Château de Vincennes",48.8442,2.441,"1"],["Cour Saint-Emilion",48.8333,2.3866,"14"],["Daumesnil",48.8396,2.3959,"6; 8"],["Dugommier",48.8389,2.3889,"6"],["Gare de Lyon",48.8438,2.3735,"1; 14; A; D; R; TER"],["Ledru-Rollin",48.8513,2.376,"8"],["Michel Bizot",48.837,2.4026,"8"],["Montempoivre",48.8399,2.4089,"T3a"],["Montgallet",48.8442,2.3903,"8"],["Paris-Bercy Bourgogne - Pays d'Auvergne",48.8386,2.3842,"TER"],["Picpus",48.8451,2.4018,"6"],["Porte Dorée",48.8353,2.4066,"8; T3a"],["Porte de Charenton",48.8318,2.3983,"T3a"],["Porte de Charenton",48.8335,2.4024,"8"],["Porte de Vincennes",48.847,2.4094,"1; T3a; T3b"],["Quai de la Rapée",48.8459,2.3675,"5"],["Reuilly - Diderot",48.8472,2.3865,"1; 8"],["Avenue de France",48.8255,2.381,"T3a"],["Bibliothèque François Mitterrand",48.8301,2.3771,"14; C"],["Campo-Formio",48.8356,2.3586,"5"],["Chevaleret",48.8349,2.3679,"6"],["Corvisart",48.8298,2.3494,"6"],["Gare d'Austerlitz",48.8427,2.365,"5; 10; C; TER"],["Glacière",48.8311,2.3435,"6"],["Les Gobelins",48.8364,2.3519,"7"],["Maison Blanche",48.822,2.3587,"7; 14"],["Maryse Bastié",48.8244,2.3777,"T3a"],["Nationale",48.8328,2.3627,"6"],["Olympiades",48.8271,2.3673,"14"],["Paris Austerlitz",48.8403,2.3679,"TER"],["Place d'Italie",48.8313,2.3559,"5; 6; 7"],["Porte d'Italie",48.8191,2.3598,"7; T3a"],["Porte d'Ivry",48.8214,2.37,"7; T3a"],["Porte de Choisy",48.8198,2.3646,"7; T3a; T9"],["Poterne des Peupliers",48.8204,2.3517,"T3a"],["Quai de la Gare",48.837,2.3732,"6"],["Saint-Marcel",48.8385,2.3607,"5"],["Stade Charléty - Porte de Gentilly",48.8195,2.3458,"T3a"],["Tolbiac",48.8261,2.3572,"7"],["Alésia",48.8282,2.3271,"4"],["Cité Universitaire",48.8207,2.3387,"B; T3a"],["Denfert-Rochereau",48.8338,2.3328,"4; 6; B"],["Didot",48.826,2.3133,"T3a"],["Edgar Quinet",48.8409,2.3256,"6"],["Gaîté",48.8385,2.3225,"13"],["Jean Moulin",48.8244,2.3185,"T3a"],["Montsouris",48.8215,2.3333,"T3a"],["Mouton-Duvernet",48.8314,2.3298,"4"],["Pernety",48.8338,2.318,"13"],["Plaisance",48.8317,2.3138,"13"],["Porte d'Orléans",48.8227,2.3255,"4; T3a"],["Porte de Vanves",48.8273,2.3055,"13; T3a"],["Raspail",48.839,2.3307,"4; 6"],["Saint-Jacques",48.8329,2.3371,"6"],["Avenue Émile Zola",48.847,2.2943,"10"],["Balard",48.8362,2.2782,"8; T3a"],["Bir-Hakeim",48.8543,2.2895,"6"],["Boucicaut",48.841,2.2881,"8"],["Brancion",48.8284,2.3009,"T3a"],["Cambronne",48.8474,2.3025,"6"],["Champ de Mars Tour Eiffel",48.8565,2.2897,"C"],["Charles Michels",48.8465,2.2862,"10"],["Commerce",48.8445,2.2937,"8"],["Convention",48.8371,2.2964,"12"],["Desnouettes",48.8344,2.2842,"T3a"],["Dupleix",48.851,2.2926,"6"],["Falguière",48.8444,2.3175,"12"],["Félix Faure",48.8431,2.2928,"8"],["Gare Montparnasse",48.8384,2.3164,"N; TER"],["Georges Brassens",48.83,2.2958,"T3a"],["Henri Farman",48.8347,2.2714,"T2"],["Javel",48.8461,2.2777,"C"],["Javel - André Citroën",48.8461,2.2777,"10"],["La Motte-Picquet - Grenelle",48.8492,2.2985,"6; 8; 10"],["Lourmel",48.8386,2.2819,"8"],["Paris Montparnasse",48.8391,2.3174,"TER"],["Pasteur",48.8427,2.3127,"6; 12"],["Pont du Garigliano",48.8385,2.2706,"T3a"],["Pont du Garigliano - Hôpital Européen G. Pompidou",48.8389,2.2705,"C"],["Porte d'Issy",48.8317,2.281,"T2"],["Porte de Versailles",48.8325,2.2874,"12; T2"],["Porte de Versailles - Parc des Expositions",48.8327,2.2881,"T3a"],["Suzanne Lenglen",48.8335,2.2768,"T2"],["Sèvres-Lecourbe",48.8453,2.3095,"6"],["Vaugirard",48.8394,2.3007,"12"],["Volontaires",48.8415,2.3078,"12"],["Anna de Noailles",48.8745,2.2781,"T3b"],["Argentine",48.8755,2.2894,"1"],["Avenue Foch",48.8698,2.2748,"C"],["Avenue Henri Martin",48.8655,2.2722,"C"],["Avenue du Président Kennedy Maison de Radio France",48.8535,2.2797,"C"],["Boissière",48.8668,2.29,"6"],["Boulainvilliers",48.857,2.2748,"C"],["Chardon Lagache",48.8451,2.2669,"10"],["Exelmans",48.8428,2.2602,"9"],["Iéna",48.8647,2.2942,"9"],["Jasmin",48.8523,2.2681,"9"],["Kléber",48.8717,2.2936,"6"],["La Muette",48.8581,2.2741,"9"],["Michel-Ange - Auteuil",48.848,2.264,"9; 10"],["Michel-Ange - Molitor",48.845,2.2617,"9; 10"],["Mirabeau",48.8471,2.2731,"10"],["Passy",48.8577,2.2862,"6"],["Porte Dauphine",48.8715,2.2776,"2"],["Porte Dauphine (Avenue Foch)",48.8704,2.2748,"T3b"],["Porte Maillot",48.8778,2.2824,"1"],["Porte d'Auteuil",48.8475,2.2581,"10"],["Porte de Saint-Cloud",48.8379,2.2563,"9"],["Ranelagh",48.8556,2.2703,"9"],["Rue de la Pompe",48.864,2.2779,"9"],["Trocadéro",48.8635,2.2877,"6; 9"],["Victor Hugo",48.87,2.286,"2"],["Église d'Auteuil",48.8477,2.2696,"10"],["Anny Flore",48.881,2.2854,"T3b"],["Brochant",48.8908,2.3204,"13"],["Courcelles",48.8793,2.303,"2"],["Epinettes - Pouchet",48.8975,2.3244,"T3b"],["Honoré De Balzac",48.8963,2.3188,"T3b"],["La Fourche",48.8875,2.3254,"13"],["Malesherbes",48.8828,2.3094,"3"],["Marguerite Long",48.8902,2.303,"T3b"],["Monceau",48.8805,2.309,"2"],["Neuilly - Porte Maillot",48.8783,2.2842,"C; E"],["Pereire",48.8849,2.2977,"3"],["Pont Cardinet",48.8881,2.3142,"14; L"],["Porte Maillot - Palais des Congrès",48.8779,2.2836,"T3b"],["Porte de Champerret",48.8858,2.2925,"3; T3b"],["Porte de Clichy",48.8946,2.3126,"13; 14; C"],["Porte de Clichy - Tribunal de Paris",48.8946,2.3142,"T3b"],["Porte de Saint-Ouen",48.8976,2.3288,"13; T3b"],["Péreire Levallois",48.8853,2.2987,"C"],["Square Sainte-Odile",48.8871,2.2962,"T3b"],["Ternes",48.8784,2.2983,"2"],["Thérèse Pierre",48.8836,2.2883,"T3b"],["Wagram",48.8838,2.3047,"3"],["Abbesses",48.8845,2.3383,"12"],["Angélique Compoint - Porte de Montmartre",48.8978,2.3382,"T3b"],["Anvers",48.8829,2.3442,"2"],["Blanche",48.8838,2.3327,"2"],["Château Rouge",48.8875,2.3496,"4"],["Colette Besson",48.8985,2.3636,"T3b"],["Diane Arbus - Porte des Poissonniers",48.8983,2.3517,"T3b"],["Funiculaire Gare basse",48.8847,2.3426,"FUN"],["Funiculaire Gare haute",48.8856,2.3425,"FUN"],["Guy Môquet",48.893,2.3278,"13"],["Jules Joffrin",48.8924,2.3446,"12"],["Lamarck - Caulaincourt",48.8896,2.3393,"12"],["Marcadet - Poissonniers",48.8914,2.35,"4; 12"],["Marx Dormoy",48.8906,2.3599,"12"],["Porte d'Aubervilliers",48.8987,2.3693,"T3b"],["Porte de Clignancourt",48.8979,2.3447,"4; T3b"],["Porte de la Chapelle",48.8979,2.3591,"12; T3b"],["Simplon",48.8942,2.3475,"4"],["Bolivar",48.8808,2.374,"7B"],["Botzaris",48.8795,2.3892,"7B"],["Butte du Chapeau Rouge",48.885,2.3968,"T3b"],["Buttes Chaumont",48.8784,2.3816,"7B"],["Canal Saint-Denis",48.8987,2.3805,"T3b"],["Corentin Cariou",48.8949,2.3823,"7"],["Crimée",48.8908,2.377,"7"],["Danube",48.882,2.3932,"7B"],["Delphine Seyrig",48.8939,2.3977,"T3b"],["Ella Fitzgerald",48.8974,2.3951,"T3b"],["Hôpital Robert Debré",48.8794,2.4012,"T3b"],["Jaurès",48.8825,2.3709,"2; 5; 7B"],["Jourdain",48.8751,2.3893,"11"],["Laumière",48.8848,2.3797,"5"],["Ourcq",48.8871,2.387,"5"],["Place des Fêtes",48.877,2.3933,"11; 7B"],["Porte de Pantin",48.8886,2.3923,"5"],["Porte de Pantin - Parc de la Villette",48.889,2.3957,"T3b"],["Porte de la Villette",48.8976,2.3864,"7"],["Porte de la Villette (Cité des Sciences et de l'industrie)",48.8975,2.3865,"T3b"],["Porte des Lilas",48.8772,2.4065,"11; 3B; T3b"],["Pré-Saint-Gervais",48.8802,2.3982,"7B"],["Pyrénées",48.8738,2.3849,"11"],["Riquet",48.8882,2.3737,"7"],["Rosa Parks",48.8967,2.3739,"E; T3b"],["Adrienne Bolland",48.8723,2.4084,"T3b"],["Alexandre Dumas",48.856,2.3948,"2"],["Avron",48.8515,2.3984,"2"],["Buzenval",48.8519,2.4013,"9"],["Gambetta",48.865,2.3979,"3; 3B"],["Maraîchers",48.8526,2.4059,"9"],["Marie de Miribel",48.8587,2.4097,"T3b"],["Ménilmontant",48.8663,2.3837,"2"],["Pelleport",48.8682,2.4014,"3B"],["Porte de Bagnolet",48.8642,2.409,"3; T3b"],["Porte de Montreuil",48.8534,2.4107,"9; T3b"],["Saint-Fargeau",48.8719,2.4044,"3B"],["Séverine",48.8675,2.4089,"T3b"],["Télégraphe",48.8755,2.3986,"11"],["Bussy-Saint-Georges",48.8367,2.7104,"A"],["Chelles - Gournay",48.8741,2.5834,"E; P"],["Marne-la-Vallée - Chessy",48.8698,2.7825,"A"],["Val d'Europe",48.8548,2.7724,"A"],["Combs-la-Ville - Quincy",48.6678,2.5477,"D"],["Compans",48.9913,2.665,"K"],["Gretz-Armainvilliers",48.7465,2.7272,"E"],["Lieusaint - Moissy",48.6283,2.5695,"D"],["Lognes",48.8393,2.633,"A"],["Terminal 1",49.0131,2.542,"CDG VAL"],["Parking Px",49.01,2.5706,"CDG VAL"],["Terminal 2 Gare",49.0048,2.5716,"CDG VAL"],["Mitry - Claye",48.9757,2.6424,"B; K"],["Villeparisis - Mitry-le-Neuf",48.9532,2.6032,"B"],["Noisiel",48.8435,2.6167,"A"],["Ozoir-la-Ferrière",48.7708,2.6901,"E"],["Émerainville - Pontault-Combault",48.8059,2.6185,"E"],["Roissy-en-Brie",48.7956,2.6505,"E"],["Dammartin - Juilly - Saint-Mard",49.0323,2.6992,"K; TER"],["Thieux - Nantouillet",49.0081,2.6803,"K"],["Lagny - Thorigny",48.8822,2.706,"P"],["Torcy",48.8397,2.6552,"A"],["Tournan",48.7394,2.7589,"E; P"],["Vaires - Torcy",48.8752,2.6377,"E; P"],["Achères Ville",48.9703,2.0775,"A; L"],["Andrésy",48.9746,2.0487,"J"],["Maurecourt",48.9869,2.0596,"J"],["Bailly",48.8368,2.0748,"T13"],["Bougival",48.8541,2.1322,"L"],["La Celle-Saint-Cloud",48.8426,2.1382,"L"],["Chanteloup-les-Vignes",48.9704,2.0276,"J"],["Chatou - Croissy",48.8852,2.1559,"A"],["Villepreux - Les Clayes",48.8237,1.992,"N"],["Coignières",48.7437,1.9214,"N"],["Conflans Fin d'Oise",48.9912,2.0747,"A; J; L"],["Conflans-Sainte-Honorine",48.9973,2.0984,"J"],["L'Etang - Les Sablons",48.8725,2.0691,"T13"],["L'Étang-la-Ville",48.8682,2.0769,"L"],["Saint-Nom-la-Bretèche - Forêt de Marly",48.8673,2.0509,"L; T13"],["Fontenay-le-Fleury",48.8073,2.0407,"N"],["Meulan - Hardricourt",49.0058,1.9021,"J"],["Houilles - Carrières-sur-Seine",48.9203,2.1852,"A; J; L"],["Jouy-en-Josas",48.7648,2.1645,"V"],["Petit Jouy Les Loges",48.7712,2.1469,"V"],["Louveciennes",48.8611,2.1228,"L"],["Maisons-Laffitte",48.9457,2.1447,"A; J; L"],["Mareil-Marly",48.8812,2.0793,"T13"],["Marly-le-Roi",48.8715,2.0965,"L"],["Thun le Paradis",49.0067,1.9192,"J"],["Saint-Quentin en Yvelines - Montigny-le-Bretonneux",48.7874,2.0446,"C; N; TER; U"],["Les Mureaux",48.9926,1.9135,"J"],["Noisy-le-Roi",48.8413,2.0616,"T13"],["Plaisir - Grignon",48.8319,1.9435,"N"],["Plaisir - Les Clayes",48.8308,1.9601,"N"],["Poissy",48.9332,2.0408,"A; J"],["Allée Royale",48.8148,2.0785,"T13"],["Saint-Cyr",48.7988,2.0727,"C; N; T13; U"],["Achères Grand Cormier",48.9554,2.0936,"A"],["Camp des Loges",48.914,2.0817,"T13"],["Fourqueux - Bel Air",48.8949,2.0701,"T13"],["Lisière Pereire",48.9032,2.0732,"T13"],["Saint-Germain-en-Laye",48.9016,2.0953,"T13"],["Saint-Germain-en-Laye",48.8987,2.095,"A"],["Saint-Rémy-lès-Chevreuse",48.7027,2.0714,"B"],["Sartrouville",48.9377,2.1572,"A; J; L"],["Trappes",48.7748,2.0066,"N; U"],["Triel-sur-Seine",48.9814,2.0057,"J"],["Vaux-sur-Seine",49.0074,1.963,"J"],["Dewoitine",48.784,2.2142,"T6"],["Inovel Parc Nord",48.7814,2.2092,"T6"],["L'Onde (Maison des Arts)",48.7819,2.1804,"T6"],["Louvois",48.7801,2.1963,"T6"],["Mairie de Vélizy",48.7803,2.1916,"T6"],["Robert Wagner",48.7851,2.1788,"T6"],["Vélizy 2",48.7851,2.2189,"T6"],["Les Clairières de Verneuil",48.9927,1.9552,"J"],["Vernouillet - Verneuil",48.9817,1.9829,"J"],["La Verrière",48.7552,1.9431,"N; U"],["Les Portes de Saint-Cyr",48.8066,2.0772,"T13"],["Montreuil",48.806,2.1528,"L"],["Porchefontaine",48.7965,2.1522,"C"],["Saint-Cyr - voie 2",48.799,2.0747,"T13"],["Versailles Chantiers",48.7951,2.135,"C; N; TER; U; V"],["Versailles Château Rive Gauche",48.8002,2.1295,"C"],["Versailles Rive Droite",48.8095,2.1369,"L"],["Le Vésinet - Centre",48.8901,2.1343,"A"],["Le Vésinet - Le Pecq",48.898,2.1221,"A"],["Villennes-sur-Seine",48.9398,1.9996,"J"],["Chaville - Vélizy",48.7997,2.1834,"C"],["Viroflay - Rive Droite",48.8056,2.1684,"L; T6"],["Viroflay - Rive Gauche",48.801,2.1713,"T6"],["Viroflay Rive Gauche",48.8007,2.1716,"C; N"],["Athis-Mons",48.7127,2.4037,"C"],["Porte de l'Essonne",48.7144,2.3721,"T7"],["Bièvres",48.7509,2.2162,"V"],["Vauboyen",48.759,2.1926,"V"],["Boussy-Saint-Antoine",48.6809,2.5332,"D"],["Brunoy",48.6989,2.5069,"D"],["Bures-sur-Yvette",48.6962,2.1644,"B"],["La Hacquinière",48.6953,2.1516,"B"],["Champlan",48.708,2.2808,"T12"],["Chilly-Mazarin",48.7005,2.307,"T12"],["Petit Vaux",48.6766,2.3328,"T12"],["Épinay-sur-Orge",48.6706,2.3351,"C; T12"],["Bois Briard",48.6224,2.4156,"T12"],["Le Bras de Fer",48.6233,2.452,"D"],["Traité de Rome",48.6251,2.4074,"T12"],["Évry - Courcouronnes",48.6249,2.4255,"T12"],["Évry - Courcouronnes",48.6259,2.43,"D"],["Évry - Val de Seine",48.6344,2.4523,"D"],["Courcelle-sur-Yvette",48.7013,2.0977,"B"],["Gif-sur-Yvette",48.6982,2.1365,"B"],["Ferme Neuve",48.6525,2.3849,"T12"],["Grigny Centre",48.6548,2.3968,"D"],["Igny",48.7409,2.2308,"V"],["Juvisy",48.6897,2.3833,"C; D"],["Gravigny Balizy",48.6862,2.3173,"T12"],["Longjumeau",48.7024,2.2939,"T12"],["Massy - Palaiseau",48.7249,2.2574,"B; C; T12; V"],["Massy - Verrières",48.7345,2.2741,"B; C"],["Massy Europe",48.7235,2.2726,"T12"],["Montgeron - Crosne",48.7087,2.4614,"D"],["Parc du Château",48.668,2.3549,"T12"],["Le Guichet",48.7055,2.193,"B"],["Orsay - Ville",48.6975,2.1808,"B"],["Lozère",48.7059,2.2127,"B"],["Palaiseau",48.7169,2.2456,"B"],["Palaiseau - Villebon",48.7082,2.2373,"B"],["Aéroport d'Orly",48.7296,2.3683,"T7"],["Aéroport d'Orly",48.7283,2.3626,"14"],["Hélène Boucher (Orlytech)",48.74,2.3595,"T7"],["Orly 1-2-3",48.7296,2.3595,"ORLYVAL"],["Orly 4",48.7289,2.3694,"ORLYVAL"],["Bois de Saint-Eutrope",48.6341,2.3956,"T12"],["Grand Bourg",48.6488,2.4348,"D"],["Orangis Bois de l'Épine",48.6363,2.4077,"D"],["Ris-Orangis",48.6591,2.415,"D"],["Sainte-Geneviève-des-Bois",48.6529,2.313,"C"],["Saint-Michel-sur-Orge",48.6356,2.3068,"C"],["Savigny-sur-Orge",48.6764,2.3524,"C"],["Vigneux-sur-Seine",48.7081,2.4135,"D"],["Amédée Gordini",48.6587,2.3735,"T12"],["Coteaux de l'Orge",48.6653,2.3627,"T12"],["Viry-Châtillon",48.6759,2.387,"D"],["Yerres",48.7064,2.4832,"D"],["Antony",48.7545,2.3008,"B; ORLYVAL"],["Chemin d'Antony",48.7479,2.3127,"C"],["Fontaine Michalon",48.743,2.296,"B"],["La Croix de Berny",48.7624,2.3034,"B; T10"],["Les Baconnets",48.7398,2.2881,"B"],["Parc de Sceaux",48.7697,2.3099,"B"],["Asnières - Quatre Routes",48.9273,2.2746,"T1"],["Asnières-sur-Seine",48.9059,2.2832,"J; L"],["Gabriel Péri",48.9166,2.2944,"13"],["Les Courtilles",48.9303,2.2835,"T1"],["Bagneux - Lucie Aubrac",48.8035,2.3177,"4"],["Barbara",48.8097,2.3175,"4"],["Bois-Colombes",48.9142,2.2717,"J"],["Billancourt",48.832,2.2381,"9"],["Boulogne Jean Jaurès",48.8421,2.2392,"10"],["Boulogne Pont de Saint-Cloud",48.8407,2.2286,"10"],["Marcel Sembat",48.8338,2.2435,"9"],["Pont de Sèvres",48.8297,2.2305,"9"],["Bourg-la-Reine",48.7803,2.3123,"B"],["Cité-Jardin",48.7655,2.2599,"T10"],["LaVallée",48.7616,2.2905,"T10"],["Les Peintres",48.7646,2.2656,"T10"],["Malabry",48.7695,2.2498,"T10"],["Petit-Châtenay",48.7628,2.282,"T10"],["Théâtre La Piscine",48.7641,2.2724,"T10"],["Vallée aux Loups",48.7664,2.255,"T10"],["Centre de Châtillon",48.8043,2.2887,"T6"],["Châtillon - Montrouge",48.8108,2.3008,"13; T6"],["Division Leclerc",48.7945,2.2728,"T6"],["Parc André Malraux",48.8001,2.2824,"T6"],["Vauban",48.8071,2.2938,"T6"],["Chaville Rive Droite",48.813,2.1886,"L; U"],["Chaville Rive Gauche",48.8052,2.1894,"N"],["Clamart",48.8142,2.2742,"N"],["Georges Pompidou",48.785,2.2372,"T6"],["Hôpital Béclère",48.787,2.2536,"T10; T6"],["Jardin Parisien",48.7901,2.2527,"T10"],["Mail de la Plaine",48.7837,2.2467,"T6"],["Pavé Blanc",48.7805,2.2399,"T6"],["Soleil Levant",48.7903,2.2634,"T6"],["Mairie de Clichy",48.9037,2.3056,"13"],["Colombes",48.924,2.2593,"J"],["Jacqueline Auriol",48.911,2.2337,"T2"],["La Garenne-Colombes",48.9096,2.2398,"L"],["Le Stade",48.9317,2.2609,"J"],["Les Vallées",48.9136,2.2572,"L"],["Parc Pierre Lagravère",48.9177,2.2247,"T2"],["Victor Basch",48.9143,2.2292,"T2"],["Bécon les Bruyères",48.9055,2.2688,"L"],["Courbevoie",48.8986,2.2492,"L"],["Esplanade de la Défense",48.8881,2.2501,"1"],["Faubourg de l'Arche",48.8969,2.2401,"T2"],["Fontenay-aux-Roses",48.7876,2.2929,"B"],["Garches - Marnes-la-Coquette",48.8383,2.1871,"L"],["Charlebourg",48.9069,2.239,"T2"],["Les Fauvelles",48.9026,2.2396,"T2"],["Asnières - Gennevilliers - Les Courtilles",48.931,2.284,"13"],["Gare de Gennevilliers",48.9334,2.3071,"T1"],["Gennevilliers",48.9328,2.308,"C"],["Le Luth",48.9318,2.2887,"T1"],["Le Village",48.9333,2.2941,"T1"],["Les Agnettes",48.9233,2.2868,"13"],["Les Grésillons",48.9203,2.3144,"C"],["Parc des Chanteraines",48.9337,2.3131,"T1"],["Timbaud",48.9331,2.301,"T1"],["Corentin Celton",48.8268,2.279,"12"],["Issy",48.8193,2.2579,"C"],["Issy - Val de Seine",48.8297,2.2638,"C; T2"],["Jacques-Henri Lartigue",48.8244,2.2606,"T2"],["Les Moulineaux",48.8216,2.2512,"T2"],["Mairie d'Issy",48.825,2.2734,"12"],["Anatole France",48.892,2.2851,"3"],["Clichy - Levallois",48.8975,2.2975,"L"],["Louise Michel",48.8885,2.2883,"3"],["Pont de Levallois - Bécon",48.897,2.2805,"3"],["Malakoff - Plateau de Vanves",48.8223,2.2982,"13"],["Malakoff - Rue Étienne Dolet",48.8153,2.2971,"13"],["Vanves - Malakoff",48.8183,2.292,"N"],["Gare de Bellevue",48.8189,2.2296,"N"],["Georges Millandy",48.7835,2.2311,"T6"],["Meudon",48.8144,2.2435,"N"],["Meudon Val Fleury",48.8075,2.2409,"C"],["Meudon-la-Forêt",48.7839,2.2256,"T6"],["Meudon-sur-Seine",48.819,2.2389,"T2"],["Mairie de Montrouge",48.8186,2.3204,"4"],["Nanterre - Préfecture",48.8959,2.223,"A"],["Nanterre - Ville",48.895,2.1951,"A"],["Nanterre Université",48.9011,2.2135,"A; L"],["Nanterre-La-Folie",48.8976,2.2266,"E"],["Les Sablons",48.8809,2.2727,"1"],["Pont de Neuilly",48.8847,2.2602,"1"],["Le Hameau",48.7826,2.2534,"T10"],["Noveos",48.7768,2.25,"T10"],["Parc des Sports",48.7795,2.2517,"T10"],["La Défense",48.8925,2.2375,"1; A; E; L; T2; U"],["Puteaux",48.8831,2.2334,"L; T2; U"],["Rueil-Malmaison",48.8877,2.1724,"A"],["Le Val d'Or",48.8565,2.2156,"L"],["Les Coteaux",48.8573,2.2206,"T2"],["Les Milons",48.8499,2.2212,"T2"],["Parc de Saint-Cloud",48.8427,2.2219,"T2"],["Saint-Cloud",48.8461,2.2176,"L; U"],["Robinson",48.7802,2.2814,"B"],["Sceaux",48.7813,2.2979,"B"],["Brimborion",48.8221,2.2314,"T2"],["Musée de Sèvres",48.8282,2.2247,"T2"],["Sèvres - Ville-d'Avray",48.8272,2.2007,"L; U"],["Sèvres Rive Gauche",48.8212,2.2151,"N"],["Belvédère",48.8761,2.226,"T2"],["Suresnes - Longchamp",48.8676,2.2215,"T2"],["Suresnes Mont Valérien",48.8717,2.2211,"L; U"],["Vaucresson",48.8367,2.1527,"L"],["Chemin des Reniers",48.9346,2.3216,"T1"],["La Noue",48.9348,2.3273,"T1"],["Mairie de Villeneuve-la-Garenne",48.9357,2.3341,"T1"],["Aimé Césaire",48.9082,2.3777,"12"],["Aubervilliers - Pantin - Quatre Chemins",48.9038,2.3921,"7"],["Fort d'Aubervilliers",48.9147,2.404,"7"],["Front Populaire",48.9065,2.3659,"12"],["Mairie d'Aubervilliers",48.9135,2.3806,"12"],["Aulnay-sous-Bois",48.932,2.4963,"B; K; T4"],["Gallieni",48.865,2.4168,"3"],["Le Blanc-Mesnil",48.9323,2.4754,"B"],["Auguste Delaune",48.9067,2.4607,"T1"],["Bobigny - Pablo Picasso",48.907,2.4492,"5; T1"],["Bobigny-Pantin - Raymond Queneau",48.8956,2.4263,"5"],["Drancy - Avenir",48.9178,2.4177,"T1"],["Escadrille Normandie-Niémen",48.9127,2.4354,"T1"],["Gaston Roulaud",48.9141,2.4313,"T1"],["Hôpital Avicenne",48.9158,2.425,"T1"],["Hôtel de Ville de Bobigny",48.9066,2.4439,"T1"],["Jean Rostand",48.9082,2.4539,"T1"],["La Ferme",48.9097,2.4375,"T1"],["Libération",48.9069,2.4386,"T1"],["Maurice Lachâtre",48.9192,2.4138,"T1"],["Bondy",48.8938,2.4821,"E; T4"],["Remise à Jorelle",48.8931,2.488,"T4"],["Le Bourget",48.9303,2.4234,"B; T11"],["Clichy - Montfermeil",48.9046,2.5551,"T4"],["Clichy-sous-Bois - Mairie",48.9083,2.5461,"T4"],["Maurice Audin",48.9084,2.5392,"T4"],["Romain Rolland",48.9047,2.548,"T4"],["Cosmonautes",48.9317,2.3782,"T1"],["Danton",48.9227,2.4066,"T1"],["Dugny - La Courneuve",48.9439,2.4115,"T11"],["Hôtel de ville de la Courneuve",48.9275,2.3926,"T1"],["La Courneuve - 8 Mai 1945",48.9208,2.4107,"7; T1"],["La Courneuve - Aubervilliers",48.9243,2.3861,"B"],["La Courneuve - Six Routes",48.93,2.3848,"T1"],["Stade Géo André",48.9244,2.4021,"T1"],["Drancy",48.9327,2.4549,"B"],["Blumenthal",48.9478,2.3391,"T8"],["Gilbert Bonnemaison",48.9549,2.3078,"T8"],["Lacépède",48.9559,2.3115,"T8"],["Les Béatus",48.9517,2.3201,"T8"],["Les Mobiles",48.9497,2.3292,"T8"],["Rose Bertin",48.9531,2.3157,"T8"],["Épinay - Orgemont",48.9554,2.2948,"T8"],["Épinay - Villetaneuse",48.9586,2.3285,"H; T11"],["Épinay-sur-Seine",48.9543,2.3024,"C; T11"],["Épinay-sur-Seine - Gare",48.9558,2.3019,"T8"],["Gagny",48.8837,2.5254,"E"],["Le Chénay Gagny",48.8766,2.5526,"E"],["L'Île-Saint-Denis",48.9358,2.3397,"T1"],["Mairie des Lilas",48.8796,2.4161,"11"],["Serge Gainsbourg",48.8812,2.4269,"11"],["L'Abbaye",48.9218,2.5164,"T4"],["Les Pavillons-sous-Bois",48.9025,2.512,"T4"],["Lycée Henri Sellier",48.9163,2.515,"T4"],["Léon Blum",48.9087,2.5319,"T4"],["République - Marx Dormoy",48.9065,2.524,"T4"],["Arboretum",48.8979,2.5617,"T4"],["Hôpital de Montfermeil",48.9008,2.5706,"T4"],["Notre-Dame-des-Anges",48.9009,2.5564,"T4"],["Croix de Chavaux",48.858,2.4358,"9"],["La Dhuys",48.8779,2.4656,"11"],["Mairie de Montreuil",48.8622,2.4419,"9"],["Robespierre",48.8556,2.4225,"9"],["Neuilly-Plaisance",48.8527,2.5145,"A"],["Les Yvris Noisy-le-Grand",48.8235,2.5807,"E"],["Noisy - Champs",48.8429,2.5801,"A"],["Noisy-le-Grand - Mont d'Est",48.8409,2.5488,"A"],["Coteaux Beauclair",48.8823,2.4674,"11"],["Gare de Noisy-le-Sec",48.8959,2.4603,"T1"],["Montreuil - Hôpital",48.8784,2.4545,"11"],["Noisy-le-Sec",48.8967,2.4592,"E"],["Petit Noisy",48.9004,2.4654,"T1"],["Pont de Bondy",48.9047,2.47,"T1"],["Hoche",48.8914,2.4032,"5"],["Pantin",48.898,2.401,"E"],["Église de Pantin",48.8934,2.4132,"5"],["Gargan",48.9072,2.5165,"T4"],["Romainville - Carnot",48.8835,2.4408,"11"],["Rosny Bois Perrier",48.8826,2.4812,"E"],["Rosny-Bois-Perrier",48.8829,2.4806,"11"],["Rosny-sous-Bois",48.8701,2.4858,"E"],["Alcide d'Orbigny",48.9655,2.3632,"T5"],["Basilique de Saint-Denis",48.9366,2.3593,"13; T1"],["Baudelaire",48.9421,2.3567,"T5"],["Butte Pinson (Parc Régional)",48.9736,2.3661,"T5"],["Carrefour Pleyel",48.9194,2.3432,"13"],["Cimetière de Saint-Denis",48.9364,2.3639,"T1"],["Delaunay - Belleville",48.9458,2.3477,"T8"],["Gare de Saint-Denis",48.936,2.3441,"T1"],["Guynemer",48.9485,2.3575,"T5"],["Hôpital Delafontaine",48.9336,2.3711,"T1"],["Jacques Prévert",48.9708,2.3659,"T5"],["Joncherolles",48.9559,2.3584,"T5"],["La Plaine Stade de France",48.9181,2.3625,"B"],["Mairie de Pierrefitte",48.9636,2.3602,"T5"],["Marché de Saint-Denis",48.9388,2.3561,"T1; T5"],["Paul Éluard",48.9397,2.3452,"T8"],["Petit Pierrefitte",48.9526,2.358,"T5"],["Pierre de Geyter",48.9319,2.353,"T8"],["Pierrefitte - Stains",48.9601,2.3673,"T11"],["Pierrefitte - Stains",48.9628,2.3703,"D"],["Roger Semât",48.9447,2.357,"T5"],["Saint-Denis",48.9349,2.3461,"D; H"],["Saint-Denis - Gare",48.9353,2.3478,"T8"],["Saint-Denis - Pleyel",48.9172,2.3449,"14"],["Saint-Denis - Porte de Paris",48.9299,2.3567,"13; T8"],["Saint-Denis - Université",48.9462,2.3645,"13"],["Stade de France Saint-Denis",48.9179,2.3517,"D"],["Suzanne Valadon",48.9594,2.3588,"T5"],["Théâtre Gérard Philipe",48.9375,2.3504,"T1"],["Garibaldi",48.9056,2.3319,"13"],["Mairie de Saint-Ouen",48.9122,2.334,"13; 14"],["Saint-Ouen",48.9046,2.3222,"14; C"],["Freinville Sevran",48.9265,2.5191,"T4"],["Rougemont Chanteloup",48.9307,2.5152,"T4"],["Sevran - Beaudottes",48.947,2.5247,"B"],["Sevran - Livry",48.9364,2.5353,"B"],["Stains - La Cerisaie",48.9547,2.3918,"T11"],["Aéroport CDG 1 (Terminal 3) - RER",49.0098,2.5614,"B"],["Aéroport Charles de Gaulle 2 (Terminal 2)",49.0042,2.571,"B"],["Terminal 3",49.01,2.5609,"CDG VAL"],["Allée de la Tour-Rendez-vous",48.8971,2.5064,"T4"],["Le Raincy - Villemomble - Montfermeil",48.8888,2.5131,"E"],["Les Coquetiers",48.8925,2.4994,"T4"],["Parc des Expositions",48.9739,2.5142,"B"],["Vert-Galant",48.9446,2.5666,"B"],["Villepinte",48.9626,2.5128,"B"],["César",48.9494,2.3423,"T8"],["Jean Vilar",48.9528,2.3435,"T8"],["Pablo Neruda",48.9567,2.3439,"T8"],["Villetaneuse - Université",48.9599,2.3422,"T11; T8"],["Ablon",48.7255,2.4193,"C"],["Maisons-Alfort - Alfortville",48.8022,2.4264,"D"],["Laplace",48.8084,2.3343,"B"],["Boissy-Saint-Léger",48.7523,2.5045,"A"],["Bry-sur-Marne",48.8451,2.5257,"A"],["Arcueil - Cachan",48.7987,2.3281,"B"],["Bagneux",48.7933,2.322,"B"],["Les Boullereaux Champigny",48.8249,2.512,"E"],["Charenton - Écoles",48.8214,2.4142,"8"],["Liberté",48.8259,2.4064,"8"],["Auguste Perret (Cimetière Parisien)",48.7634,2.3678,"T7"],["Bretagne",48.7685,2.3677,"T7"],["Chevilly-Larue",48.7594,2.3661,"T7"],["Chevilly-Larue (Marché International)",48.7587,2.3665,"14"],["Domaine Chérioux",48.7788,2.3673,"T7"],["Moulin Vert",48.7721,2.3676,"T7"],["Carle - Darthé",48.7593,2.4088,"T9"],["Choisy-le-Roi",48.7639,2.4113,"C"],["Four - Peary",48.7545,2.4119,"T9"],["Rouget de Lisle",48.7639,2.4056,"T9"],["Verdun - Hoche",48.7684,2.403,"T9"],["Créteil - L'Échat",48.7967,2.449,"8"],["Créteil - Préfecture",48.7799,2.4601,"8"],["Créteil - Université",48.7899,2.4524,"8"],["Créteil Pompadour",48.7713,2.4353,"D"],["Pointe du Lac",48.7688,2.4643,"8; C1"],["Fontenay-sous-Bois",48.8438,2.4635,"A"],["Val de Fontenay",48.8542,2.4891,"A; E"],["Gentilly",48.8152,2.3409,"B"],["L'Haÿ-les-Roses",48.7755,2.3541,"14"],["Châteaudun - Barbès",48.8154,2.3685,"T9"],["Cimetière Parisien d'Ivry",48.8127,2.3704,"T9"],["Germaine Tailleferre",48.8034,2.3779,"T9"],["Ivry-sur-Seine",48.814,2.3917,"C"],["La Briqueterie",48.8078,2.375,"T9"],["Mairie d'Ivry",48.8112,2.3835,"7"],["Pierre et Marie Curie",48.8159,2.3773,"7"],["Joinville-le-Pont",48.8212,2.4639,"A"],["Hôpital Bicêtre",48.81,2.3499,"14"],["Le Kremlin-Bicêtre",48.8104,2.3622,"7"],["La Végétale",48.7416,2.4792,"C1"],["Limeil-Brévannes",48.7531,2.4718,"C1"],["Le Vert de Maisons",48.7888,2.4321,"D"],["Maisons-Alfort - Les Juilliottes",48.8032,2.4459,"8"],["Maisons-Alfort - Stade",48.809,2.4349,"8"],["École Vétérinaire de Maisons-Alfort",48.8146,2.4231,"8"],["Nogent - Le Perreux",48.84,2.494,"E"],["Nogent-sur-Marne",48.8343,2.4717,"A"],["Caroline Aigle (Orlyfret)",48.7386,2.3699,"T7"],["Christophe Colomb",48.7522,2.417,"T9"],["Coeur d'Orly",48.7334,2.3714,"T7"],["Les Saules",48.7469,2.4163,"C; T9"],["Orly - Gaston Viens",48.7451,2.4087,"T9"],["Orly Ville",48.7416,2.403,"C"],["La Belle Epine",48.7567,2.3684,"T7"],["La Fraternelle",48.7417,2.3529,"T7"],["Place de la Logistique",48.7528,2.362,"T7"],["Porte de Rungis",48.7527,2.355,"T7"],["Robert Schuman (Parc Silic Centre)",48.7466,2.3528,"T7"],["Rungis la Fraternelle",48.7402,2.3522,"C"],["Saarinen",48.7502,2.3545,"T7"],["Champigny",48.8068,2.5105,"A"],["La Varenne - Chennevières",48.7953,2.5132,"A"],["Le Parc de Saint-Maur",48.8054,2.4866,"A"],["Saint-Maur - Créteil",48.8062,2.4729,"A"],["Sucy - Bonneuil",48.7721,2.5075,"A"],["Pont de Rungis Aéroport d'Orly",48.7484,2.3732,"C"],["Thiais - Orly (Pont de Rungis)",48.7472,2.3728,"14"],["Trois Communes",48.7733,2.3991,"T9"],["Valenton",48.7485,2.4731,"C1"],["Lamartine",48.7831,2.3671,"T7"],["Villejuif - Gustave Roussy",48.7932,2.3493,"14"],["Villejuif - Louis Aragon",48.7874,2.3675,"7; T7"],["Villejuif Léo Lagrange",48.8044,2.364,"7"],["Villejuif Paul Vaillant-Couturier",48.7964,2.3683,"7"],["Villeneuve-le-Roi",48.7397,2.4264,"C"],["Villa Nova",48.735,2.4649,"C1"],["Villeneuve Triage",48.7451,2.4382,"D"],["Villeneuve-Saint-Georges",48.7301,2.4463,"D"],["Villiers-sur-Marne - Le Plessis-Trévise",48.8235,2.5431,"E"],["Bérault",48.8455,2.429,"1"],["Saint-Mandé",48.8464,2.419,"1"],["Vincennes",48.8473,2.4326,"A"],["Beethoven - Concorde",48.7989,2.3815,"T9"],["Camille Groult",48.7857,2.392,"T9"],["Constant Coquelin",48.7831,2.3937,"T9"],["Les Ardoines",48.7825,2.4096,"C"],["Mairie de Vitry-sur-Seine",48.7896,2.3889,"T9"],["Musée MAC VAL",48.7928,2.3863,"T9"],["Vitry-sur-Seine",48.8003,2.4027,"C"],["Watteau - Rondenay",48.7783,2.3965,"T9"],["Argenteuil",48.9469,2.2579,"J"],["Val d'Argenteuil",48.9507,2.2327,"J"],["Villiers-le-Bel - Gonesse - Arnouville",48.9941,2.4162,"D"],["Auvers-sur-Oise",49.0703,2.1749,"H"],["Chaponval",49.0691,2.1411,"H"],["Bessancourt",49.0353,2.2103,"H"],["Pont de Bezons",48.9232,2.2177,"T2"],["Boissy-l'Aillerie",49.0757,2.0254,"J"],["Bouffémont - Moisselles",49.0451,2.3229,"H"],["Cergy Préfecture",49.0363,2.0798,"A; L"],["Cergy Saint-Christophe",49.0496,2.0345,"A; L"],["Cergy le Haut",49.0482,2.0116,"A; L"],["Cormeilles-en-Parisis",48.9686,2.1931,"J"],["Deuil - Montmagny",48.9759,2.3381,"H"],["La Barre Ormesson",48.9663,2.3167,"H"],["Domont",49.0328,2.3371,"H"],["Enghien-les-Bains",48.9729,2.3068,"H"],["Éragny - Neuville",49.0179,2.0906,"J"],["Cernay",48.9851,2.257,"C; H"],["Ermont - Eaubonne",48.9805,2.2708,"C; H; J"],["Ermont Halte",48.9905,2.2632,"H"],["Gros Noyer Saint-Prix",48.9961,2.2597,"H"],["Écouen - Ézanville",49.0232,2.3622,"H"],["Franconville - Le Plessis-Bouchard",48.9937,2.2342,"C; H"],["Frépillon",49.0453,2.1971,"H"],["La Frette - Montigny",48.9802,2.1804,"J"],["Garges - Sarcelles",48.9763,2.3899,"D; T5"],["Goussainville",49.0238,2.4628,"D"],["Les Noues",49.0331,2.4777,"D"],["Groslay",48.9844,2.3535,"H"],["Herblay",48.9903,2.1623,"J"],["Louvres",49.0493,2.5018,"D"],["Mériel",49.0778,2.2054,"H"],["Méry-sur-Oise",49.0583,2.1914,"H"],["Montsoult - Maffliers",49.0662,2.3228,"H"],["Neuville - Université",49.0137,2.0784,"A; L"],["Osny",49.0628,2.0582,"J"],["Montigny - Beauchamp",49.0077,2.1965,"C; H"],["Pierrelaye",49.0192,2.1545,"C; H"],["Pontoise",49.0467,2.0958,"C; H; J"],["Parking Pr",49.009,2.5448,"CDG VAL"],["Sarcelles - Saint-Brice",48.9962,2.3687,"H"],["Saint-Gratien",48.9637,2.2858,"C"],["Saint-Leu-la-Forêt",49.0152,2.2429,"H"],["Pont Petit",49.0609,2.1312,"H"],["Saint-Ouen-l'Aumône",49.0453,2.1052,"C; H"],["Saint-Ouen-l'Aumône Liesse",49.0341,2.1281,"C; H"],["Saint-Ouen-l'Aumône Quartier de l'Église",49.0391,2.1035,"J"],["Épluches",49.055,2.1227,"H"],["Sannois",48.9709,2.2638,"J"],["Les Cholettes",48.9776,2.3715,"T5"],["Les Flanades",48.9765,2.3777,"T5"],["Lochères",48.9785,2.3851,"T5"],["Paul Valéry",48.9793,2.3801,"T5"],["Champ de Courses d'Enghien",48.9797,2.2912,"H"],["Taverny",49.025,2.2223,"H"],["Vaucelles",49.0214,2.23,"H"],["Villaines",49.0793,2.3505,"H"]];
+const UPSIDE_LOGO = 'image/jpeg;base64,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';
+</script>
+<script>
+(() => {
+'use strict';
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+function h(tag, attrs = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) { if (v == null || v === false) continue; if (k === 'class') el.className = v; else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else el.setAttribute(k, v === true ? '' : v); }
+  for (const c of kids.flat()) { if (c == null || c === false) continue; el.append(c instanceof Node ? c : document.createTextNode(String(c))); }
+  return el;
+}
+let toastT; function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 4200); }
+function setStatus(id, msg, o = {}) { const el = $('#' + id); el.replaceChildren(); el.classList.toggle('err', !!o.err); if (!msg) return; if (o.busy) el.append(h('span', { class: 'spin' })); el.append(msg); }
+const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const num = v => { if (v == null || v === '') return null; const n = +String(v).replace(/\s/g, '').replace(',', '.'); return isFinite(n) ? n : null; };
+const fmtN = (n, lang = 'fr') => n == null || n === '' ? '' : Math.round(+n).toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR');
+const fmtC = n => (+n).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+const keyName = s => norm(s).replace(/\b(tour|immeuble|le|la|les|l)\b/g, '').replace(/\s+/g, ' ').trim();
+const sameB = (a, b) => { const na = keyName(a.nom), nb = keyName(b.nom), sv = norm(a.ville) === norm(b.ville); return (na && na === nb && (sv || !a.ville || !b.ville)) || (!!a.adresse && norm(a.adresse) === norm(b.adresse) && sv); };
+document.querySelectorAll('dialog [data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
+$('#lecteurLink').href = LECTEUR_URL;
+
+/* ---------- supabase ---------- */
+const configured = !/VOTRE/.test(SUPABASE_URL + SUPABASE_KEY);
+$('#cfgBanner').hidden = configured;
+const sb = configured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+const T = { p: 'carto_projets', d: 'carto_descriptifs', i: 'carto_immeubles' };
+const BUCKET = 'cartographie';
+async function q(p) { const { data, error } = await p; if (error) { console.error(error); throw error; } return data; }
+const pubUrl = path => path ? sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl : null;
+async function upload(path, blob, type) { await q(sb.storage.from(BUCKET).upload(path, blob, { upsert: true, contentType: type })); return path; }
+const dataUrlToBlob = u => { const [m, b] = u.split(','); const bin = atob(b); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type: m.match(/:(.*?);/)[1] }); };
+
+/* ---------- state & routing ---------- */
+const S = { projets: [], counts: {}, proj: null, descs: [], items: [], sel: null, tab: 'dep' };
+function route() {
+  const m = location.hash.match(/^#p-([0-9a-f-]{36})(?:-(carte))?$/);
+  if (m) openProject(m[1], m[2] ? 'map' : 'dep'); else showHome();
+}
+window.addEventListener('hashchange', route);
+$('#goHome').onclick = () => { location.hash = ''; };
+
+/* ---------- home ---------- */
+async function showHome() {
+  S.proj = null; $('#vHome').hidden = false; $('#vProj').hidden = true; $('#openExport').hidden = true; $('#crumb').textContent = ''; $('#crumbSep').hidden = true;
+  if (!sb) { $('#cards').replaceChildren(h('p', { class: 'status' }, 'Base non configurée.')); return; }
+  try {
+    S.projets = await q(sb.from(T.p).select('*').order('created_at', { ascending: false }));
+    const rows = await q(sb.from(T.i).select('projet_id,retenu'));
+    S.counts = {}; for (const r of rows) { const c = S.counts[r.projet_id] || (S.counts[r.projet_id] = { n: 0, r: 0 }); c.n++; if (r.retenu) c.r++; }
+  } catch { $('#cards').replaceChildren(h('p', { class: 'status err' }, 'Impossible de lire les projets : vérifiez la configuration Supabase.')); return; }
+  renderCards();
+}
+function renderCards() {
+  if (!S.projets.length) { $('#cards').replaceChildren(h('p', { class: 'status' }, 'Aucun projet pour l’instant : créez le premier ci-dessus.')); return; }
+  $('#cards').replaceChildren(...S.projets.map(p => {
+    const c = S.counts[p.id] || { n: 0, r: 0 };
+    return h('div', { class: 'pcard', role: 'button', tabindex: '0', onclick: e => { if (!e.target.closest('.acts')) location.hash = 'p-' + p.id; }, onkeydown: e => { if (e.key === 'Enter') location.hash = 'p-' + p.id; } },
+      h('h3', {}, p.nom), h('div', { class: 'm' }, `${c.n} immeuble${c.n > 1 ? 's' : ''} · ${c.r} retenu${c.r > 1 ? 's' : ''} · créé le ${new Date(p.created_at).toLocaleDateString('fr-FR')}`),
+      h('div', { class: 'acts' },
+        h('button', { class: 'linkbtn', onclick: async () => { const n = prompt('Nouveau nom du projet', p.nom); if (!n || !n.trim()) return; try { await q(sb.from(T.p).update({ nom: n.trim() }).eq('id', p.id)); showHome(); } catch { toast('Renommage impossible.'); } } }, 'Renommer'),
+        h('button', { class: 'linkbtn', style: 'color:var(--warn)', onclick: async () => { if (!confirm(`Supprimer « ${p.nom} », ses descriptifs et ses ${c.n} immeubles ? Action définitive.`)) return; try { await q(sb.from(T.p).delete().eq('id', p.id)); showHome(); toast('Projet supprimé.'); } catch { toast('Suppression impossible.'); } } }, 'Supprimer')));
+  }));
+}
+$('#newBtn').onclick = async () => {
+  const nom = $('#newName').value.trim(); if (!nom) { $('#newName').focus(); return; }
+  if (!sb) return;
+  try { const [p] = await q(sb.from(T.p).insert({ nom }).select()); $('#newName').value = ''; location.hash = 'p-' + p.id; } catch { toast('Création impossible : vérifiez la configuration Supabase.'); }
+};
+$('#newName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#newBtn').click(); });
+
+/* ---------- project ---------- */
+async function openProject(id, tab) {
+  if (!sb) return;
+  if (!S.proj || S.proj.id !== id) {
+    try { const [p] = await q(sb.from(T.p).select('*').eq('id', id)); if (!p) { location.hash = ''; return; } S.proj = p; S.sel = null; S.fitted = false; } catch { toast('Projet introuvable.'); location.hash = ''; return; }
+    await loadProject();
+  }
+  $('#vHome').hidden = true; $('#vProj').hidden = false; $('#openExport').hidden = false;
+  $('#crumbSep').hidden = false; $('#crumb').textContent = S.proj.nom;
+  showTab(tab);
+}
+async function loadProject() {
+  S.descs = await q(sb.from(T.d).select('*').eq('projet_id', S.proj.id).order('created_at', { ascending: false }));
+  S.items = await q(sb.from(T.i).select('*').eq('projet_id', S.proj.id));
+  renderDeps(); renderList(); renderMarkers();
+}
+function showTab(t) {
+  S.tab = t; $('#tDep').setAttribute('aria-selected', String(t === 'dep')); $('#tMap').setAttribute('aria-selected', String(t === 'map'));
+  $('#pDep').hidden = t !== 'dep'; $('#pMap').hidden = t !== 'map';
+  const want = 'p-' + S.proj.id + (t === 'map' ? '-carte' : ''); if (location.hash.slice(1) !== want) history.replaceState(null, '', '#' + want);
+  if (t === 'map') { initMap(); setTimeout(() => { map.invalidateSize(); if (!S.fitted) { fitAll(); S.fitted = true; } }, 50); }
+}
+$('#tDep').onclick = () => showTab('dep'); $('#tMap').onclick = () => showTab('map');
+/* ---------- transports ---------- */
+const SKIP = new Set(['TER', 'CDG', 'C1', 'FUN', 'ORLYVAL']);
+function transportsFor(lat, lon) {
+  if (lat == null) return '';
+  const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
+  return STATIONS.map(s => ({ n: s[0], d: Math.hypot((s[2] - lon) * kx, (s[1] - lat) * ky), l: s[3].split('; ').filter(x => x && !SKIP.has(x)).join('; ') }))
+    .filter(s => s.d < 1600 && s.l).sort((a, b) => a.d - b.d)
+    .filter((s, i, a) => a.findIndex(x => x.n === s.n) === i).slice(0, 3)
+    .map(s => `${s.n} (${Math.max(1, Math.round(s.d * 1.3 / 80))} min) [${s.l}]`).join(', ');
+}
+/* ---------- geocoding (Géoplateforme / API Adresse) ---------- */
+async function geocode(it) {
+  const qs = [it.adresse, it.cp, it.ville].filter(Boolean).join(' ');
+  if (!qs.trim()) return null;
+  for (const base of ['https://data.geopf.fr/geocodage/search', 'https://api-adresse.data.gouv.fr/search/']) {
+    try {
+      const r = await fetch(`${base}?limit=1&q=${encodeURIComponent(qs)}`); if (!r.ok) continue;
+      const f = ((await r.json()).features || [])[0]; if (!f) return null;
+      return { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], score: f.properties.score, label: f.properties.label };
+    } catch {}
+  }
+  return null;
+}
+
+/* ---------- dépôt ---------- */
+const IMP = { data: null, rows: [], pdfs: [] };
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => handleDrop(e.dataTransfer.files));
+$('#fileIn').addEventListener('change', e => { handleDrop(e.target.files); e.target.value = ''; });
+async function handleDrop(list) {
+  const files = [...list], jsons = files.filter(f => /\.json$/i.test(f.name)), pdfs = files.filter(f => /\.pdf$/i.test(f.name));
+  if (!jsons.length && !pdfs.length) { toast('Déposez un fichier .upside.json et/ou des PDF.'); return; }
+  IMP.pdfs.push(...pdfs);
+  if (!jsons.length) { await attachPdfs(); return; }
+  const merged = { fichiers: [], immeubles: [] };
+  for (const f of jsons) {
+    try { const d = JSON.parse(await f.text()); if (d.format !== 'upside-descriptifs') throw 0; merged.fichiers.push(...(d.fichiers || [])); merged.immeubles.push(...(d.immeubles || [])); }
+    catch { toast(`« ${f.name} » n’est pas un fichier du lecteur de descriptifs.`); }
+  }
+  if (!merged.immeubles.length) return;
+  IMP.data = merged;
+  IMP.rows = merged.immeubles.map(it => { const ex = S.items.find(x => sameB(x, it)); return { it, on: true, ex: ex ? ex.id : null }; });
+  renderImp();
+}
+function renderImp() {
+  const n = IMP.rows.filter(r => r.on).length;
+  $('#imp').hidden = false; $('#impTitle').textContent = `${IMP.rows.length} immeuble${IMP.rows.length > 1 ? 's' : ''} dans le fichier`;
+  $('#impGo').textContent = n ? `Importer ${n} immeuble${n > 1 ? 's' : ''}` : 'Importer'; $('#impGo').disabled = !n;
+  $('#impList').replaceChildren(h('div', { style: 'padding:8px 14px;border-bottom:1px solid var(--line);display:flex;gap:12px' },
+    h('button', { class: 'linkbtn', onclick: () => { IMP.rows.forEach(r => r.on = true); renderImp(); } }, 'Tout cocher'), h('button', { class: 'linkbtn', onclick: () => { IMP.rows.forEach(r => r.on = false); renderImp(); } }, 'Tout décocher')),
+    ...IMP.rows.map(r => {
+      const it = r.it, cb = h('input', { type: 'checkbox', checked: r.on }); cb.addEventListener('change', () => { r.on = cb.checked; renderImp(); });
+      return h('label', { class: 'r' }, cb, it.photo ? h('img', { src: it.photo, alt: '' }) : h('span', { class: 'noimg' }),
+        h('span', {}, h('div', { class: 'rn' }, it.nom), h('div', { class: 'rs' }, [[it.adresse, it.cp, it.ville].filter(Boolean).join(' '), it.surface ? fmtN(it.surface) + ' m²' : '', it.loyerMin ? fmtN(it.loyerMin) + ' €' : '', it.broker].filter(Boolean).join(' · '))),
+        h('span', { class: 't' + (r.ex ? ' dup' : '') }, r.ex ? 'Déjà dans le projet : sera complété' : 'Nouveau'));
+    }));
+}
+$('#impCancel').onclick = () => { IMP.data = null; IMP.rows = []; $('#imp').hidden = true; };
+const newUid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
+$('#impGo').onclick = async () => {
+  const rows = IMP.rows.filter(r => r.on); if (!rows.length) return;
+  $('#impGo').disabled = true;
+  try {
+    // descriptifs
+    const descByFile = {};
+    for (const f of IMP.data.fichiers) {
+      const its = rows.filter(r => (r.it.fichier || '').split(', ').includes(f.nom));
+      const brs = its.map(r => r.it.broker).filter(Boolean);
+      const [d] = await q(sb.from(T.d).insert({ projet_id: S.proj.id, fichier: f.nom, pages: f.pages || null, broker: brs[0] || null }).select());
+      descByFile[f.nom] = d.id;
+    }
+    let maxOrd = Math.max(0, ...S.items.map(x => x.ordre || 0)), i = 0, low = 0;
+    for (const r of rows) {
+      i++; setStatus('impStatus', `Localisation et enregistrement ${i} sur ${rows.length}…`, { busy: true });
+      const it = r.it, g = await geocode(it); if (!g || g.score < 0.5) low++;
+      const row = { nom: it.nom, adresse: it.adresse || null, cp: it.cp || null, ville: it.ville || null, surface: num(it.surface), division: num(it.division), loyer_min: num(it.loyerMin), loyer_max: num(it.loyerMax), loyer_txt: it.loyerTxt || null, charges: num(it.charges), etat: it.etat || null, etat_en: it.etat_en || null, dispo: it.dispo || null, dispo_en: it.dispo_en || null, broker: it.broker || null };
+      if (g) Object.assign(row, { lat: g.lat, lon: g.lon, geo_score: g.score, transports: transportsFor(g.lat, g.lon) });
+      const descId = descByFile[(it.fichier || '').split(', ')[0]] || null;
+      if (r.ex) {
+        const ex = S.items.find(x => x.id === r.ex), upd = {};
+        for (const [k, v] of Object.entries(row)) if ((ex[k] == null || ex[k] === '') && v != null) upd[k] = v;
+        if (!ex.photo_path && it.photo) upd.photo_path = await upload(`photos/${ex.id}.jpg`, dataUrlToBlob(it.photo), 'image/jpeg');
+        if (Object.keys(upd).length) await q(sb.from(T.i).update(upd).eq('id', ex.id));
+        await q(sb.from(T.i).update({ sources: [...(ex.sources || []), descId].filter(Boolean) }).eq('id', ex.id));
+      } else {
+        const id = newUid();
+        if (it.photo) { try { row.photo_path = await upload(`photos/${id}.jpg`, dataUrlToBlob(it.photo), 'image/jpeg'); } catch (e) { console.warn(e); } }
+        await q(sb.from(T.i).insert({ ...row, id, projet_id: S.proj.id, descriptif_id: descId, sources: descId ? [descId] : [], retenu: true, ordre: ++maxOrd }));
+      }
+    }
+    IMP.data = null; IMP.rows = []; $('#imp').hidden = true; setStatus('impStatus', '');
+    await loadProject(); await attachPdfs();
+    toast(`${rows.length} immeuble${rows.length > 1 ? 's' : ''} importé${rows.length > 1 ? 's' : ''}` + (low ? ` — ${low} adresse${low > 1 ? 's' : ''} à vérifier sur la carte` : '') + '.');
+  } catch (e) { console.error(e); setStatus('impStatus', 'Import interrompu : vérifiez la connexion et réessayez.', { err: true }); }
+  $('#impGo').disabled = false;
+};
+async function attachPdfs() {
+  if (!IMP.pdfs.length) return;
+  const todo = IMP.pdfs.splice(0);
+  for (const f of todo) {
+    let d = S.descs.find(x => x.fichier === f.name && !x.pdf_path) || S.descs.find(x => x.fichier === f.name);
+    try {
+      if (!d) [d] = await q(sb.from(T.d).insert({ projet_id: S.proj.id, fichier: f.name }).select());
+      const path = await upload(`pdf/${S.proj.id}/${d.id}.pdf`, f, 'application/pdf');
+      await q(sb.from(T.d).update({ pdf_path: path }).eq('id', d.id));
+    } catch (e) { console.warn(e); toast(`« ${f.name} » n’a pas pu être enregistré.`); }
+  }
+  await loadProject(); toast(todo.length > 1 ? 'PDF enregistrés.' : 'PDF enregistré.');
+}
+function renderDeps() {
+  const box = $('#deps');
+  $('#tDep').textContent = 'Dépôt des descriptifs' + (S.descs.length ? ` (${S.descs.length})` : '');
+  if (!S.descs.length) { box.replaceChildren(h('li', {}, h('span', { class: 'status' }, 'Aucun descriptif déposé dans ce projet. Lisez vos PDF avec le lecteur, puis déposez ici le fichier obtenu.'))); return; }
+  box.replaceChildren(...S.descs.map(d => {
+    const its = S.items.filter(x => (x.sources || []).includes(d.id) || x.descriptif_id === d.id);
+    return h('li', {}, h('div', { class: 'dn' }, d.pdf_path ? h('a', { href: pubUrl(d.pdf_path), target: '_blank', rel: 'noopener' }, d.fichier) : h('span', {}, d.fichier),
+      h('button', { class: 'linkbtn', style: 'color:var(--warn)', onclick: async () => { if (!confirm(`Retirer « ${d.fichier} » ? Les immeubles restent dans le projet.`)) return; try { if (d.pdf_path) await sb.storage.from(BUCKET).remove([d.pdf_path]); await q(sb.from(T.d).delete().eq('id', d.id)); await loadProject(); } catch { toast('Action impossible.'); } } }, 'Retirer')),
+      h('div', { class: 'dm' }, [d.broker, new Date(d.created_at).toLocaleDateString('fr-FR'), d.pages ? d.pages + ' pages' : '', `${its.length} immeuble${its.length > 1 ? 's' : ''}`, d.pdf_path ? '' : 'PDF non joint'].filter(Boolean).join(' · ')),
+      its.length ? h('div', { class: 'chips' }, its.map(b => h('button', { class: 'chip', onclick: () => { showTab('map'); select(b.id, true); } }, b.nom))) : null);
+  }));
+}
+/* ---------- carte ---------- */
+const TILE = 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}';
+let map = null, markers = {};
+function initMap() {
+  if (map) return;
+  map = L.map('map', { zoomControl: true }).setView([48.87, 2.30], 12);
+  L.tileLayer(TILE, { maxZoom: 19, attribution: '© IGN – Plan IGN' }).addTo(map);
+  map.on('click', () => select(null));
+  renderMarkers();
+}
+const retenus = () => S.items.filter(x => x.retenu).sort((a, b) => (a.ordre || 0) - (b.ordre || 0));
+const ecartes = () => S.items.filter(x => !x.retenu).sort((a, b) => String(a.nom).localeCompare(String(b.nom), 'fr'));
+const numOf = b => b.retenu ? retenus().indexOf(b) + 1 : null;
+function renderMarkers() {
+  if (!map) return;
+  for (const m of Object.values(markers)) m.remove(); markers = {};
+  const show = $('#showOff').checked;
+  for (const b of S.items) {
+    if (b.lat == null || (!b.retenu && !show)) continue;
+    const n = numOf(b), cls = 'pin' + (b.retenu ? '' : ' off') + (S.sel === b.id ? ' sel' : '');
+    const sz = b.retenu ? 26 : 16;
+    const m = L.marker([b.lat, b.lon], { icon: L.divIcon({ className: '', html: `<div class="${cls}">${n || ''}</div>`, iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2] }), draggable: S.moving === b.id, zIndexOffset: b.retenu ? 1000 - (n || 0) : 0, title: b.nom });
+    m.on('click', e => { L.DomEvent.stopPropagation(e); select(b.id, false); });
+    m.on('dragend', async () => { const p = m.getLatLng(); await patch(b.id, { lat: p.lat, lon: p.lng, geo_score: 1, transports: transportsFor(p.lat, p.lng) }); toast('Position enregistrée, accès transports recalculés.'); });
+    m.addTo(map); markers[b.id] = m;
+  }
+}
+function fitAll() { const pts = S.items.filter(b => b.lat != null && (b.retenu || $('#showOff').checked)).map(b => [b.lat, b.lon]); if (pts.length) map.fitBounds(pts, { padding: [50, 50], maxZoom: 16 }); }
+async function patch(id, upd) {
+  try { await q(sb.from(T.i).update({ ...upd, updated_at: new Date().toISOString() }).eq('id', id)); const b = S.items.find(x => x.id === id); Object.assign(b, upd); renderList(); renderMarkers(); renderCard(); return true; }
+  catch { toast('Enregistrement impossible.'); return false; }
+}
+
+/* ---------- liste ---------- */
+$('#q').addEventListener('input', renderList);
+$('#showOff').addEventListener('change', () => { renderList(); renderMarkers(); });
+function matches(b) { const s = norm($('#q').value); return !s || norm([b.nom, b.adresse, b.ville, b.broker].join(' ')).includes(s); }
+let dragId = null;
+function row(b) {
+  const n = numOf(b);
+  const sw = h('button', { class: 'sw', role: 'switch', 'aria-checked': String(!!b.retenu), 'aria-label': (b.retenu ? 'Écarter ' : 'Retenir ') + b.nom, onclick: e => { e.stopPropagation(); toggle(b); } });
+  const el = h('div', { class: 'item' + (b.retenu ? '' : ' off') + (S.sel === b.id ? ' sel' : ''), draggable: b.retenu ? 'true' : null, onclick: () => select(b.id, true) },
+    h('span', { class: 'grip', title: b.retenu ? 'Glisser pour changer l’ordre' : '' }, b.retenu ? '⋮⋮' : ''),
+    h('span', { class: 'num' + (b.retenu ? '' : ' off') }, n || '–'),
+    h('span', {}, h('div', { class: 'nm' }, b.nom), h('div', { class: 'sub' }, [b.ville, b.surface ? fmtN(b.surface) + ' m²' : '', b.loyer_min ? fmtN(b.loyer_min) + (b.loyer_max && b.loyer_max !== b.loyer_min ? '–' + fmtN(b.loyer_max) : '') + ' €' : '', b.lat == null ? 'adresse non localisée' : (b.geo_score != null && b.geo_score < 0.5 ? 'position à vérifier' : '')].filter(Boolean).join(' · '))),
+    sw);
+  if (b.retenu) {
+    el.addEventListener('dragstart', e => { dragId = b.id; el.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; });
+    el.addEventListener('dragend', () => { el.classList.remove('drag'); dragId = null; });
+    el.addEventListener('dragover', e => { if (dragId && dragId !== b.id) { e.preventDefault(); el.classList.add('over'); } });
+    el.addEventListener('dragleave', () => el.classList.remove('over'));
+    el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('over'); if (dragId) reorder(dragId, b.id); });
+  }
+  return el;
+}
+function renderList() {
+  const box = $('#list'); if (!box) return;
+  const r = retenus().filter(matches), o = $('#showOff').checked ? ecartes().filter(matches) : [];
+  if (!S.items.length) { box.replaceChildren(h('p', { class: 'status', style: 'padding:16px' }, 'Aucun immeuble : déposez un fichier dans l’onglet Dépôt des descriptifs.')); return; }
+  box.replaceChildren(h('div', { class: 'lh' }, `Retenus (${retenus().length}) · ordre de présentation`), ...r.map(row),
+    ...(r.length ? [] : [h('p', { class: 'status', style: 'padding:4px 14px 10px' }, 'Aucun immeuble retenu.')]),
+    ...($('#showOff').checked ? [h('div', { class: 'lh' }, `Écartés (${ecartes().length})`), ...o.map(row)] : []));
+}
+async function reorder(fromId, toId) {
+  const list = retenus(), from = list.findIndex(x => x.id === fromId), to = list.findIndex(x => x.id === toId);
+  const [m] = list.splice(from, 1); list.splice(to, 0, m);
+  list.forEach((b, i) => b.ordre = i + 1); renderList(); renderMarkers(); renderCard();
+  try { for (const b of list) await q(sb.from(T.i).update({ ordre: b.ordre }).eq('id', b.id)); } catch { toast('Ordre non enregistré, réessayez.'); }
+}
+async function toggle(b) {
+  const on = !b.retenu, upd = { retenu: on };
+  if (on) upd.ordre = Math.max(0, ...retenus().map(x => x.ordre || 0)) + 1;
+  await patch(b.id, upd);
+}
+async function setAll(on) {
+  const list = S.items.filter(b => !!b.retenu !== on); if (!list.length) return;
+  if (!on && !confirm(`Écarter les ${list.length} immeubles retenus ?`)) return;
+  let ord = Math.max(0, ...retenus().map(x => x.ordre || 0));
+  try { for (const b of list) { const upd = on ? { retenu: true, ordre: ++ord } : { retenu: false }; await q(sb.from(T.i).update(upd).eq('id', b.id)); Object.assign(b, upd); } } catch { toast('Mise à jour incomplète.'); }
+  renderList(); renderMarkers(); renderCard();
+}
+$('#allOn').onclick = () => setAll(true); $('#allOff').onclick = () => setAll(false);
+
+/* ---------- fiche ---------- */
+function select(id, pan) {
+  S.sel = id; if (S.moving && S.moving !== id) { S.moving = null; }
+  const b = S.items.find(x => x.id === id);
+  if (b && pan && map && b.lat != null) map.setView([b.lat, b.lon], Math.max(map.getZoom(), 15));
+  renderList(); renderMarkers(); renderCard();
+}
+const F = [['nom', 'Nom'], ['adresse', 'Adresse'], ['cp', 'Code postal', 1], ['ville', 'Commune', 1], ['surface', 'Surface dispo (m²)', 1, 'n'], ['division', 'Divisible dès (m²)', 1, 'n'], ['loyer_min', 'Loyer min (€ HT HC/m²/an)', 1, 'n'], ['loyer_max', 'Loyer max', 1, 'n'], ['loyer_txt', 'Loyer en texte (si pas de chiffre)'], ['charges', 'Charges (€/m²/an)', 1, 'n'], ['broker', 'Broker', 1], ['etat', 'État', 1], ['etat_en', 'État (anglais)', 1], ['dispo', 'Disponibilité', 1], ['dispo_en', 'Disponibilité (anglais)', 1], ['transports', 'Accès transports', 0, 'a'], ['notes', 'Notes internes', 0, 'a']];
+function renderCard() {
+  const card = $('#card'), b = S.items.find(x => x.id === S.sel);
+  if (!b) { card.hidden = true; return; }
+  card.hidden = false;
+  const inputs = {};
+  const fld = ([k, l, , t]) => { const i = t === 'a' ? h('textarea', { rows: 2 }) : h('input', { type: t === 'n' ? 'number' : 'text' }); i.value = b[k] ?? ''; inputs[k] = [i, t]; return h('label', {}, l, i); };
+  const rows = []; for (let i = 0; i < F.length; i++) { if (F[i][2] && F[i + 1] && F[i + 1][2]) { rows.push(h('div', { class: 'r2' }, fld(F[i]), fld(F[i + 1]))); i++; } else rows.push(fld(F[i])); }
+  const photoIn = h('input', { type: 'file', accept: 'image/*', hidden: true });
+  photoIn.addEventListener('change', async () => { const f = photoIn.files[0]; if (!f) return; try { const p = await upload(`photos/${b.id}.jpg`, f, f.type || 'image/jpeg'); await patch(b.id, { photo_path: p + '?v=' + Date.now() }); } catch { toast('Photo non enregistrée.'); } });
+  const n = numOf(b);
+  card.replaceChildren(
+    h('button', { class: 'x', 'aria-label': 'Fermer', onclick: () => select(null) }, '×'),
+    b.photo_path ? h('img', { class: 'photo', src: pubUrl(b.photo_path.split('?')[0]) + (b.photo_path.includes('?') ? '?' + b.photo_path.split('?')[1] : ''), alt: '' }) : h('div', { class: 'photo', style: 'display:grid;place-items:center;color:var(--muted)' }, 'Pas de photo'),
+    h('div', { class: 'in' },
+      h('h3', {}, n ? h('span', { class: 'num' }, n) : null, b.nom),
+      h('p', { class: 'addr' }, [b.adresse, [b.cp, b.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')),
+      b.lat == null ? h('p', { class: 'note' }, 'Adresse non trouvée : corrigez-la puis enregistrez, ou placez le point à la main.') : (b.geo_score != null && b.geo_score < 0.5 ? h('p', { class: 'note' }, 'Adresse trouvée avec peu de certitude : vérifiez la position.') : null),
+      h('div', { class: 'form' }, rows, h('div', { class: 'acts' },
+        h('button', { class: 'btn primary', onclick: async e => {
+          const upd = {}; for (const [k, [i, t]] of Object.entries(inputs)) upd[k] = t === 'n' ? num(i.value) : (i.value.trim() || null);
+          e.currentTarget.disabled = true;
+          if (upd.adresse !== b.adresse || upd.ville !== b.ville || upd.cp !== b.cp) { const g = await geocode(upd); if (g) Object.assign(upd, { lat: g.lat, lon: g.lon, geo_score: g.score, transports: transportsFor(g.lat, g.lon) }); else toast('Nouvelle adresse non trouvée : position inchangée.'); }
+          if (await patch(b.id, upd)) toast('Fiche enregistrée.');
+        } }, 'Enregistrer'),
+        h('button', { class: 'btn', onclick: () => { S.moving = S.moving === b.id ? null : b.id; if (S.moving && b.lat == null) { const c = map.getCenter(); b.lat = c.lat; b.lon = c.lng; } renderMarkers(); toast(S.moving ? 'Faites glisser le point sur la carte.' : 'Déplacement terminé.'); } }, S.moving === b.id ? 'Terminer le déplacement' : 'Déplacer le point'),
+        h('label', { class: 'btn' }, 'Changer la photo', photoIn),
+        h('button', { class: 'btn ghost danger', onclick: async () => { if (!confirm(`Supprimer « ${b.nom} » du projet ?`)) return; try { await q(sb.from(T.i).delete().eq('id', b.id)); S.items = S.items.filter(x => x.id !== b.id); S.sel = null; renderList(); renderMarkers(); renderCard(); renderDeps(); } catch { toast('Suppression impossible.'); } } }, 'Supprimer')))));
+}
+/* ---------- export PowerPoint ---------- */
+const FMT = {
+  '169': { W: 13.333, barX: .628, tx: .828, tw: 11.514, pnX: 10.992, pnW: .465, sepX: 11.547, logoX: 11.667, mapW: 6.9, cols: [.45, 4.85, 1.133] },
+  '43': { W: 10, barX: .471, tx: .621, tw: 8.635, pnX: 8.083, pnW: .348, sepX: 8.5, logoX: 8.583, mapW: 5.2, cols: [.4, 3.333, 1.067] }
+};
+const TOP = 2.0, ROWH = .98, PER = 5;
+const TXT = {
+  fr: { title: 'Sélection d’immeubles', area: 'Surface : ', rent: 'Loyer : ', avail: ' Dispo : ', cond: 'État : ', broker: ' Broker : ', tr: 'Accès transports : ', na: 'N/A', ns: 'Non spécifié', unit: ' € HT HC/m²', m2: ' m²', foot: '' },
+  en: { title: 'Shortlisted buildings', area: 'Area: ', rent: 'Rent: ', avail: ' Availability: ', cond: 'Condition: ', broker: ' Broker: ', tr: 'Public transport: ', na: 'N/A', ns: 'Not specified', unit: '/sq m/yr', m2: ' sq m', foot: 'Rents per year, excluding VAT and service charges.' }
+};
+const DICT = { 'immediate': 'Immediate', 'immédiate': 'Immediate', 'neuf': 'New', 'restructuré': 'Refurbished', 'restructure': 'Refurbished', 'rénové': 'Renovated', 'renove': 'Renovated', 'état d’usage': 'Second-hand', "état d'usage": 'Second-hand', 'à rénover': 'To be refurbished', 'non livré': 'Under construction', 'selon les surfaces': 'Depending on floors', 'nous consulter': 'Upon request', 'plug and play': 'Plug and play' };
+const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'], MEN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function toEn(v) {
+  if (!v) return v; const k = v.trim().toLowerCase(); if (DICT[k]) return DICT[k];
+  let o = v; MONTHS.forEach((m, i) => { o = o.replace(new RegExp(m, 'ig'), MEN[i]); });
+  o = o.replace(/\b([1-4])\s?T\s?(\d{4})\b/g, 'Q$1 $2').replace(/immédiate/ig, 'immediate').replace(/selon les surfaces/ig, 'depending on floors');
+  return o;
+}
+let expLang = 'fr', expFmt = '169';
+function seg(id, cb) { $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $(id).querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', String(x === b))); cb(b.dataset.v); }); }
+seg('#segLang', v => { expLang = v; $('#expTitle').value = TXT[v].title; });
+seg('#segFmt', v => { expFmt = v; });
+$('#openExport').onclick = () => {
+  const n = retenus().length;
+  if (!n) { toast('Aucun immeuble retenu à exporter.'); return; }
+  $('#expInfo').textContent = `${n} immeuble${n > 1 ? 's' : ''} retenu${n > 1 ? 's' : ''}, dans l’ordre de la liste, ${PER} au maximum par slide (${Math.ceil(n / PER)} slide${n > PER ? 's' : ''}). Chaque carte est recadrée sur les immeubles de sa slide.`;
+  $('#expTitle').value = TXT[expLang].title; $('#expSub').value = S.proj.nom; setStatus('expStatus', ''); $('#dExp').showModal();
+};
+/* static map from IGN tiles */
+const lon2x = (lon, z) => (lon + 180) / 360 * 256 * 2 ** z;
+const lat2y = (lat, z) => { const s = Math.sin(lat * Math.PI / 180); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256 * 2 ** z; };
+function loadImg(src) { return new Promise(r => { const i = new Image(); i.crossOrigin = 'anonymous'; const t = setTimeout(() => r(null), 9000); i.onload = () => { clearTimeout(t); r(i); }; i.onerror = () => { clearTimeout(t); r(null); }; i.src = src; }); }
+async function staticMap(pts, wIn, hIn) {
+  const DPI = 150, W = Math.round(wIn * DPI), H = Math.round(hIn * DPI), pad = 70;
+  let z = 17;
+  for (; z > 9; z--) { const xs = pts.map(p => lon2x(p.lon, z)), ys = pts.map(p => lat2y(p.lat, z)); if (Math.max(...xs) - Math.min(...xs) <= W - 2 * pad && Math.max(...ys) - Math.min(...ys) <= H - 2 * pad) break; }
+  if (pts.length === 1) z = 16;
+  const xs = pts.map(p => lon2x(p.lon, z)), ys = pts.map(p => lat2y(p.lat, z));
+  const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2, ox = cx - W / 2, oy = cy - H / 2;
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.fillStyle = '#eef0f3'; g.fillRect(0, 0, W, H);
+  const jobs = [];
+  for (let tx = Math.floor(ox / 256); tx <= Math.floor((ox + W) / 256); tx++) for (let ty = Math.floor(oy / 256); ty <= Math.floor((oy + H) / 256); ty++)
+    jobs.push(loadImg(TILE.replace('{z}', z).replace('{x}', tx).replace('{y}', ty)).then(img => { if (img) g.drawImage(img, tx * 256 - ox, ty * 256 - oy); }));
+  await Promise.all(jobs);
+  g.font = '500 11px Arial'; g.fillStyle = 'rgba(255,255,255,.85)'; const at = '© IGN – Plan IGN'; const tw = g.measureText(at).width; g.fillRect(W - tw - 10, H - 18, tw + 10, 18); g.fillStyle = '#333'; g.fillText(at, W - tw - 5, H - 5);
+  let url; try { url = c.toDataURL('image/jpeg', .88); } catch { url = null; }
+  return { url, pos: pts.map((p, i) => ({ x: (xs[i] - ox) / W * wIn, y: (ys[i] - oy) / H * hIn })) };
+}
+async function imgData(url, ratio) {
+  const img = await loadImg(url); if (!img) return null;
+  let sw = img.width, sh = img.height, sx = 0, sy = 0; if (sw / sh > ratio) { sw = sh * ratio; sx = (img.width - sw) / 2; } else { sh = sw / ratio; sy = (img.height - sh) / 2; }
+  const c = document.createElement('canvas'); c.width = 360; c.height = Math.round(360 / ratio); c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  try { return c.toDataURL('image/jpeg', .85).replace(/^data:/, ''); } catch { return null; }
+}
+function rowText(b, L) {
+  const t = TXT[L], C = '2B3D5C', G = 'B88136', en = L === 'en';
+  const reg = s => ({ text: s, options: { color: C, bold: false } }), bold = s => ({ text: s, options: { color: C, bold: true } });
+  const loyer = b.loyer_min || b.loyer_max ? (en ? '€' + fmtN(b.loyer_min || b.loyer_max, 'en') + (b.loyer_max && b.loyer_min && b.loyer_max !== b.loyer_min ? '–' + fmtN(b.loyer_max, 'en') : '') + t.unit : fmtN(b.loyer_min || b.loyer_max) + (b.loyer_max && b.loyer_min && b.loyer_max !== b.loyer_min ? ' à ' + fmtN(b.loyer_max) : '') + t.unit) : (b.loyer_txt ? (en ? toEn(b.loyer_txt) : b.loyer_txt) : t.na);
+  const etat = en ? (b.etat_en || toEn(b.etat)) : b.etat, dispo = en ? (b.dispo_en || toEn(b.dispo)) : b.dispo;
+  const head = [b.nom, norm(b.adresse) === norm(b.nom) ? '' : b.adresse, [b.cp, b.ville].filter(Boolean).join(' ')].filter(Boolean).join(' - ').toUpperCase();
+  const out = [{ text: head, options: { color: G, bold: true, breakLine: true } },
+    reg(t.area), { ...bold(b.surface ? fmtN(b.surface, L) + t.m2 : t.na), options: { color: C, bold: true, breakLine: true } },
+    reg(t.rent), bold(loyer), reg(t.avail), { text: dispo || t.na, options: { color: C, bold: true, breakLine: true } },
+    reg(t.cond), bold(etat || t.ns), reg(t.broker), { text: b.broker || t.na, options: { color: C, bold: true, breakLine: true } },
+    reg(t.tr), bold((b.transports || t.na).split(', ').slice(0, expFmt === '43' ? 2 : 3).join(', '))];
+  return out;
+}
+async function buildPptx() {
+  const f = FMT[expFmt], L = expLang, list = retenus(), title = $('#expTitle').value.trim(), sub = $('#expSub').value.trim();
+  const pres = new PptxGenJS();
+  if (expFmt === '43') { pres.defineLayout({ name: 'UPSIDE_4x3', width: 10, height: 7.5 }); pres.layout = 'UPSIDE_4x3'; } else pres.layout = 'LAYOUT_WIDE';
+  pres.company = 'Upside'; pres.title = title || S.proj.nom;
+  const NAVY = '07162D', GOLD = 'B57F35', FONT = 'Aptos', tblX = f.mapW, tblW = f.cols.reduce((a, b) => a + b, 0);
+  for (let p = 0; p < list.length; p += PER) {
+    setStatus('expStatus', `Préparation de la slide ${p / PER + 1} sur ${Math.ceil(list.length / PER)}…`, { busy: true });
+    const page = list.slice(p, p + PER), sl = pres.addSlide();
+    sl.addShape(pres.shapes.RECTANGLE, { x: f.barX, y: 0, w: .014, h: .57, fill: { color: GOLD }, line: { color: GOLD, width: 0 } });
+    if (title) sl.addText(title, { x: f.tx, y: .615, w: f.tw, h: .454, fontFace: FONT, fontSize: 27, bold: true, color: NAVY, margin: 0, valign: 'top', isTextBox: true });
+    if (sub) sl.addText(sub, { x: f.tx, y: 1.071, w: f.tw, h: .404, fontFace: FONT, fontSize: 24, color: NAVY, margin: 0, valign: 'top', isTextBox: true });
+    sl.slideNumber = { x: f.pnX, y: 6.967, w: f.pnW, h: .236, fontFace: FONT, fontSize: 14, bold: true, color: GOLD, align: 'right', margin: 0 };
+    sl.addShape(pres.shapes.LINE, { x: f.sepX, y: 7.006, w: 0, h: .158, line: { color: NAVY, width: .75 } });
+    sl.addImage({ data: UPSIDE_LOGO, x: f.logoX, y: 6.981, w: .667, h: .209 });
+    const located = page.filter(b => b.lat != null);
+    if (located.length) {
+      const sm = await staticMap(located, f.mapW, 7.5 - TOP);
+      if (sm.url) sl.addImage({ data: sm.url.replace(/^data:/, ''), x: 0, y: TOP, w: f.mapW, h: 7.5 - TOP });
+      located.forEach((b, i) => { const pt = sm.pos[i], n = list.indexOf(b) + 1; sl.addText(String(n), { shape: pres.shapes.OVAL, x: pt.x - .15, y: TOP + pt.y - .15, w: .3, h: .3, fill: { color: '4D77B5' }, line: { color: 'FFFFFF', width: 1 }, color: 'FFFFFF', fontFace: FONT, fontSize: 10, align: 'center', valign: 'middle', margin: 0 }); });
+    }
+    const rows = page.map(b => [
+      { text: String(list.indexOf(b) + 1), options: { fill: { color: '2B3D5C' }, color: 'FFFFFF', align: 'center', valign: 'middle' } },
+      { text: rowText(b, L), options: { fill: { color: 'F5F5F5' }, valign: 'middle' } },
+      { text: '', options: { fill: { color: 'F5F5F5' } } }]);
+    sl.addTable(rows, { x: tblX, y: TOP, w: tblW, colW: f.cols, rowH: ROWH, fontFace: FONT, fontSize: 8, border: { type: 'solid', pt: 1, color: 'FFFFFF' }, margin: [4, 6, 4, 6], autoPage: false });
+    if (TXT[L].foot) sl.addText(TXT[L].foot, { x: tblX + .1, y: 6.62, w: tblW - .2, h: .22, fontFace: FONT, fontSize: 7, italic: true, color: '6B6B6B', margin: 0, isTextBox: true });
+    for (let i = 0; i < page.length; i++) {
+      const b = page[i]; if (!b.photo_path) continue;
+      const pw = f.cols[2] - .2, ph = ROWH - .14, d = await imgData(pubUrl(b.photo_path.split('?')[0]), pw / ph);
+      if (d) sl.addImage({ data: d, x: tblX + f.cols[0] + f.cols[1] + .1, y: TOP + i * ROWH + .07, w: pw, h: ph });
+    }
+  }
+  return pres;
+}
+$('#expGo').onclick = async () => {
+  const btn = $('#expGo'); btn.disabled = true;
+  try {
+    const pres = await buildPptx(); setStatus('expStatus', 'Création du fichier…', { busy: true });
+    const d = new Date(), pad = n => String(n).padStart(2, '0');
+    await pres.writeFile({ fileName: `${S.proj.nom.replace(/[\\/:*?"<>|]/g, '')} – ${expLang === 'en' ? 'Shortlist' : 'Sélection'}${expFmt === '43' ? ' (4-3)' : ''} – ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}.pptx` });
+    setStatus('expStatus', ''); $('#dExp').close(); toast('PowerPoint téléchargé.');
+  } catch (e) { console.error(e); setStatus('expStatus', 'Le PowerPoint n’a pas pu être créé.', { err: true }); }
+  btn.disabled = false;
+};
+route();
+
+})();
+</script>
+</body>
+</html>

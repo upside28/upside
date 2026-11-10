@@ -443,8 +443,8 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .plunit.we{background:var(--surface-2)}
 .plvl{position:absolute;top:34px;bottom:0;width:1px;background:var(--line-soft);pointer-events:none}
 .plvl.g{top:0;background:var(--line)}
-.plmeet{position:absolute;top:34px;bottom:0;width:0;border-left:2px dashed #E07B00;margin-left:-1px;pointer-events:none;z-index:2}
-.plmeet span{position:absolute;bottom:4px;left:0;transform:translateX(-50%);background:#E07B00;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.plmeet{position:absolute;top:34px;bottom:0;width:0;border-left:1px dashed var(--navy);pointer-events:none;z-index:2}
+.plmeet span{position:absolute;bottom:4px;left:0;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap}
 .plbot{height:30px;border-top:1px solid var(--line-soft)}
 .plrow{height:46px;border-bottom:1px solid var(--line-soft)}
 .plrow:last-child{border-bottom:0}
@@ -520,9 +520,9 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .pdpl-grid{position:absolute;top:0;bottom:0;right:0;width:72%}
 .pdpl-grid i{position:absolute;top:0;bottom:0;border-left:1px solid #eee}
 .pdpl-grid i.g{border-left-color:#d8d8d8}
-.pdpl-m{position:absolute;top:0;bottom:0;border-left:1.5px dashed #E07B00;z-index:2}
-.pdpl-m span{position:absolute;bottom:2px;left:0;transform:translateX(-50%);background:#E07B00;color:#fff;font-size:7pt;padding:1px 5px;border-radius:3px;white-space:nowrap}
-.pdpl-r{min-height:24px;border-top:1px solid #eee}
+.pdpl-m{position:absolute;top:0;bottom:0;border-left:.75px dashed #1a2332;z-index:2}
+.pdpl-m span{position:absolute;bottom:2px;left:0;transform:translateX(-50%);background:#1a2332;color:#fff;font-size:7pt;padding:1px 5px;border-radius:3px;white-space:nowrap}
+.pdpl-r{min-height:30px;border-top:1px solid #eee}
 .pdpl-r .pdpl-lc{padding-top:2px;padding-bottom:2px}
 .pdpl-r.sub .pdpl-lc{font-weight:400;padding-left:10px;color:#333}
 .pdpl-r.sub .pdpl-bar{opacity:.55;top:5px;bottom:5px}
@@ -2125,7 +2125,7 @@ async function exportPdf(opts) {
   if (cr.infos) { text(cr.infos, { size: 9.5, style: "bold" }); y += 2; }
   if (cr.nota) text(`Nota : ${cr.nota}`, { size: 9, style: "italic" });
 
-  /* Planning du projet (page 1, avant le saut de page des tâches) */
+  /* Planning du projet : page dédiée, entre la page 1 et les tâches */
   {
     const pl = cr.validated && cr.snapPlanning ? cr.snapPlanning : p.planning;
     if (pl && pl.rows && pl.rows.some((r) => isDate(r.start) && isDate(r.end))) {
@@ -2134,10 +2134,11 @@ async function exportPdf(opts) {
       const tint = (c, k) => c.map((v) => Math.round(v + (255 - v) * k));
       doc.setFont(FONT, "bold"); doc.setFontSize(7.5);
       const rowsH = pl.rows.map((r) => Math.max(1, doc.splitTextToSize(T(r.name), LW - 4).length));
-      let RH = 7; const FOOT = 6;
+      let RH = 10; const FOOT = 6;
       const need = (rh) => 18 + HG + HU + 1 + pl.rows.reduce((a, r, i) => a + Math.max(rh, rowsH[i] * 3 + 1.5), 0) + FOOT;
-      while (y + need(RH) > BOTTOM && RH > 5) RH -= 0.5; // tasse les lignes pour tenir sur la page
-      ensure(need(RH)); heading("Planning du projet"); y += 1;
+      doc.addPage(); y = TOP - 4; // page dédiée au planning
+      while (y + need(RH) > BOTTOM && RH > 5) RH -= 0.5; // tasse les lignes si besoin
+      heading("Planning du projet"); y += 1;
       const X = (pc) => TX + pc / 100 * TW;
       // en-tête : mois (ou années) puis semaines (ou jours, mois)
       doc.setFont(FONT, "normal"); doc.setFontSize(6.5); doc.setTextColor(...GREY); doc.text(T("PHASES / JALONS"), M, y + HG + HU - 1);
@@ -2169,10 +2170,10 @@ async function exportPdf(opts) {
       // pointillé à la date de la réunion
       const mx = A.mark(cr.date);
       if (mx != null) {
-        const xx = X(mx); doc.setDrawColor(224, 123, 0); doc.setLineWidth(0.45); doc.setLineDashPattern([1.2, 0.9], 0); doc.line(xx, top - 1, xx, bottom - 1); doc.setLineDashPattern([], 0);
+        const xx = X(mx); doc.setDrawColor(...NAVY); doc.setLineWidth(0.2); doc.setLineDashPattern([0.9, 0.8], 0); doc.line(xx, top - 1, xx, bottom - 1); doc.setLineDashPattern([], 0);
         const lab = T(`Réunion ${fmtNum(cr.date).slice(0, 5)}`); doc.setFont(FONT, "bold"); doc.setFontSize(6.5); const lw = doc.getTextWidth(lab) + 3;
         const bx = Math.min(Math.max(xx - lw / 2, TX), PW - M - lw);
-        doc.setFillColor(224, 123, 0); doc.roundedRect(bx, bottom - 4.2, lw, 3.8, 0.7, 0.7, "F"); doc.setTextColor(255, 255, 255); doc.text(lab, bx + lw / 2, bottom - 1.5, { align: "center" });
+        doc.setFillColor(...NAVY); doc.roundedRect(bx, bottom - 4.2, lw, 3.8, 0.7, 0.7, "F"); doc.setTextColor(255, 255, 255); doc.text(lab, bx + lw / 2, bottom - 1.5, { align: "center" });
       }
       y = bottom + 2;
     }
@@ -3060,7 +3061,7 @@ function renderPlanning(p) {
     </div>
     <div class="plfoot">
       <button class="btn sm" type="button" data-plact="add">${I.plus} Ajouter une phase</button>
-      <p class="hempty">Le pointillé orange marque la date de la réunion${md ? ` (CR du ${fmtNum(md)})` : ""}. Glisse une barre pour la déplacer, tire ses bords pour changer les dates, ou trace-la directement sur une ligne. Clique sur une phase pour la renommer, changer sa couleur ou la supprimer.</p>
+      <p class="hempty">Le pointillé marque la date de la réunion${md ? ` (CR du ${fmtNum(md)})` : ""}. Glisse une barre pour la déplacer, tire ses bords pour changer les dates, ou trace-la directement sur une ligne. Clique sur une phase pour la renommer, changer sa couleur ou la supprimer.</p>
     </div>
   </div>`;
 }
@@ -3069,7 +3070,7 @@ function renderPlanning(p) {
 function planningPrintHTML(pl, md) {
   if (!pl || !pl.rows || !pl.rows.some((r) => isDate(r.start) && isDate(r.end))) return "";
   const A = plAxis(pl); const mx = A.mark(md); const unitW = 100 / A.units.length;
-  return `<h2>Planning du projet</h2><div class="pdpl">
+  return `<h2 class="pd-break">Planning du projet</h2><div class="pdpl">
     <div class="pdpl-h"><div class="pdpl-lc">Phases</div><div class="pdpl-tl">
       ${A.groups.map((g) => `<div class="pdpl-g" style="left:${pcs(g.l)};width:${pcs(g.w)}">${g.w > 9 ? g.lab : ""}</div>`).join("")}
       ${A.units.map((u) => `<div class="pdpl-u" style="left:${pcs(u.l)};width:${pcs(u.w)}">${unitW > 2.2 ? u.lab : ""}</div>`).join("")}

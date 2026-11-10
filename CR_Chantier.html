@@ -150,6 +150,12 @@ svg{flex:none}
 .crlist td{vertical-align:middle}
 .cract{display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap}
 .cract .btn{height:30px;line-height:1}
+.delbtn{color:var(--muted);padding:4px!important;opacity:.55;transition:opacity .15s,color .15s,background .15s}
+.delbtn:hover,.delbtn:focus-visible{opacity:1;color:var(--urgent)!important;background:var(--urgent-bg)!important}
+.trow:hover .delbtn,.lhead:hover .delbtn,.crrow:hover .delbtn{opacity:1}
+.tdel{display:flex;align-items:center;justify-content:center}
+.lhead>.delbtn{margin-right:-4px}
+.crlist td.crdel{width:36px;padding-right:0;padding-left:8px}
 .draftbadge{display:inline-flex;background:var(--afaire-bg);color:var(--afaire);border:1px solid #fde68a;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600}
 .formfoot{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px}
@@ -212,7 +218,7 @@ svg{flex:none}
 .addrow:hover{background:var(--surface-2);color:var(--gold)}
 
 /* Tâches */
-.thead,.trow{display:grid;grid-template-columns:18px 52px minmax(0,1fr) 190px 134px 150px 56px;gap:12px;align-items:center;padding:0 12px 0 14px}
+.thead,.trow{display:grid;grid-template-columns:26px 18px 52px minmax(0,1fr) 190px 134px 150px 56px;gap:12px;align-items:center;padding:0 12px 0 14px}
 .thead{color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding-top:9px;padding-bottom:8px;background:var(--surface-2)}
 .task{border-top:1px solid var(--line-soft)}
 .trow{min-height:58px;cursor:pointer;padding-top:8px;padding-bottom:8px}
@@ -406,18 +412,77 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   .topbar-project-name{display:none}
   .toolbar{top:-20px}
   .lhead{flex-wrap:wrap}
-  .ltoggle{flex:1 1 100%}
+  .ltoggle{flex:1 1 calc(100% - 40px)}
   .lname{white-space:normal}
   .thead{display:none}
   .trow{grid-template-columns:18px 44px minmax(0,1fr);grid-template-areas:"chev code ttl" ". who who" ". st dates";gap:6px 10px}
   .trow>.chev{grid-area:chev}.trow>.code{grid-area:code}.trow>.ttl{grid-area:ttl}.trow>.who{grid-area:who}
   .trow>.st{grid-area:st}.trow>.dates{grid-area:dates;text-align:right}.trow>.meta{display:none}
-  .trow{grid-template-areas:"chev code ttl ttl" ". who who who" ". st st dates";grid-template-columns:18px 44px 1fr auto}
+  .trow{grid-template-areas:"del chev code ttl ttl" ". . who who who" ". . st st dates";grid-template-columns:26px 18px 44px 1fr auto}
+  .trow>.tdel{grid-area:del}
   .tdetail{grid-template-columns:1fr;padding:14px}
   .grid4,.grid2,.conc{grid-template-columns:1fr 1fr}
   .tb-actions{margin-left:0}
 }
 @media (max-width:560px){.grid4,.grid2,.conc,.grid-code{grid-template-columns:1fr}}
+/* Planning du projet */
+.plhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.card .plhead h2{margin:0;padding:0;border:0;flex:1;min-width:160px;display:flex;align-items:center;gap:8px}
+.plctl{display:flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:3px 6px 3px 12px;font-size:12.5px;color:var(--muted)}
+.plctl input,.plctl select{border:0;background:transparent;font-size:13px;font-weight:600;color:var(--navy);padding:5px 4px;border-radius:5px}
+.plctl input:focus,.plctl select:focus{outline:none;background:var(--surface)}
+.plgrid{display:flex;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.plleft{flex:0 0 250px;border-right:1px solid var(--line);background:var(--surface-2)}
+.plscroll{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden}
+.pltl{position:relative}
+.plhd{height:64px;border-bottom:1px solid var(--line);position:relative}
+.plleft .plhd{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.plgrp{position:absolute;top:0;height:34px;padding:9px 8px 0;font-size:13px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:1px solid var(--line)}
+.plgrp:first-child{border-left:0}
+.plunit{position:absolute;top:34px;height:30px;line-height:30px;font-size:10.5px;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden}
+.plunit.we{background:var(--surface-2)}
+.plvl{position:absolute;top:34px;bottom:0;width:1px;background:var(--line-soft);pointer-events:none}
+.plvl.g{top:0;background:var(--line)}
+.plmeet{position:absolute;top:34px;bottom:0;width:0;border-left:2px dashed #E07B00;margin-left:-1px;pointer-events:none;z-index:2}
+.plmeet span{position:absolute;bottom:4px;left:0;transform:translateX(-50%);background:#E07B00;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.plbot{height:30px;border-top:1px solid var(--line-soft)}
+.plrow{height:46px;border-bottom:1px solid var(--line-soft)}
+.plrow:last-child{border-bottom:0}
+.plleft .plrow{display:flex;align-items:center;gap:2px;padding:0 4px}
+.plname{flex:1;min-width:0;border:0;background:none;text-align:left;cursor:pointer;font-size:12.5px;line-height:1.25;color:var(--ink);padding:4px 6px;border-radius:5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.plname:hover{background:var(--bg);color:var(--gold)}
+.plmain .plname{font-weight:700;text-transform:uppercase;color:var(--navy);font-size:12px;letter-spacing:.02em}
+.plsub .plname{padding-left:18px;position:relative}
+.plsub .plname::before{content:"–";position:absolute;left:6px;color:var(--muted)}
+.pldot{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none;margin-left:4px}
+.plsub .pldot{opacity:.55}
+.plmove{display:flex;flex-direction:column;opacity:0;transition:opacity .15s}
+.plleft .plrow:hover .plmove,.plmove:focus-within{opacity:1}
+.plmove .btn.icon{padding:0 2px;height:16px}
+.plmove svg{width:13px;height:13px}
+.pltrack{position:relative;overflow:hidden;cursor:crosshair;touch-action:pan-y}
+.pltrack:hover{background:rgba(184,148,42,.04)}
+.pltrack.empty::after{content:"Glisse ici pour placer cette phase";position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:11.5px;color:var(--light);opacity:0;pointer-events:none;transition:opacity .15s}
+.pltrack.empty:hover::after{opacity:1}
+.plbar{position:absolute;top:7px;height:32px;border-radius:5px;background:var(--c);cursor:grab;touch-action:none;z-index:1;min-width:4px}
+.plsub .plbar,.pltrack.plsub .plbar{top:9px;height:28px;opacity:.55}
+.plbar:hover,.plbar.drag{box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--c)}
+.plbar.drag{cursor:grabbing;opacity:.85}
+.plbar.cl{border-top-left-radius:0;border-bottom-left-radius:0}
+.plbar.cr{border-top-right-radius:0;border-bottom-right-radius:0}
+.plbar::before,.plbar::after{content:"";position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;background:rgba(255,255,255,.4);opacity:0;transition:opacity .15s}
+.plbar::before{left:0;border-radius:5px 0 0 5px}.plbar::after{right:0;border-radius:0 5px 5px 0}
+.plbar:hover::before,.plbar:hover::after{opacity:1}
+.pltip{position:absolute;top:-1px;transform:translateY(-100%);background:var(--navy);color:#fff;font-size:11px;padding:2px 7px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:3}
+.plfoot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+.plfoot .hempty{font-size:12.5px;margin:0}
+.plnone{padding:26px 16px;text-align:center;color:var(--muted);font-size:13px}
+.plcolors{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.plcolors input[type=color]{width:32px;height:32px;border:1px solid var(--line);border-radius:50%;padding:2px;background:var(--surface);cursor:pointer}
+.plcolors input[type=color]::-webkit-color-swatch-wrapper{padding:0}.plcolors input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+.plcheck{display:flex;align-items:center;gap:8px;font-size:13px;margin:0 0 14px;cursor:pointer}
+@media (max-width:900px){.plleft{flex-basis:160px}.plctl{flex:1 1 auto}}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* ----- Document imprimé ----- */
@@ -443,6 +508,26 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .pd-person .p b{display:inline;color:#111}
 .pd .pd-int td.c.isp{font-weight:700;color:#111}.pd .pd-int td.c{color:#777}
 .pd h2.pd-break{break-before:page;page-break-before:always;margin-top:0}
+.pdpl{break-inside:avoid;page-break-inside:avoid;font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;border-bottom:1px solid #e3e6e8}
+.pdpl-h,.pdpl-r{display:flex}
+.pdpl-lc{flex:0 0 28%;padding:0 6px 0 0;display:flex;align-items:center;font-weight:700;color:#1a2332;font-size:8pt;line-height:1.15}
+.pdpl-h .pdpl-lc{font-size:7.5pt;text-transform:uppercase;letter-spacing:.04em;align-items:flex-end;padding-bottom:3px}
+.pdpl-tl{flex:1;position:relative}
+.pdpl-h .pdpl-tl{height:32px}
+.pdpl-g{position:absolute;top:0;height:17px;line-height:17px;background:#1a2332;color:#fff;font-weight:700;text-align:center;font-size:7.5pt;border-left:1px solid #fff;white-space:nowrap;overflow:hidden}
+.pdpl-u{position:absolute;top:18px;height:14px;line-height:14px;text-align:center;color:#777;font-size:6pt;white-space:nowrap;overflow:hidden}
+.pdpl-b{position:relative}
+.pdpl-grid{position:absolute;top:0;bottom:0;right:0;width:72%}
+.pdpl-grid i{position:absolute;top:0;bottom:0;border-left:1px solid #eee}
+.pdpl-grid i.g{border-left-color:#d8d8d8}
+.pdpl-m{position:absolute;top:0;bottom:0;border-left:1.5px dashed #E07B00;z-index:2}
+.pdpl-m span{position:absolute;bottom:2px;left:0;transform:translateX(-50%);background:#E07B00;color:#fff;font-size:7pt;padding:1px 5px;border-radius:3px;white-space:nowrap}
+.pdpl-r{min-height:24px;border-top:1px solid #eee}
+.pdpl-r .pdpl-lc{padding-top:2px;padding-bottom:2px}
+.pdpl-r.sub .pdpl-lc{font-weight:400;padding-left:10px;color:#333}
+.pdpl-r.sub .pdpl-bar{opacity:.55;top:5px;bottom:5px}
+.pdpl-bar{position:absolute;top:3px;bottom:3px;border-radius:3px;z-index:1}
+.pdpl-foot{height:20px}
 .pd .legend{color:#888;font-size:9pt;margin:0 0 4px}
 .pd table{width:100%;border-collapse:collapse}
 .pd thead th{background:#1a2332;color:#fff;text-align:left;font-weight:500;font-size:9pt;padding:5px 8px;letter-spacing:.02em}
@@ -570,6 +655,25 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <p class="help">Les tâches de cette catégorie seront numérotées automatiquement <span id="lNumHelp">1.1, 1.2, 1.3…</span></p>
     </div>
     <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>Annuler</button><button class="btn primary" type="submit" id="lotSubmit">Créer la catégorie</button></div>
+  </form>
+</dialog>
+
+<!-- Phase du planning -->
+<dialog id="plDlg" class="small" aria-labelledby="plDlgTitle">
+  <form class="dlg-form" id="plForm" novalidate>
+    <div class="dlg-head"><h2 id="plDlgTitle">Nouvelle phase</h2><button class="btn ghost icon" type="button" data-close aria-label="Fermer">✕</button></div>
+    <div class="dlg-body">
+      <div class="field"><label for="plName">Nom de la phase</label><input class="big" id="plName" type="text" maxlength="160" placeholder="Ex. : CONCEPTION DES AMÉNAGEMENTS"></div>
+      <label class="plcheck"><input type="checkbox" id="plSub"> Sous-phase (affichée en retrait et en teinte plus claire)</label>
+      <div class="grid2">
+        <div class="field"><label for="plStart">Début</label><input id="plStart" type="date"></div>
+        <div class="field"><label for="plEnd">Fin</label><input id="plEnd" type="date"></div>
+      </div>
+      <div class="field" style="margin-bottom:6px"><span class="lbl" id="plColorLbl">Couleur</span>
+        <div class="plcolors swatches" id="plColors" role="radiogroup" aria-labelledby="plColorLbl"></div>
+      </div>
+    </div>
+    <div class="dlg-foot"><button class="btn danger ghost" type="button" id="plDelete">Supprimer</button><button class="btn" type="button" id="plAddSub">+ Sous-phase</button><span class="spacer"></span><button class="btn" type="button" data-close>Annuler</button><button class="btn primary" type="submit" id="plSubmit">Ajouter</button></div>
   </form>
 </dialog>
 
@@ -749,7 +853,7 @@ function doneStreak(p, t) {
 }
 const toAutoArchive = (p) => p.tasks.filter((t) => t.status === "termine" && doneStreak(p, t) >= 2);
 /* Données d'un CR validé : figées au moment de la validation, puis remises dans l'état de la date du CR */
-const freeze = (p) => ({ snapTasks: JSON.parse(JSON.stringify(p.tasks)), snapLots: JSON.parse(JSON.stringify(p.lots)) });
+const freeze = (p) => ({ snapTasks: JSON.parse(JSON.stringify(p.tasks)), snapLots: JSON.parse(JSON.stringify(p.lots)), snapPlanning: p.planning ? JSON.parse(JSON.stringify(p.planning)) : null });
 function crSource(p, cr) { return (cr && cr.validated && cr.snapTasks) ? { tasks: cr.snapTasks, lots: cr.snapLots || p.lots } : { tasks: p.tasks, lots: p.lots }; }
 const RO_OPEN = new Set();
 function frozenView(p, cr) {
@@ -1081,6 +1185,7 @@ function render() {
         <div class="page-subtitle">${[p.operation, p.adresse].filter(Boolean).map(esc).join(" — ") || "&nbsp;"}</div>
       </div><div class="crbar">${actions}</div></header>`
       + (p.view === "projet" ? renderProjet(p) : p.view === "crs" ? renderCrList(p) : p.view === "newcr" ? renderReunion(p, DRAFT, true) : renderIntervenants(p));
+    if (p.view === "projet") afterPlanningRender();
     return;
   }
   const cr = activeCr(p);
@@ -1150,6 +1255,7 @@ function renderTasks(p, cr) {
     const open = lot.open || filtering();
     html += `<section class="lot${open ? " open" : ""}" data-lid="${lot.id}">
       <div class="lhead">
+        ${RO ? "" : `<button class="btn ghost icon delbtn" type="button" data-act="delete-lot" title="Supprimer la catégorie" aria-label="Supprimer la catégorie ${esc(lot.name)}">${I.trash}</button>`}
         <button class="ltoggle" type="button" data-act="toggle-lot" aria-expanded="${open}">${I.chev}<span class="lname"><span class="lnum">${lot.num ?? ""}</span>${esc(lot.name)}</span><span class="lcount">${plural(active, "tâche", "tâches")}${all.length - active ? `, ${all.length - active} archivée${all.length - active > 1 ? "s" : ""}` : ""}</span></button>
         ${urg ? `<span class="lflag u">${urg} urgente${urg > 1 ? "s" : ""} ou en retard</span>` : ""}
         ${nNew ? `<span class="lflag n">${nNew} mise${nNew > 1 ? "s" : ""} à jour</span>` : ""}
@@ -1158,11 +1264,10 @@ function renderTasks(p, cr) {
           <button class="btn ghost icon" type="button" data-act="lot-up" title="Monter" aria-label="Monter la catégorie"${idx === 0 ? " disabled" : ""}>${I.up}</button>
           <button class="btn ghost icon" type="button" data-act="lot-down" title="Descendre" aria-label="Descendre la catégorie"${idx === p.lots.length - 1 ? " disabled" : ""}>${I.down}</button>
           <button class="btn ghost icon" type="button" data-act="edit-lot" title="Renommer" aria-label="Renommer la catégorie">${I.edit}</button>
-          <button class="btn ghost icon" type="button" data-act="delete-lot" title="Supprimer" aria-label="Supprimer la catégorie">${I.trash}</button>
         </div>`}
       </div>
       <div class="lbody-wrap"><div class="lbody">
-        ${all.length ? `<div class="thead" aria-hidden="true"><span></span><span>N°</span><span>Tâche</span><span>Responsable</span><span>Statut</span><span>Dates</span><span></span></div>` + shown.map((t) => taskHTML(p, t, w)).join("") : `<div class="lempty">Aucune tâche dans cette catégorie.</div>`}
+        ${all.length ? `<div class="thead" aria-hidden="true"><span></span><span></span><span>N°</span><span>Tâche</span><span>Responsable</span><span>Statut</span><span>Dates</span><span></span></div>` + shown.map((t) => taskHTML(p, t, w)).join("") : `<div class="lempty">Aucune tâche dans cette catégorie.</div>`}
         ${RO ? "" : `<button class="addrow" type="button" data-act="add-task">${I.plus} Ajouter une tâche</button>`}
       </div></div>
     </section>`;
@@ -1180,6 +1285,7 @@ function taskHTML(p, t, w) {
   const first = (t.desc || "").split("\n")[0];
   return `<div class="task${t.open ? " open" : ""}${t.status === "archive" ? " archived" : ""}${late ? " late-row" : ""}" data-tid="${t.id}">
     <div class="trow" data-act="toggle-task" role="button" tabindex="0" aria-expanded="${!!t.open}">
+      <span class="tdel">${RO ? "" : `<button class="btn ghost icon delbtn" type="button" data-act="delete-task" title="Supprimer la tâche" aria-label="Supprimer la tâche ${esc(t.code)} ${esc(t.title)}">${I.trash}</button>`}</span>
       ${I.chev}<span class="code">${esc(t.code)}</span>
       <span class="ttl"><b><span class="tt">${esc(t.title)}</span>${t.status === "archive" ? `<span class="archtag">— archivée${t.archivedAt ? " le " + fmtNum(t.archivedAt) : ""}</span>` : ""}</b>${first ? `<small>${esc(first)}</small>` : ""}${showRes(t.status, t) ? `<small class="resl">${RES_ARROW}<span>${esc(t.resolution.split("\n")[0])}</span></small>` : ""}</span>
       <span class="who">${whoHTML(p, t.resp)}</span>
@@ -1283,6 +1389,7 @@ function renderProjet(p) {
         <span class="hempty" style="font-size:12.5px">Placé en haut à droite des PDF de ce projet. Image PNG ou JPG, idéalement sur fond transparent ou blanc.</span>
       </div>
     </div>
+    ${renderPlanning(p)}
     <p class="hempty" style="font-size:12.5px">Les modifications sont enregistrées automatiquement.</p>`;
 }
 
@@ -1292,8 +1399,9 @@ function renderCrList(p) {
   if (!crs.length) return `<div class="empty"><h2>Aucun compte-rendu</h2><p>Prépare le premier CR : informations de la réunion et présences, puis les tâches.</p><button class="btn primary" type="button" data-act="new-cr">${I.plus} Préparer le CR n°1</button></div>`;
   const nP = (c) => Object.values(c.presences || {}).filter((x) => x.p === "P").length;
   return `<div class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="ptable crlist">
-    <thead><tr><th>N°</th><th>Réunion</th><th>Prochaine réunion</th><th>Présents</th><th>État</th><th></th></tr></thead>
+    <thead><tr><th></th><th>N°</th><th>Réunion</th><th>Prochaine réunion</th><th>Présents</th><th>État</th><th></th></tr></thead>
     <tbody>${crs.map((c) => `<tr class="crrow" data-opencr="${c.id}" tabindex="0" title="Ouvrir le CR n°${c.num}">
+      <td class="crdel"><button class="btn ghost icon delbtn" type="button" data-act="delete-cr" data-crid="${c.id}" title="Supprimer le CR n°${c.num}" aria-label="Supprimer le CR n°${c.num}">${I.trash}</button></td>
       <td><b>CR n°${c.num}</b></td>
       <td>${fmtLong(c.date)}</td>
       <td>${c.nextDate ? fmtNum(c.nextDate) + (c.nextTime ? " à " + c.nextTime : "") : '<span class="none">—</span>'}</td>
@@ -1420,8 +1528,8 @@ async function deleteProject(pid) {
 /* ==========================================================
    CR
    ========================================================== */
-function deleteCr() {
-  const p = P(); const cr = activeCr(p); if (!cr) return;
+function deleteCr(crId) {
+  const p = P(); const cr = crId ? p.crs.find((c) => c.id === crId) : activeCr(p); if (!cr) return;
   if (p.crs.length === 1) { toast("Un projet garde au moins un CR."); return; }
   if (!confirm(`Supprimer le CR n°${cr.num} (présences et informations) ? Les tâches et commentaires sont conservés.`)) return;
   p.crs = p.crs.filter((c) => c !== cr); p.activeCr = sortedCrs(p).slice(-1)[0].id; p.view = "crs"; save(); render(); toast("CR supprimé");
@@ -1542,6 +1650,13 @@ $("#taskForm").addEventListener("submit", async (e) => {
   d.open = d.status !== "archive"; editing.saved = true; save(); render(); $("#taskDlg").close(); toast(before ? "Tâche enregistrée" : "Tâche ajoutée");
 });
 $("#taskDlg").addEventListener("close", async () => { if (editing && !editing.saved) for (const id of editing.added) await delFile(id); editing = null; });
+async function deleteTask(t) {
+  const p = P(); if (!t) return;
+  if (!confirm(`Supprimer définitivement la tâche ${t.code ? t.code + " " : ""}« ${t.title} » et ses commentaires ? (Pour la garder visible en grisé, choisis plutôt le statut « Archivé ».)`)) return;
+  for (const f of allFiles(t)) await delFile(f.id);
+  delete pendingCom[t.id];
+  p.tasks = p.tasks.filter((x) => x !== t); save(); render(); toast("Tâche supprimée");
+}
 $("#deleteTask").addEventListener("click", async () => {
   const p = P(); if (!editing || editing.isNew) return;
   if (!confirm(`Supprimer définitivement la tâche « ${editing.draft.title} » et ses commentaires ? (Pour la garder visible en grisé, choisis plutôt le statut « Archivé ».)`)) return;
@@ -1715,6 +1830,7 @@ async function buildPrint(opts) {
       </tbody></table>` : ""}
     <h2>Informations importantes</h2>
     <div class="infos">${cr.nextDate ? `<p class="next">Prochaine réunion : <b>${fmtNum(cr.nextDate)}${cr.nextTime ? " à " + cr.nextTime : ""}</b></p>` : ""}${cr.infos ? `<p class="txt">${esc(cr.infos)}</p>` : ""}${cr.nota ? `<p class="nota">Nota : ${esc(cr.nota)}</p>` : ""}</div>
+    ${planningPrintHTML(cr.validated && cr.snapPlanning ? cr.snapPlanning : p.planning, cr.date)}
     <h2 class="pd-break">Tâches et avancement</h2>${tasksHTML || "<p>Aucune tâche.</p>"}
   </div>`;
 }
@@ -2008,6 +2124,59 @@ async function exportPdf(opts) {
   }
   if (cr.infos) { text(cr.infos, { size: 9.5, style: "bold" }); y += 2; }
   if (cr.nota) text(`Nota : ${cr.nota}`, { size: 9, style: "italic" });
+
+  /* Planning du projet (page 1, avant le saut de page des tâches) */
+  {
+    const pl = cr.validated && cr.snapPlanning ? cr.snapPlanning : p.planning;
+    if (pl && pl.rows && pl.rows.some((r) => isDate(r.start) && isDate(r.end))) {
+      const A = plAxis(pl); const LW = 50, TX = M + LW, TW = CW - LW, HG = 5, HU = 3.6;
+      const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); const n = m ? parseInt(m[1], 16) : 0x5b6b75; return [n >> 16, (n >> 8) & 255, n & 255]; };
+      const tint = (c, k) => c.map((v) => Math.round(v + (255 - v) * k));
+      doc.setFont(FONT, "bold"); doc.setFontSize(7.5);
+      const rowsH = pl.rows.map((r) => Math.max(1, doc.splitTextToSize(T(r.name), LW - 4).length));
+      let RH = 7; const FOOT = 6;
+      const need = (rh) => 18 + HG + HU + 1 + pl.rows.reduce((a, r, i) => a + Math.max(rh, rowsH[i] * 3 + 1.5), 0) + FOOT;
+      while (y + need(RH) > BOTTOM && RH > 5) RH -= 0.5; // tasse les lignes pour tenir sur la page
+      ensure(need(RH)); heading("Planning du projet"); y += 1;
+      const X = (pc) => TX + pc / 100 * TW;
+      // en-tête : mois (ou années) puis semaines (ou jours, mois)
+      doc.setFont(FONT, "normal"); doc.setFontSize(6.5); doc.setTextColor(...GREY); doc.text(T("PHASES / JALONS"), M, y + HG + HU - 1);
+      A.groups.forEach((g) => {
+        doc.setFillColor(...NAVY); doc.rect(X(g.l) + 0.15, y, g.w / 100 * TW - 0.3, HG, "F");
+        doc.setFont(FONT, "bold"); doc.setFontSize(7); doc.setTextColor(255, 255, 255);
+        const lab = T(g.lab); if (doc.getTextWidth(lab) < g.w / 100 * TW - 1) doc.text(lab, X(g.l + g.w / 2), y + HG * 0.7, { align: "center" });
+      });
+      const uw = TW / A.units.length; doc.setFont(FONT, "normal"); doc.setFontSize(uw < 6 ? 5 : 5.8); doc.setTextColor(...GREY);
+      A.units.forEach((u) => { const lab = T(u.lab); if (doc.getTextWidth(lab) < u.w / 100 * TW - 0.4) doc.text(lab, X(u.l + u.w / 2), y + HG + HU * 0.8, { align: "center" }); });
+      y += HG + HU + 1;
+      const top = y;
+      const hs = pl.rows.map((r, i) => Math.max(RH, rowsH[i] * 3 + 1.5)); const bottom = top + hs.reduce((a, b) => a + b, 0) + FOOT;
+      // quadrillage
+      doc.setLineWidth(0.15); doc.setDrawColor(236, 236, 236); A.ulines.forEach((l) => doc.line(X(l), top, X(l), bottom));
+      doc.setDrawColor(215, 215, 215); A.glines.forEach((l) => doc.line(X(l), top, X(l), bottom));
+      // lignes et barres
+      pl.rows.forEach((r, i) => {
+        const h = hs[i]; const c = hexRgb(r.color);
+        doc.setDrawColor(...LINE); doc.setLineWidth(0.15); doc.line(M, y, PW - M, y);
+        doc.setFont(FONT, r.sub ? "normal" : "bold"); doc.setFontSize(r.sub ? 7 : 7.5); doc.setTextColor(...(r.sub ? INK : c.map((v) => Math.round(v * 0.7))));
+        const lines = doc.splitTextToSize(T(r.name), LW - (r.sub ? 7 : 4)); const th = lines.length * 3;
+        doc.text(lines, M + (r.sub ? 3 : 0), y + (h - th) / 2 + 2.3, { lineHeightFactor: 1.2 });
+        const b = A.bars[i];
+        if (b && !b.off) { doc.setFillColor(...(r.sub ? tint(c, 0.45) : c)); const bh = r.sub ? Math.min(3.6, h - 2.4) : Math.min(4.6, h - 2); doc.roundedRect(X(b.l), y + (h - bh) / 2, Math.max(0.6, b.w / 100 * TW), bh, 0.8, 0.8, "F"); }
+        y += h;
+      });
+      doc.setDrawColor(...LINE); doc.line(M, y, PW - M, y); y += FOOT;
+      // pointillé à la date de la réunion
+      const mx = A.mark(cr.date);
+      if (mx != null) {
+        const xx = X(mx); doc.setDrawColor(224, 123, 0); doc.setLineWidth(0.45); doc.setLineDashPattern([1.2, 0.9], 0); doc.line(xx, top - 1, xx, bottom - 1); doc.setLineDashPattern([], 0);
+        const lab = T(`Réunion ${fmtNum(cr.date).slice(0, 5)}`); doc.setFont(FONT, "bold"); doc.setFontSize(6.5); const lw = doc.getTextWidth(lab) + 3;
+        const bx = Math.min(Math.max(xx - lw / 2, TX), PW - M - lw);
+        doc.setFillColor(224, 123, 0); doc.roundedRect(bx, bottom - 4.2, lw, 3.8, 0.7, 0.7, "F"); doc.setTextColor(255, 255, 255); doc.text(lab, bx + lw / 2, bottom - 1.5, { align: "center" });
+      }
+      y = bottom + 2;
+    }
+  }
 
   /* Photos des commentaires : chargées et réduites avant la mise en page */
   const pdfImgs = {};
@@ -2321,7 +2490,7 @@ document.addEventListener("click", (e) => {
     state.active = pc.dataset.pid; HOME = false; DRAFT = null; P().view = "crs"; save(); render(); $("#main").scrollTop = 0; return;
   }
   const crp = e.target.closest("[data-crpick], [data-opencr]");
-  if (crp && !e.target.closest('[data-act="pdf-cr"]')) {
+  if (crp && !e.target.closest('[data-act="pdf-cr"], [data-act="delete-cr"]')) {
     const p0 = P(); p0.activeCr = crp.dataset.crpick || crp.dataset.opencr; p0.view = "taches"; DRAFT = null;
     save(); render(); $("#main").scrollTop = 0; return;
   }
@@ -2339,7 +2508,7 @@ document.addEventListener("click", (e) => {
   if (!el) { closeMenu(); return; }
   const act = el.dataset.act; const p = P();
   if (act !== "menu" && act !== "pmenu") closeMenu();
-  if (RO && ["new-lot", "edit-lot", "delete-lot", "lot-up", "lot-down", "new-task", "add-task", "edit-task", "edit-com", "delete-com", "quick-file", "replace-file", "presence"].includes(act)) return toast("Ce CR est validé : clique sur « Modifier le CR » pour le rouvrir.");
+  if (RO && ["new-lot", "edit-lot", "delete-lot", "lot-up", "lot-down", "new-task", "add-task", "edit-task", "delete-task", "edit-com", "delete-com", "quick-file", "replace-file", "presence"].includes(act)) return toast("Ce CR est validé : clique sur « Modifier le CR » pour le rouvrir.");
   const lotEl = el.closest(".lot"); const lid = lotEl && lotEl.dataset.lid;
   const taskEl = el.closest(".task"); const t = taskEl && p ? ((RO && VIEW ? VIEW.tasks : p.tasks).find((x) => x.id === taskEl.dataset.tid)) : null;
   switch (act) {
@@ -2377,7 +2546,7 @@ document.addEventListener("click", (e) => {
       return toast(`CR n°${num} créé${auto.length ? ` — ${plural(auto.length, "tâche terminée archivée", "tâches terminées archivées")} automatiquement` : " : mets à jour les tâches"}`);
     }
     case "pdf-cr": p.activeCr = el.dataset.crid; save(); render(); return openExport("pdf");
-    case "delete-cr": return deleteCr();
+    case "delete-cr": return deleteCr(el.dataset.crid);
     case "print": return openExport("print");
     case "pdf": return openExport("pdf");
     case "validate": {
@@ -2388,7 +2557,7 @@ document.addEventListener("click", (e) => {
     case "reopen": {
       const cr = activeCr(p);
       if (!confirm(`Modifier le CR n°${cr.num} ? Il repassera « En cours » : il faudra le valider de nouveau avant de réexporter le PDF.`)) return;
-      cr.validated = false; delete cr.validatedAt; delete cr.snap; delete cr.snapTasks; delete cr.snapLots; save(); render(); return toast("CR rouvert : tu peux le modifier");
+      cr.validated = false; delete cr.validatedAt; delete cr.snap; delete cr.snapTasks; delete cr.snapLots; delete cr.snapPlanning; save(); render(); return toast("CR rouvert : tu peux le modifier");
     }
     case "new-lot": return openLot(null);
     case "edit-lot": return openLot(lid);
@@ -2401,6 +2570,7 @@ document.addEventListener("click", (e) => {
     case "add-task": return openTask(null, lid);
     case "toggle-task": if (RO) { RO_OPEN.has(t.id) ? RO_OPEN.delete(t.id) : RO_OPEN.add(t.id); return render(); } t.open = !t.open; save(); return render();
     case "edit-task": return openTask(t.id);
+    case "delete-task": return deleteTask(t);
     case "edit-res": return askResolution(t, (txt) => { t.resolution = txt; save(); render(); toast("Résolution modifiée"); });
     case "edit-com": return openCom(t.id, el.closest(".hc").dataset.cid);
     case "delete-com": {
@@ -2797,6 +2967,254 @@ function shareProject(id) {
   for (const t of [...p.tasks, ...p.crs.flatMap((c) => c.snapTasks || [])]) for (const fm of allFiles(t)) if (!fm.missing) queueUpload(fm.id);
   save(); render(); toast(`« ${p.name} » est maintenant partagé avec l’équipe`);
 }
+
+/* ==========================================================
+   Planning du projet (page ID Projet)
+   ========================================================== */
+const PL_COLORS = ["#C40A0E", "#E8761A", "#E9B289", "#F5D76E", "#4C8A2E", "#0E7C86", "#2F6BC0", "#7B4FC4", "#B33A74", "#5B6B75"];
+const PL_PPD = { jour: 30, semaine: 12, mois: 4 };
+const utcOf = (iso) => { const [y, m, d] = iso.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+const dayDiff = (a, b) => Math.round((utcOf(b) - utcOf(a)) / 864e5);
+const mondayOf = (iso) => { const [y, m, d] = iso.split("-").map(Number); const wd = (new Date(y, m - 1, d).getDay() + 6) % 7; return addDays(iso, -wd); };
+function isoWeek(iso) {
+  const [y, m, d] = iso.split("-").map(Number); const dt = new Date(Date.UTC(y, m - 1, d));
+  const wd = dt.getUTCDay() || 7; dt.setUTCDate(dt.getUTCDate() + 4 - wd);
+  const y0 = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1)); return Math.ceil(((dt - y0) / 864e5 + 1) / 7);
+}
+const monthLabel = (iso, short) => { const [y, m] = iso.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("fr-FR", short ? { month: "short" } : { month: "long", year: "numeric" }); };
+const firstOfNextMonth = (iso) => { const [y, m] = iso.split("-").map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${pad(m + 1)}-01`; };
+const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || "");
+
+function planningOf(p) {
+  if (!p.planning || !isDate(p.planning.start) || !isDate(p.planning.end)) {
+    const s = mondayOf(today());
+    p.planning = Object.assign({ scale: "semaine", rows: [] }, p.planning || {}, { start: s, end: addDays(s, 7 * 18 - 1) });
+  }
+  if (!PL_PPD[p.planning.scale]) p.planning.scale = "semaine";
+  if (!Array.isArray(p.planning.rows)) p.planning.rows = [];
+  return p.planning;
+}
+
+// Axe du temps commun à l'écran, à l'impression et au PDF (positions en % de la plage)
+function plAxis(pl) {
+  const D = Math.max(1, dayDiff(pl.start, pl.end) + 1);
+  const x = (iso) => dayDiff(pl.start, iso) / D * 100;
+  const groups = [], units = [], glines = [], ulines = [];
+  for (let g = pl.start; dayDiff(g, pl.end) >= 0;) {
+    const next = pl.scale === "mois" ? `${+g.slice(0, 4) + 1}-01-01` : firstOfNextMonth(g);
+    const l = Math.max(0, x(g)), r = Math.min(100, x(next));
+    groups.push({ l, w: r - l, lab: pl.scale === "mois" ? g.slice(0, 4) : monthLabel(g) });
+    if (l > 0) glines.push(l);
+    g = next;
+  }
+  let u = pl.scale === "semaine" ? mondayOf(pl.start) : pl.scale === "mois" ? pl.start.slice(0, 8) + "01" : pl.start;
+  while (dayDiff(u, pl.end) >= 0) {
+    const next = pl.scale === "jour" ? addDays(u, 1) : pl.scale === "semaine" ? addDays(u, 7) : firstOfNextMonth(u);
+    const l = Math.max(0, x(u)), r = Math.min(100, x(next));
+    const [yy, mm, dd] = u.split("-").map(Number); const wd = new Date(yy, mm - 1, dd).getDay();
+    units.push({ l, w: r - l, iso: u, we: pl.scale === "jour" && (wd === 0 || wd === 6), lab: pl.scale === "jour" ? String(dd) : pl.scale === "semaine" ? `S${isoWeek(u)}` : monthLabel(u, true) });
+    if (l > 0) ulines.push(l);
+    u = next;
+  }
+  const bars = pl.rows.map((r) => {
+    if (!isDate(r.start) || !isDate(r.end)) return null;
+    const s = dayDiff(pl.start, r.start), e = dayDiff(pl.start, r.end);
+    if (e < 0 || s > D - 1) return { off: true };
+    return { l: s / D * 100, w: (e - s + 1) / D * 100, cl: s < 0, cr: e > D - 1 };
+  });
+  const mark = (iso) => iso && dayDiff(pl.start, iso) >= 0 && dayDiff(iso, pl.end) >= 0 ? x(iso) + 50 / D : null;
+  return { D, groups, units, glines, ulines, bars, mark };
+}
+const pcs = (v) => `${+v.toFixed(4)}%`;
+// Date de la réunion du CR ouvert (ou du dernier CR)
+const meetingDate = (p) => { const cr = activeCr(p) || sortedCrs(p).slice(-1)[0]; return cr ? cr.date : null; };
+
+function renderPlanning(p) {
+  const pl = planningOf(p); const ppd = PL_PPD[pl.scale]; const A = plAxis(pl); const D = A.D;
+  const grp = A.groups.map((g) => `<div class="plgrp" style="left:${pcs(g.l)};width:${pcs(g.w)}" title="${g.lab}">${g.lab}</div>`).join("");
+  const units = A.units.map((u) => `<div class="plunit${u.we ? " we" : ""}" style="left:${pcs(u.l)};width:${pcs(u.w)}" title="${pl.scale === "semaine" ? "Semaine du " + fmtNum(u.iso) : ""}">${u.w / 100 * D * ppd >= 16 ? u.lab : ""}</div>`).join("");
+  const lines = A.glines.map((l) => `<div class="plvl g" style="left:${pcs(l)}"></div>`).join("") + A.ulines.map((l) => `<div class="plvl" style="left:${pcs(l)}"></div>`).join("");
+  const md = meetingDate(p); const mx = A.mark(md);
+  const meet = mx != null ? `<div class="plmeet" style="left:${pcs(mx)}" title="Réunion du ${fmtNum(md)}"><span>Réunion ${fmtNum(md).slice(0, 5)}</span></div>` : "";
+  const left = pl.rows.map((r, i) => `<div class="plrow ${r.sub ? "plsub" : "plmain"}" data-plid="${r.id}" style="--c:${esc(r.color)}">
+      <span class="pldot" aria-hidden="true"></span>
+      <button class="plname" type="button" data-plact="edit" title="${esc(r.name)}${r.start && r.end ? ` — du ${fmtNum(r.start)} au ${fmtNum(r.end)}` : ""}">${esc(r.name) || "<i>Sans nom</i>"}</button>
+      <span class="plmove"><button class="btn ghost icon" type="button" data-plact="up" aria-label="Monter ${esc(r.name)}" title="Monter"${i === 0 ? " disabled" : ""}>${I.up}</button><button class="btn ghost icon" type="button" data-plact="down" aria-label="Descendre ${esc(r.name)}" title="Descendre"${i === pl.rows.length - 1 ? " disabled" : ""}>${I.down}</button></span>
+    </div>`).join("");
+  const tracks = pl.rows.map((r, i) => {
+    const b = A.bars[i];
+    const bar = b && !b.off ? `<div class="plbar${b.cl ? " cl" : ""}${b.cr ? " cr" : ""}" style="left:${pcs(b.l)};width:${pcs(b.w)}" title="${esc(r.name)} — du ${fmtNum(r.start)} au ${fmtNum(r.end)}"></div>` : "";
+    return `<div class="plrow pltrack ${r.sub ? "plsub" : "plmain"}${b ? "" : " empty"}" data-plid="${r.id}" style="--c:${esc(r.color)}">${bar}</div>`;
+  }).join("");
+  return `<div class="card" id="planning">
+    <div class="plhead">
+      <h2><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2.5" y="3.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 7.5h13M6 2v3M12 2v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Planning du projet</h2>
+      <label class="plctl">Début : <input type="date" data-pl="start" value="${pl.start}" aria-label="Début du planning"></label>
+      <label class="plctl">Précision : <select data-pl="scale" aria-label="Précision du planning">${[["jour", "Jour"], ["semaine", "Semaine"], ["mois", "Mois"]].map(([v, l]) => `<option value="${v}"${pl.scale === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="plctl">Fin : <input type="date" data-pl="end" value="${pl.end}" aria-label="Fin du planning"></label>
+      ${pl.rows.some((r) => r.start && r.end) ? `<button class="btn sm ghost" type="button" data-plact="fit" title="Ajuster la plage de dates aux phases">Ajuster aux phases</button>` : ""}
+    </div>
+    <div class="plgrid">
+      <div class="plleft"><div class="plhd">Phases</div>${left}<div class="plbot"></div></div>
+      <div class="plscroll"><div class="pltl" style="min-width:${D * ppd}px" data-days="${D}"><div class="plhd">${grp}${units}</div>${lines}${meet}${tracks || `<div class="plnone">Aucune phase pour l’instant.</div>`}<div class="plbot"></div></div></div>
+    </div>
+    <div class="plfoot">
+      <button class="btn sm" type="button" data-plact="add">${I.plus} Ajouter une phase</button>
+      <p class="hempty">Le pointillé orange marque la date de la réunion${md ? ` (CR du ${fmtNum(md)})` : ""}. Glisse une barre pour la déplacer, tire ses bords pour changer les dates, ou trace-la directement sur une ligne. Clique sur une phase pour la renommer, changer sa couleur ou la supprimer.</p>
+    </div>
+  </div>`;
+}
+
+// Planning pour l'impression (page 1 du CR, avant les tâches)
+function planningPrintHTML(pl, md) {
+  if (!pl || !pl.rows || !pl.rows.some((r) => isDate(r.start) && isDate(r.end))) return "";
+  const A = plAxis(pl); const mx = A.mark(md); const unitW = 100 / A.units.length;
+  return `<h2>Planning du projet</h2><div class="pdpl">
+    <div class="pdpl-h"><div class="pdpl-lc">Phases</div><div class="pdpl-tl">
+      ${A.groups.map((g) => `<div class="pdpl-g" style="left:${pcs(g.l)};width:${pcs(g.w)}">${g.w > 9 ? g.lab : ""}</div>`).join("")}
+      ${A.units.map((u) => `<div class="pdpl-u" style="left:${pcs(u.l)};width:${pcs(u.w)}">${unitW > 2.2 ? u.lab : ""}</div>`).join("")}
+    </div></div>
+    <div class="pdpl-b"><div class="pdpl-tl pdpl-grid">${A.glines.map((l) => `<i class="g" style="left:${pcs(l)}"></i>`).join("")}${A.ulines.map((l) => `<i style="left:${pcs(l)}"></i>`).join("")}${mx != null ? `<b class="pdpl-m" style="left:${pcs(mx)}"><span>Réunion ${fmtNum(md).slice(0, 5)}</span></b>` : ""}</div>
+    ${pl.rows.map((r, i) => { const b = A.bars[i]; return `<div class="pdpl-r${r.sub ? " sub" : ""}"><div class="pdpl-lc">${esc(r.name)}</div><div class="pdpl-tl">${b && !b.off ? `<span class="pdpl-bar" style="left:${pcs(b.l)};width:${pcs(b.w)};background:${esc(r.color)}"></span>` : ""}</div></div>`; }).join("")}
+    <div class="pdpl-r pdpl-foot"><div class="pdpl-lc"></div><div class="pdpl-tl"></div></div></div>
+  </div>`;
+}
+let plScrollX = 0;
+document.addEventListener("scroll", (e) => { if (e.target.classList && e.target.classList.contains("plscroll")) plScrollX = e.target.scrollLeft; }, true);
+function afterPlanningRender() { const sc = document.querySelector(".plscroll"); if (sc) sc.scrollLeft = plScrollX; }
+
+/* Réglages de la plage */
+document.addEventListener("change", (e) => {
+  const tg = e.target; if (!tg.dataset || !tg.dataset.pl) return;
+  const p = P(); const pl = planningOf(p); const k = tg.dataset.pl;
+  if (k === "scale") { pl.scale = tg.value; save(); return render(); }
+  if (!isDate(tg.value)) { tg.value = pl[k]; return; }
+  const ns = k === "start" ? tg.value : pl.start, ne = k === "end" ? tg.value : pl.end;
+  if (dayDiff(ns, ne) < 0) { toast("La date de fin doit être après la date de début."); tg.value = pl[k]; return; }
+  if (dayDiff(ns, ne) > 366 * 5) { toast("Plage limitée à 5 ans."); tg.value = pl[k]; return; }
+  pl[k] = tg.value; save(); render();
+});
+
+/* Boutons du planning */
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-plact]"); if (!el || el.closest("dialog")) return;
+  const p = P(); const pl = planningOf(p); const id = el.closest("[data-plid]") && el.closest("[data-plid]").dataset.plid;
+  const i = pl.rows.findIndex((r) => r.id === id);
+  switch (el.dataset.plact) {
+    case "add": return openPlRow(null, {});
+    case "edit": return openPlRow(id);
+    case "up": case "down": {
+      const j = i + (el.dataset.plact === "up" ? -1 : 1); if (i < 0 || j < 0 || j >= pl.rows.length) return;
+      [pl.rows[i], pl.rows[j]] = [pl.rows[j], pl.rows[i]]; save(); return render();
+    }
+    case "fit": {
+      const d = pl.rows.filter((r) => isDate(r.start) && isDate(r.end)); if (!d.length) return;
+      const s = d.map((r) => r.start).sort()[0], en = d.map((r) => r.end).sort().slice(-1)[0];
+      pl.start = pl.scale === "semaine" ? mondayOf(s) : pl.scale === "mois" ? s.slice(0, 8) + "01" : s;
+      pl.end = pl.scale === "semaine" ? addDays(mondayOf(en), 6) : pl.scale === "mois" ? addDays(firstOfNextMonth(en), -1) : en;
+      plScrollX = 0; save(); render(); return toast("Plage ajustée aux phases");
+    }
+  }
+});
+
+/* Glisser-déposer des barres */
+let plDrag = null;
+document.addEventListener("pointerdown", (e) => {
+  const tr = e.target.closest && e.target.closest(".pltrack"); if (!tr || e.button !== 0) return;
+  const p = P(); const pl = planningOf(p);
+  const row = pl.rows.find((r) => r.id === tr.dataset.plid); if (!row) return;
+  const rect = tr.getBoundingClientRect(); const ppd = rect.width / Math.max(1, dayDiff(pl.start, pl.end) + 1); const bar = e.target.closest(".plbar");
+  let mode = "draw", s0 = Math.floor((e.clientX - rect.left) / ppd), e0 = s0;
+  if (bar) {
+    const br = bar.getBoundingClientRect(); const ox = e.clientX - br.left;
+    mode = ox < 8 ? "l" : ox > br.width - 8 ? "r" : "m";
+    s0 = dayDiff(pl.start, row.start); e0 = dayDiff(pl.start, row.end);
+  } else if (e.pointerType === "touch") return; // sur mobile, faire défiler plutôt que dessiner
+  e.preventDefault();
+  plDrag = { tr, row, pl, ppd, mode, x0: e.clientX, s0, e0, ns: s0, ne: e0, moved: false, bar, id: e.pointerId };
+  tr.setPointerCapture(e.pointerId);
+});
+document.addEventListener("pointermove", (e) => {
+  const d = plDrag; if (!d || e.pointerId !== d.id) return;
+  const dx = Math.round((e.clientX - d.x0) / d.ppd);
+  if (!d.moved && Math.abs(e.clientX - d.x0) < 4) return;
+  d.moved = true;
+  if (d.mode === "m") { d.ns = d.s0 + dx; d.ne = d.e0 + dx; }
+  else if (d.mode === "l") { d.ns = Math.min(d.s0 + dx, d.e0); d.ne = d.e0; }
+  else if (d.mode === "r") { d.ns = d.s0; d.ne = Math.max(d.e0 + dx, d.s0); }
+  else { d.ns = Math.min(d.s0, d.s0 + dx); d.ne = Math.max(d.s0, d.s0 + dx); }
+  if (!d.bar) { d.bar = document.createElement("div"); d.bar.className = "plbar"; d.tr.appendChild(d.bar); d.tr.classList.remove("empty"); }
+  d.bar.classList.add("drag"); d.bar.classList.remove("cl", "cr");
+  d.bar.style.left = d.ns * d.ppd + "px"; d.bar.style.width = (d.ne - d.ns + 1) * d.ppd + "px";
+  let tip = d.tr.querySelector(".pltip"); if (!tip) { tip = document.createElement("div"); tip.className = "pltip"; d.tr.appendChild(tip); d.tr.style.overflow = "visible"; }
+  tip.style.left = Math.max(0, d.ns * d.ppd) + "px";
+  tip.textContent = `${fmtNum(addDays(d.pl.start, d.ns))} → ${fmtNum(addDays(d.pl.start, d.ne))}`;
+});
+function endPlDrag(e, cancel) {
+  const d = plDrag; if (!d || e.pointerId !== d.id) return; plDrag = null;
+  if (cancel) return render();
+  if (!d.moved) { if (d.mode !== "draw") openPlRow(d.row.id); return; }
+  d.row.start = addDays(d.pl.start, d.ns); d.row.end = addDays(d.pl.start, d.ne);
+  save(); render();
+}
+document.addEventListener("pointerup", (e) => endPlDrag(e, false));
+document.addEventListener("pointercancel", (e) => endPlDrag(e, true));
+
+/* Fenêtre d'édition d'une phase */
+let plEdit = null;
+function plSwatches(sel) {
+  const custom = !PL_COLORS.includes(sel);
+  $("#plColors").innerHTML = PL_COLORS.map((c, i) => `<label><input type="radio" name="plcolor" value="${c}"${c === sel ? " checked" : ""} aria-label="Couleur ${i + 1}"><span style="--c:${c}"></span></label>`).join("")
+    + `<input type="color" id="plCustom" value="${custom ? sel : "#3a7d44"}" title="Autre couleur" aria-label="Autre couleur">`;
+}
+function openPlRow(id, opts = {}) {
+  const p = P(); const pl = planningOf(p); const r = id ? pl.rows.find((x) => x.id === id) : null;
+  let start = opts.start, end = opts.end;
+  if (!r && !start) {
+    const last = [...pl.rows].reverse().find((x) => isDate(x.end));
+    start = last && dayDiff(pl.start, addDays(last.end, 1)) >= 0 && dayDiff(addDays(last.end, 1), pl.end) >= 0 ? addDays(last.end, 1) : pl.start;
+    end = addDays(start, 13);
+  }
+  const usedColors = pl.rows.filter((x) => !x.sub).map((x) => x.color);
+  const color = r ? r.color : opts.color || PL_COLORS.find((c) => !usedColors.includes(c)) || PL_COLORS[0];
+  plEdit = { id: r ? r.id : null, after: opts.after || null };
+  $("#plDlgTitle").textContent = r ? "Modifier la phase" : opts.sub ? "Nouvelle sous-phase" : "Nouvelle phase";
+  $("#plSubmit").textContent = r ? "Enregistrer" : "Ajouter";
+  $("#plDelete").hidden = !r; $("#plAddSub").hidden = !r;
+  $("#plName").value = r ? r.name : "";
+  $("#plSub").checked = r ? !!r.sub : !!opts.sub;
+  $("#plStart").value = r ? r.start || "" : start; $("#plEnd").value = r ? r.end || "" : end;
+  plSwatches(color);
+  $("#plDlg").showModal(); $("#plName").focus();
+}
+$("#plColors").addEventListener("input", (e) => { if (e.target.id === "plCustom") document.querySelectorAll('#plColors input[name="plcolor"]').forEach((x) => (x.checked = false)); });
+$("#plForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = $("#plName").value.trim(); if (!name) { $("#plName").focus(); return toast("Indique le nom de la phase."); }
+  const s = $("#plStart").value, en = $("#plEnd").value;
+  if ((s && !en) || (!s && en)) return toast("Indique les deux dates, ou aucune.");
+  if (s && en && dayDiff(s, en) < 0) { $("#plEnd").focus(); return toast("La date de fin doit être après la date de début."); }
+  const ck = document.querySelector('#plColors input[name="plcolor"]:checked'); const color = ck ? ck.value : $("#plCustom").value;
+  const p = P(); const pl = planningOf(p); const data = { name, sub: $("#plSub").checked, start: s || "", end: en || "", color };
+  if (plEdit.id) Object.assign(pl.rows.find((x) => x.id === plEdit.id), data);
+  else {
+    const row = Object.assign({ id: uid() }, data);
+    let at = plEdit.after ? pl.rows.findIndex((x) => x.id === plEdit.after) : -1;
+    if (at >= 0) { at++; while (at < pl.rows.length && pl.rows[at].sub) at++; pl.rows.splice(at, 0, row); } else pl.rows.push(row);
+  }
+  save(); render(); $("#plDlg").close(); toast(plEdit.id ? "Phase enregistrée" : "Phase ajoutée");
+});
+$("#plDelete").addEventListener("click", () => {
+  const p = P(); const pl = planningOf(p); const r = pl.rows.find((x) => x.id === plEdit.id); if (!r) return;
+  if (!confirm(`Supprimer la phase « ${r.name} » du planning ?`)) return;
+  pl.rows = pl.rows.filter((x) => x !== r); save(); render(); $("#plDlg").close(); toast("Phase supprimée");
+});
+$("#plAddSub").addEventListener("click", () => {
+  const p = P(); const pl = planningOf(p); const r = pl.rows.find((x) => x.id === plEdit.id); if (!r) return;
+  $("#plDlg").close();
+  const s = isDate(r.start) ? r.start : pl.start;
+  openPlRow(null, { sub: true, after: r.id, color: r.color, start: s, end: isDate(r.end) && dayDiff(s, r.end) < 14 ? r.end : addDays(s, 13) });
+});
 
 /* Démarrage */
 if (!persistOK) $("#banner").classList.add("show");

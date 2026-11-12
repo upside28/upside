@@ -370,6 +370,24 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid-code{display:grid;grid-template-columns:100px 1fr;gap:12px}
 .seg{display:flex;flex-wrap:wrap;gap:6px}
+/* Export PDF : orientation du planning + aperçu */
+#printDlg [hidden]{display:none!important}
+.prgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
+#printDlg.wide .prgrid{grid-template-columns:minmax(0,360px) minmax(0,1fr)}
+.seg.orient span{display:inline-flex;align-items:center;gap:7px}
+.seg.orient input:checked+span{background:var(--navy);color:#fff;border-color:var(--navy)}
+.ori{display:inline-block;border:1.5px solid currentColor;border-radius:2px}
+.ori.p{width:10px;height:14px}.ori.l{width:14px;height:10px}
+.prprev{display:flex;flex-direction:column;gap:6px;min-width:0}
+.prprev .lbl{font-size:12px;font-weight:600;color:var(--ink)}
+.prframe{position:relative;display:flex;align-items:center;justify-content:center;min-height:300px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:14px;overflow:auto}
+.prframe canvas{width:auto;height:auto;max-width:100%;max-height:min(62vh,600px)}
+.prframe canvas,.prframe iframe{display:block;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.18)}
+.prframe iframe{width:100%;height:60vh;border:0}
+.prframe.busy canvas{opacity:.45}
+.prmsg{margin:0;color:var(--muted);font-size:13px;text-align:center}
+.prframe.busy .prmsg{position:absolute;inset:auto 0;background:none}
+@media (max-width:760px){#printDlg.wide .prgrid{grid-template-columns:minmax(0,1fr)}}
 .seg label{cursor:pointer}
 .seg input{position:absolute;opacity:0;pointer-events:none}
 .seg span{display:inline-block;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:600;border:1px solid var(--line);color:var(--muted);background:none}
@@ -737,8 +755,14 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 <dialog id="printDlg" class="small" aria-labelledby="printDlgTitle">
   <form class="dlg-form" id="printForm" novalidate>
     <div class="dlg-head"><h2 id="printDlgTitle">Imprimer le compte-rendu</h2><button class="btn ghost icon" type="button" data-close aria-label="Fermer">✕</button></div>
-    <div class="dlg-body">
+    <div class="dlg-body"><div class="prgrid"><div class="propts">
       <p class="help" id="printHelp"></p>
+      <div class="field" id="orientField" hidden><span class="lbl" id="prOrientLbl">Mise en page du planning</span>
+        <div class="seg orient" role="radiogroup" aria-labelledby="prOrientLbl">
+          <label><input type="radio" name="prOrient" value="portrait"><span><i class="ori p" aria-hidden="true"></i>Portrait</span></label>
+          <label><input type="radio" name="prOrient" value="landscape"><span><i class="ori l" aria-hidden="true"></i>Paysage</span></label>
+        </div>
+      </div>
       <div class="field"><label for="prArch">Tâches archivées</label><select id="prArch"><option value="grey">Grisées, dans leur catégorie</option><option value="hide">Masquées</option></select></div>
       <div class="field"><label for="prCom">Commentaires</label><select id="prCom"><option value="all">Tout l’historique</option><option value="new">Uniquement ceux de ce CR</option></select></div>
       <div class="field" id="annexField"><label for="prAnnex">PDF joints aux tâches et commentaires</label><select id="prAnnex"><option value="annex">Ajoutés en annexe, avec liens cliquables dans le CR</option><option value="none">Non joints (seulement cités)</option></select></div>
@@ -746,6 +770,10 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <input type="file" id="fontFiles" accept=".ttf,font/ttf" multiple hidden>
       <p class="help" id="printHint"></p>
     </div>
+    <div class="prprev" id="prPrev" hidden>
+      <span class="lbl">Aperçu de la page planning</span>
+      <div class="prframe" id="prFrame"><p class="prmsg" id="prMsg">Préparation de l’aperçu…</p></div>
+    </div></div></div>
     <div class="dlg-foot"><span class="spacer"></span><button class="btn" type="button" data-close>Annuler</button><button class="btn primary" type="submit" id="printSubmit">Imprimer</button></div>
   </form>
 </dialog>
@@ -1843,12 +1871,61 @@ function openExport(mode) {
   $("#printHelp").textContent = `CR n°${cr.num} du ${fmtNum(cr.date)}, tel qu’il était à cette réunion.`;
   $("#printHint").textContent = mode === "pdf" ? "Le fichier PDF est téléchargé directement, prêt à être envoyé aux intervenants." : "Pour obtenir un PDF depuis cette fenêtre, choisis « Enregistrer au format PDF » comme imprimante.";
   $("#fontField").hidden = mode !== "pdf"; $("#annexField").hidden = mode !== "pdf";
+  // orientation du planning (export PDF uniquement, si le CR a un planning)
+  const withPl = mode === "pdf" && hasPlanning(crPlanning(p, cr));
+  $("#orientField").hidden = !withPl; $("#prPrev").hidden = !withPl;
+  $("#printDlg").classList.toggle("wide", withPl); $("#printDlg").classList.toggle("small", !withPl);
+  document.querySelectorAll('input[name="prOrient"]').forEach((r) => (r.checked = r.value === (p.plOrient || "portrait")));
   renderFontBox();
   $("#printDlg").showModal();
+  if (withPl) refreshPreview();
 }
+const hasPlanning = (pl) => !!(pl && pl.rows && pl.rows.some((r) => isDate(r.start) && isDate(r.end)));
+const crPlanning = (p, cr) => (cr.validated && cr.snapPlanning ? cr.snapPlanning : p.planning);
+const prOrient = () => { const r = document.querySelector('input[name="prOrient"]:checked'); return r ? r.value : "portrait"; };
+
+/* Aperçu de la page planning (rendu avec pdf.js, sinon affiché dans un cadre) */
+const PDFJS = ["https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js", "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"];
+let prevTok = 0, prevUrl = null;
+async function refreshPreview() {
+  const tok = ++prevTok; const box = $("#prFrame");
+  box.classList.add("busy");
+  if (!box.querySelector(".prmsg")) box.insertAdjacentHTML("beforeend", `<p class="prmsg" id="prMsg"></p>`);
+  box.querySelector(".prmsg").textContent = "Préparation de l’aperçu…";
+  try {
+    const out = await exportPdf({ arch: $("#prArch").value, com: $("#prCom").value, annex: false, orient: prOrient(), preview: true });
+    if (tok !== prevTok) return;
+    try {
+      if (!window.pdfjsLib) { await loadScript(PDFJS[0]); window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS[1]; }
+      const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(await out.blob.arrayBuffer()) }).promise;
+      const page = await pdf.getPage(1); if (tok !== prevTok) return;
+      const k = Math.min(3, (window.devicePixelRatio || 1) * 1.6);
+      const vp = page.getViewport({ scale: k }); const cv = document.createElement("canvas");
+      cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+      cv.setAttribute("aria-label", `Aperçu du planning en ${prOrient() === "landscape" ? "paysage" : "portrait"}`); cv.setAttribute("role", "img");
+      await page.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+      if (tok !== prevTok) return;
+      box.replaceChildren(cv);
+    } catch (e) {
+      // pdf.js indisponible : aperçu par le lecteur PDF du navigateur
+      if (prevUrl) URL.revokeObjectURL(prevUrl); prevUrl = URL.createObjectURL(out.blob);
+      const fr = document.createElement("iframe"); fr.title = "Aperçu du planning"; fr.src = prevUrl + "#toolbar=0&navpanes=0&view=Fit";
+      box.replaceChildren(fr);
+    }
+  } catch (e) {
+    console.error(e); if (tok !== prevTok) return;
+    box.replaceChildren(Object.assign(document.createElement("p"), { className: "prmsg", textContent: "L’aperçu n’a pas pu être créé." }));
+  } finally { if (tok === prevTok) box.classList.remove("busy"); }
+}
+document.addEventListener("change", (e) => {
+  if (e.target.name !== "prOrient") return;
+  const p = P(); p.plOrient = e.target.value; save(); // choix mémorisé pour le projet
+  refreshPreview();
+});
+$("#printDlg").addEventListener("close", () => { prevTok++; if (prevUrl) { URL.revokeObjectURL(prevUrl); prevUrl = null; } });
 $("#printForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const opts = { arch: $("#prArch").value, com: $("#prCom").value, annex: $("#prAnnex").value === "annex" };
+  const opts = { arch: $("#prArch").value, com: $("#prCom").value, annex: $("#prAnnex").value === "annex", orient: prOrient() };
   if (printMode === "pdf") {
     const btn = $("#printSubmit"); btn.disabled = true; btn.textContent = "Création du PDF…";
     try { await exportPdf(opts); $("#printDlg").close(); }
@@ -2009,6 +2086,7 @@ const slug = (v) => String(v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").r
 const ST_BG = { retard: [153, 27, 27], afaire: [254, 243, 199], encours: [219, 234, 254], urgent: [254, 226, 226], memoire: [237, 233, 254], termine: [220, 252, 231], archive: [235, 237, 239] };
 const ST_RGB = { retard: [153, 27, 27], afaire: [146, 64, 14], encours: [30, 64, 175], urgent: [153, 27, 27], memoire: [91, 33, 182], termine: [22, 101, 52], archive: [140, 146, 150] };
 
+const M_ = 15; // marge des pages PDF (mm)
 async function exportPdf(opts) {
   try { await ensurePdfLib(); }
   catch (e) { toast("Le module PDF n’a pas pu être chargé : vérifie ta connexion internet."); throw e; }
@@ -2016,12 +2094,14 @@ async function exportPdf(opts) {
   const p = P(); const cr = activeCr(p); const w = crWindow(p, cr); const cutoff = w.to; const SRC = crSource(p, cr);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const FONT = await applyPdfFont(doc);
-  const PW = 210, M = 15, CW = PW - 2 * M, TOP = 18, BOTTOM = 278;
+  // PW, CW et BOTTOM changent le temps de la page planning si elle est en paysage
+  let PW = 210, CW = PW - 2 * M_, BOTTOM = 278; const M = M_, TOP = 18;
+  const ORIENT = opts.orient || P().plOrient || "portrait";
   const NAVY = [26, 35, 50], GOLD = [184, 148, 42], INK = [26, 35, 50], GREY = [107, 114, 128], LINE = [229, 226, 220], SOFT = [245, 244, 241], NEWBG = [240, 232, 208];
   const T = FONT === "helvetica" ? pdfText : (v) => String(v ?? "").normalize("NFC").replace(/\t/g, "  ").replace(/[\u00A0\u202F]/g, " ").replace(/[✓✔]/g, "OK").replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\uFE0F\u200D]/gu, "");
   const MM = 0.3528;
   let y = TOP;
-  const ensure = (h) => { if (y + h > BOTTOM) { doc.addPage(); y = TOP; } };
+  const ensure = (h) => { if (y + h > BOTTOM) { doc.addPage("a4", "portrait"); y = TOP; } };
   function text(str, o = {}) {
     const size = o.size || 9, lh = o.lh || 1.3, width = o.width || CW, x = o.x ?? M;
     doc.setFont(FONT, o.style || "normal"); doc.setFontSize(size); doc.setTextColor(...(o.color || INK));
@@ -2029,6 +2109,17 @@ async function exportPdf(opts) {
     if (!o.noBreak) ensure(h);
     doc.text(lines, o.align === "center" ? x + width / 2 : x, y + size * MM * 0.85, { align: o.align || "left", lineHeightFactor: lh });
     y += h; return h;
+  }
+  // en-tête et pied d'une page (s'adapte au portrait ou au paysage) ; n = 0 : sans numéro de page
+  function footer(i, n) {
+    doc.setPage(i);
+    const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
+    doc.setFont(FONT, "normal"); doc.setFontSize(8); doc.setTextColor(...GREY);
+    if (i > 1 || !n) doc.text(T(`${p.name} — CR n°${cr.num} — Réunion du ${fmtDot(cr.date)}`), pw / 2, 10, { align: "center" });
+    doc.setDrawColor(...GOLD); doc.setLineWidth(0.3); doc.line(M, ph - 13, pw - M, ph - 13);
+    doc.text(T(p.crTitle), M, ph - 8);
+    doc.text(T(`Exporté le ${fmtDot(today())}`), pw / 2, ph - 8, { align: "center" });
+    if (n) doc.text(`Page ${i} / ${n}`, pw - M, ph - 8, { align: "right" });
   }
   const heading = (str) => { ensure(14); y += 4; const y0 = y; text(str, { size: 13, style: "bold", color: NAVY, x: M + 3, width: CW - 3 }); doc.setFillColor(...GOLD); doc.rect(M, y0 + 0.6, 1, y - y0 - 0.8, "F"); y += 2; };
   const pres = (i) => cr.presences[i.id] || { p: "", conv: false };
@@ -2126,17 +2217,22 @@ async function exportPdf(opts) {
   if (cr.nota) text(`Nota : ${cr.nota}`, { size: 9, style: "italic" });
 
   /* Planning du projet : page dédiée, entre la page 1 et les tâches */
+  let planPage = 0;
   {
-    const pl = cr.validated && cr.snapPlanning ? cr.snapPlanning : p.planning;
-    if (pl && pl.rows && pl.rows.some((r) => isDate(r.start) && isDate(r.end))) {
-      const A = plAxis(pl); const LW = 50, TX = M + LW, TW = CW - LW, HG = 5, HU = 3.6;
+    const pl = crPlanning(p, cr);
+    if (hasPlanning(pl)) {
+      const land = ORIENT === "landscape";
+      if (land) { doc.addPage("a4", "landscape"); PW = 297; CW = PW - 2 * M; BOTTOM = 210 - 19; }
+      else doc.addPage("a4", "portrait");
+      planPage = doc.getNumberOfPages();
+      const A = plAxis(pl); const LW = land ? 62 : 50, TX = M + LW, TW = CW - LW, HG = 5, HU = 3.6;
       const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); const n = m ? parseInt(m[1], 16) : 0x5b6b75; return [n >> 16, (n >> 8) & 255, n & 255]; };
       const tint = (c, k) => c.map((v) => Math.round(v + (255 - v) * k));
       doc.setFont(FONT, "bold"); doc.setFontSize(7.5);
       const rowsH = pl.rows.map((r) => Math.max(1, doc.splitTextToSize(T(r.name), LW - 4).length));
       let RH = 10; const FOOT = 6;
       const need = (rh) => 18 + HG + HU + 1 + pl.rows.reduce((a, r, i) => a + Math.max(rh, rowsH[i] * 3 + 1.5), 0) + FOOT;
-      doc.addPage(); y = TOP - 4; // page dédiée au planning
+      y = TOP - 4; // page dédiée au planning
       while (y + need(RH) > BOTTOM && RH > 5) RH -= 0.5; // tasse les lignes si besoin
       heading("Planning du projet"); y += 1;
       const X = (pc) => TX + pc / 100 * TW;
@@ -2176,7 +2272,16 @@ async function exportPdf(opts) {
         doc.setFillColor(...NAVY); doc.roundedRect(bx, bottom - 4.2, lw, 3.8, 0.7, 0.7, "F"); doc.setTextColor(255, 255, 255); doc.text(lab, bx + lw / 2, bottom - 1.5, { align: "center" });
       }
       y = bottom + 2;
+      PW = 210; CW = PW - 2 * M; BOTTOM = 278; // retour au portrait pour la suite
     }
+  }
+
+  /* Aperçu : seule la page planning est gardée */
+  if (opts.preview) {
+    if (!planPage) throw new Error("Pas de planning");
+    for (let i = planPage - 1; i >= 1; i--) doc.deletePage(i);
+    footer(1, 0);
+    return { blob: doc.output("blob") };
   }
 
   /* Photos des commentaires : chargées et réduites avant la mise en page */
@@ -2204,7 +2309,7 @@ async function exportPdf(opts) {
   }
 
   /* Tâches et avancement */
-  doc.addPage(); y = TOP - 4;
+  doc.addPage("a4", "portrait"); y = TOP - 4;
   heading("Tâches et avancement");
   let anyTask = false;
   SRC.lots.forEach((lot) => {
@@ -2344,7 +2449,7 @@ async function exportPdf(opts) {
   const annexData = [];
   if (opts.annex && annexes.length) {
     for (const a of annexes) { const b = await getFile(a.id); annexData.push(b ? await b.arrayBuffer() : null); }
-    doc.addPage(); y = TOP - 4; // les annexes commencent sur une nouvelle page
+    doc.addPage("a4", "portrait"); y = TOP - 4; // les annexes commencent sur une nouvelle page
     heading("Annexes"); y += 1;
     annexes.forEach((a, i) => {
       ensure(9);
@@ -2362,15 +2467,7 @@ async function exportPdf(opts) {
 
   /* En-têtes et pieds de page */
   const n = doc.getNumberOfPages();
-  for (let i = 1; i <= n; i++) {
-    doc.setPage(i);
-    doc.setFont(FONT, "normal"); doc.setFontSize(8); doc.setTextColor(...GREY);
-    if (i > 1) doc.text(T(`${p.name} — CR n°${cr.num} — Réunion du ${fmtDot(cr.date)}`), PW / 2, 10, { align: "center" });
-    doc.setDrawColor(...GOLD); doc.setLineWidth(0.3); doc.line(M, 284, PW - M, 284);
-    doc.text(T(p.crTitle), M, 289);
-    doc.text(T(`Exporté le ${fmtDot(today())}`), PW / 2, 289, { align: "center" });
-    doc.text(`Page ${i} / ${n}`, PW - M, 289, { align: "right" });
-  }
+  for (let i = 1; i <= n; i++) footer(i, n);
   doc.setProperties({ title: T(`${p.crTitle} - ${p.name} - CR n°${cr.num}`) });
   const fname = `${slug(p.name) || "projet"}_CR-${cr.num}_${cr.date}.pdf`;
   let blob = doc.output("blob"); let skipped = 0;
@@ -2437,7 +2534,7 @@ async function exportZip(pid) {
     state.active = p.id;
     for (const c of crs) {
       p.activeCr = c.id;
-      const out = await exportPdf({ arch: "grey", com: "all", annex: true, asBlob: true });
+      const out = await exportPdf({ arch: "grey", com: "all", annex: true, asBlob: true, orient: p.plOrient || "portrait" });
       folder.file(out.name, out.blob);
     }
   } catch (e) { toast("Erreur pendant la création des PDF."); return; }
@@ -2973,7 +3070,8 @@ function shareProject(id) {
    Planning du projet (page ID Projet)
    ========================================================== */
 const PL_COLORS = ["#C40A0E", "#E8761A", "#E9B289", "#F5D76E", "#4C8A2E", "#0E7C86", "#2F6BC0", "#7B4FC4", "#B33A74", "#5B6B75"];
-const PL_PPD = { jour: 30, semaine: 12, mois: 4 };
+const PL_PPD = { jour: 30, semaine: 12, mois: 4, annee: 0.8 };
+const PL_MAXDAYS = (scale) => scale === "annee" ? 366 * 15 : 366 * 5; // plage max : 15 ans en échelle Année, 5 ans sinon
 const utcOf = (iso) => { const [y, m, d] = iso.split("-").map(Number); return Date.UTC(y, m - 1, d); };
 const dayDiff = (a, b) => Math.round((utcOf(b) - utcOf(a)) / 864e5);
 const mondayOf = (iso) => { const [y, m, d] = iso.split("-").map(Number); const wd = (new Date(y, m - 1, d).getDay() + 6) % 7; return addDays(iso, -wd); };
@@ -2984,6 +3082,8 @@ function isoWeek(iso) {
 }
 const monthLabel = (iso, short) => { const [y, m] = iso.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("fr-FR", short ? { month: "short" } : { month: "long", year: "numeric" }); };
 const firstOfNextMonth = (iso) => { const [y, m] = iso.split("-").map(Number); return m === 12 ? `${y + 1}-01-01` : `${y}-${pad(m + 1)}-01`; };
+const quarterStart = (iso) => { const [y, m] = iso.split("-").map(Number); return `${y}-${pad(Math.floor((m - 1) / 3) * 3 + 1)}-01`; };
+const firstOfNextQuarter = (iso) => { const [y, m] = quarterStart(iso).split("-").map(Number); return m === 10 ? `${y + 1}-01-01` : `${y}-${pad(m + 3)}-01`; };
 const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || "");
 
 function planningOf(p) {
@@ -3002,18 +3102,20 @@ function plAxis(pl) {
   const x = (iso) => dayDiff(pl.start, iso) / D * 100;
   const groups = [], units = [], glines = [], ulines = [];
   for (let g = pl.start; dayDiff(g, pl.end) >= 0;) {
-    const next = pl.scale === "mois" ? `${+g.slice(0, 4) + 1}-01-01` : firstOfNextMonth(g);
+    const byYear = pl.scale === "mois" || pl.scale === "annee";
+    const next = byYear ? `${+g.slice(0, 4) + 1}-01-01` : firstOfNextMonth(g);
     const l = Math.max(0, x(g)), r = Math.min(100, x(next));
-    groups.push({ l, w: r - l, lab: pl.scale === "mois" ? g.slice(0, 4) : monthLabel(g) });
+    groups.push({ l, w: r - l, lab: byYear ? g.slice(0, 4) : monthLabel(g) });
     if (l > 0) glines.push(l);
     g = next;
   }
-  let u = pl.scale === "semaine" ? mondayOf(pl.start) : pl.scale === "mois" ? pl.start.slice(0, 8) + "01" : pl.start;
+  // unités : jours, semaines, mois ou trimestres (échelle Année : années en bandeau, trimestres en dessous)
+  let u = pl.scale === "semaine" ? mondayOf(pl.start) : pl.scale === "mois" ? pl.start.slice(0, 8) + "01" : pl.scale === "annee" ? quarterStart(pl.start) : pl.start;
   while (dayDiff(u, pl.end) >= 0) {
-    const next = pl.scale === "jour" ? addDays(u, 1) : pl.scale === "semaine" ? addDays(u, 7) : firstOfNextMonth(u);
+    const next = pl.scale === "jour" ? addDays(u, 1) : pl.scale === "semaine" ? addDays(u, 7) : pl.scale === "annee" ? firstOfNextQuarter(u) : firstOfNextMonth(u);
     const l = Math.max(0, x(u)), r = Math.min(100, x(next));
     const [yy, mm, dd] = u.split("-").map(Number); const wd = new Date(yy, mm - 1, dd).getDay();
-    units.push({ l, w: r - l, iso: u, we: pl.scale === "jour" && (wd === 0 || wd === 6), lab: pl.scale === "jour" ? String(dd) : pl.scale === "semaine" ? `S${isoWeek(u)}` : monthLabel(u, true) });
+    units.push({ l, w: r - l, iso: u, we: pl.scale === "jour" && (wd === 0 || wd === 6), lab: pl.scale === "jour" ? String(dd) : pl.scale === "semaine" ? `S${isoWeek(u)}` : pl.scale === "annee" ? `T${Math.floor((mm - 1) / 3) + 1}` : monthLabel(u, true) });
     if (l > 0) ulines.push(l);
     u = next;
   }
@@ -3033,7 +3135,7 @@ const meetingDate = (p) => { const cr = activeCr(p) || sortedCrs(p).slice(-1)[0]
 function renderPlanning(p) {
   const pl = planningOf(p); const ppd = PL_PPD[pl.scale]; const A = plAxis(pl); const D = A.D;
   const grp = A.groups.map((g) => `<div class="plgrp" style="left:${pcs(g.l)};width:${pcs(g.w)}" title="${g.lab}">${g.lab}</div>`).join("");
-  const units = A.units.map((u) => `<div class="plunit${u.we ? " we" : ""}" style="left:${pcs(u.l)};width:${pcs(u.w)}" title="${pl.scale === "semaine" ? "Semaine du " + fmtNum(u.iso) : ""}">${u.w / 100 * D * ppd >= 16 ? u.lab : ""}</div>`).join("");
+  const units = A.units.map((u) => `<div class="plunit${u.we ? " we" : ""}" style="left:${pcs(u.l)};width:${pcs(u.w)}" title="${pl.scale === "semaine" ? "Semaine du " + fmtNum(u.iso) : pl.scale === "annee" ? u.lab.replace("T", "Trimestre ") + " " + u.iso.slice(0, 4) : ""}">${u.w / 100 * D * ppd >= 16 ? u.lab : ""}</div>`).join("");
   const lines = A.glines.map((l) => `<div class="plvl g" style="left:${pcs(l)}"></div>`).join("") + A.ulines.map((l) => `<div class="plvl" style="left:${pcs(l)}"></div>`).join("");
   const md = meetingDate(p); const mx = A.mark(md);
   const meet = mx != null ? `<div class="plmeet" style="left:${pcs(mx)}" title="Réunion du ${fmtNum(md)}"><span>Réunion ${fmtNum(md).slice(0, 5)}</span></div>` : "";
@@ -3051,7 +3153,7 @@ function renderPlanning(p) {
     <div class="plhead">
       <h2><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2.5" y="3.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 7.5h13M6 2v3M12 2v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Planning du projet</h2>
       <label class="plctl">Début : <input type="date" data-pl="start" value="${pl.start}" aria-label="Début du planning"></label>
-      <label class="plctl">Précision : <select data-pl="scale" aria-label="Précision du planning">${[["jour", "Jour"], ["semaine", "Semaine"], ["mois", "Mois"]].map(([v, l]) => `<option value="${v}"${pl.scale === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="plctl">Précision : <select data-pl="scale" aria-label="Précision du planning">${[["jour", "Jour"], ["semaine", "Semaine"], ["mois", "Mois"], ["annee", "Année"]].map(([v, l]) => `<option value="${v}"${pl.scale === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="plctl">Fin : <input type="date" data-pl="end" value="${pl.end}" aria-label="Fin du planning"></label>
       ${pl.rows.some((r) => r.start && r.end) ? `<button class="btn sm ghost" type="button" data-plact="fit" title="Ajuster la plage de dates aux phases">Ajuster aux phases</button>` : ""}
     </div>
@@ -3088,11 +3190,14 @@ function afterPlanningRender() { const sc = document.querySelector(".plscroll");
 document.addEventListener("change", (e) => {
   const tg = e.target; if (!tg.dataset || !tg.dataset.pl) return;
   const p = P(); const pl = planningOf(p); const k = tg.dataset.pl;
-  if (k === "scale") { pl.scale = tg.value; save(); return render(); }
+  if (k === "scale") {
+    if (dayDiff(pl.start, pl.end) > PL_MAXDAYS(tg.value)) { toast("Plage trop longue pour cette précision (5 ans max) : réduis-la d’abord."); tg.value = pl.scale; return; }
+    pl.scale = tg.value; save(); return render();
+  }
   if (!isDate(tg.value)) { tg.value = pl[k]; return; }
   const ns = k === "start" ? tg.value : pl.start, ne = k === "end" ? tg.value : pl.end;
   if (dayDiff(ns, ne) < 0) { toast("La date de fin doit être après la date de début."); tg.value = pl[k]; return; }
-  if (dayDiff(ns, ne) > 366 * 5) { toast("Plage limitée à 5 ans."); tg.value = pl[k]; return; }
+  if (dayDiff(ns, ne) > PL_MAXDAYS(pl.scale)) { toast(pl.scale === "annee" ? "Plage limitée à 15 ans." : "Plage limitée à 5 ans (15 ans en précision Année)."); tg.value = pl[k]; return; }
   pl[k] = tg.value; save(); render();
 });
 
@@ -3111,8 +3216,9 @@ document.addEventListener("click", (e) => {
     case "fit": {
       const d = pl.rows.filter((r) => isDate(r.start) && isDate(r.end)); if (!d.length) return;
       const s = d.map((r) => r.start).sort()[0], en = d.map((r) => r.end).sort().slice(-1)[0];
-      pl.start = pl.scale === "semaine" ? mondayOf(s) : pl.scale === "mois" ? s.slice(0, 8) + "01" : s;
-      pl.end = pl.scale === "semaine" ? addDays(mondayOf(en), 6) : pl.scale === "mois" ? addDays(firstOfNextMonth(en), -1) : en;
+      pl.start = pl.scale === "semaine" ? mondayOf(s) : pl.scale === "mois" ? s.slice(0, 8) + "01" : pl.scale === "annee" ? s.slice(0, 4) + "-01-01" : s;
+      pl.end = pl.scale === "semaine" ? addDays(mondayOf(en), 6) : pl.scale === "mois" ? addDays(firstOfNextMonth(en), -1) : pl.scale === "annee" ? en.slice(0, 4) + "-12-31" : en;
+      if (dayDiff(pl.start, pl.end) > PL_MAXDAYS(pl.scale)) { const lim = PL_MAXDAYS(pl.scale); pl.end = addDays(pl.start, lim); toast("Phases trop étalées : plage limitée"); }
       plScrollX = 0; save(); render(); return toast("Plage ajustée aux phases");
     }
   }

@@ -451,8 +451,10 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .plctl input:focus,.plctl select:focus{outline:none;background:var(--surface)}
 .plgrid{display:flex;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
 .plleft{flex:0 0 250px;border-right:1px solid var(--line);background:var(--surface-2)}
-.plscroll{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden}
-.pltl{position:relative}
+.plscroll{flex:1;min-width:0;overflow:hidden}
+.pltl{position:relative;width:100%}
+#planning.dense .plvl:not(.g){display:none}
+.plgrp.yr{overflow:visible;text-overflow:clip;z-index:1}
 .plhd{height:64px;border-bottom:1px solid var(--line);position:relative}
 .plleft .plhd{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .plgrp{position:absolute;top:0;height:34px;padding:9px 8px 0;font-size:13px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:1px solid var(--line)}
@@ -462,6 +464,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .plvl{position:absolute;top:34px;bottom:0;width:1px;background:var(--line-soft);pointer-events:none}
 .plvl.g{top:0;background:var(--line)}
 .plmeet{position:absolute;top:34px;bottom:0;width:0;border-left:1px dashed var(--navy);pointer-events:none;z-index:2}
+.plmeet.edge-l span{transform:none}.plmeet.edge-r span{transform:translateX(-100%)}
 .plmeet span{position:absolute;bottom:4px;left:0;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap}
 .plbot{height:30px;border-top:1px solid var(--line-soft)}
 .plrow{height:46px;border-bottom:1px solid var(--line-soft)}
@@ -3105,7 +3108,7 @@ function plAxis(pl) {
     const byYear = pl.scale === "mois" || pl.scale === "annee";
     const next = byYear ? `${+g.slice(0, 4) + 1}-01-01` : firstOfNextMonth(g);
     const l = Math.max(0, x(g)), r = Math.min(100, x(next));
-    groups.push({ l, w: r - l, lab: byYear ? g.slice(0, 4) : monthLabel(g) });
+    groups.push({ l, w: r - l, iso: g, lab: byYear ? g.slice(0, 4) : monthLabel(g) });
     if (l > 0) glines.push(l);
     g = next;
   }
@@ -3134,11 +3137,12 @@ const meetingDate = (p) => { const cr = activeCr(p) || sortedCrs(p).slice(-1)[0]
 
 function renderPlanning(p) {
   const pl = planningOf(p); const ppd = PL_PPD[pl.scale]; const A = plAxis(pl); const D = A.D;
-  const grp = A.groups.map((g) => `<div class="plgrp" style="left:${pcs(g.l)};width:${pcs(g.w)}" title="${g.lab}">${g.lab}</div>`).join("");
-  const units = A.units.map((u) => `<div class="plunit${u.we ? " we" : ""}" style="left:${pcs(u.l)};width:${pcs(u.w)}" title="${pl.scale === "semaine" ? "Semaine du " + fmtNum(u.iso) : pl.scale === "annee" ? u.lab.replace("T", "Trimestre ") + " " + u.iso.slice(0, 4) : ""}">${u.w / 100 * D * ppd >= 16 ? u.lab : ""}</div>`).join("");
+  const shortLab = (lab) => /^\d{4}$/.test(lab) ? lab : lab.replace(/^(\S+)\s+\d{2}(\d{2})$/, (m, mo, yy) => (mo.length > 4 ? mo.slice(0, 3) + "." : mo) + " " + yy);
+  const grp = A.groups.map((g) => `<div class="plgrp" style="left:${pcs(g.l)};width:${pcs(g.w)}" title="${g.lab}" data-lab="${g.lab}" data-short="${shortLab(g.lab)}" data-year="${g.iso.slice(0, 4)}">${g.lab}</div>`).join("");
+  const units = A.units.map((u) => `<div class="plunit${u.we ? " we" : ""}" style="left:${pcs(u.l)};width:${pcs(u.w)}" title="${pl.scale === "semaine" ? "Semaine du " + fmtNum(u.iso) : pl.scale === "annee" ? u.lab.replace("T", "Trimestre ") + " " + u.iso.slice(0, 4) : pl.scale === "jour" ? fmtNum(u.iso) : ""}" data-lab="${u.lab}" data-day="${pl.scale === "jour" ? +u.iso.slice(8) : ""}">${u.lab}</div>`).join("");
   const lines = A.glines.map((l) => `<div class="plvl g" style="left:${pcs(l)}"></div>`).join("") + A.ulines.map((l) => `<div class="plvl" style="left:${pcs(l)}"></div>`).join("");
   const md = meetingDate(p); const mx = A.mark(md);
-  const meet = mx != null ? `<div class="plmeet" style="left:${pcs(mx)}" title="Réunion du ${fmtNum(md)}"><span>Réunion ${fmtNum(md).slice(0, 5)}</span></div>` : "";
+  const meet = mx != null ? `<div class="plmeet${mx < 6 ? " edge-l" : mx > 94 ? " edge-r" : ""}" style="left:${pcs(mx)}" title="Réunion du ${fmtNum(md)}"><span>Réunion ${fmtNum(md).slice(0, 5)}</span></div>` : "";
   const left = pl.rows.map((r, i) => `<div class="plrow ${r.sub ? "plsub" : "plmain"}" data-plid="${r.id}" style="--c:${esc(r.color)}">
       <span class="pldot" aria-hidden="true"></span>
       <button class="plname" type="button" data-plact="edit" title="${esc(r.name)}${r.start && r.end ? ` — du ${fmtNum(r.start)} au ${fmtNum(r.end)}` : ""}">${esc(r.name) || "<i>Sans nom</i>"}</button>
@@ -3159,7 +3163,7 @@ function renderPlanning(p) {
     </div>
     <div class="plgrid">
       <div class="plleft"><div class="plhd">Phases</div>${left}<div class="plbot"></div></div>
-      <div class="plscroll"><div class="pltl" style="min-width:${D * ppd}px" data-days="${D}"><div class="plhd">${grp}${units}</div>${lines}${meet}${tracks || `<div class="plnone">Aucune phase pour l’instant.</div>`}<div class="plbot"></div></div></div>
+      <div class="plscroll"><div class="pltl" data-days="${D}"><div class="plhd">${grp}${units}</div>${lines}${meet}${tracks || `<div class="plnone">Aucune phase pour l’instant.</div>`}<div class="plbot"></div></div></div>
     </div>
     <div class="plfoot">
       <button class="btn sm" type="button" data-plact="add">${I.plus} Ajouter une phase</button>
@@ -3184,7 +3188,38 @@ function planningPrintHTML(pl, md) {
 }
 let plScrollX = 0;
 document.addEventListener("scroll", (e) => { if (e.target.classList && e.target.classList.contains("plscroll")) plScrollX = e.target.scrollLeft; }, true);
-function afterPlanningRender() { const sc = document.querySelector(".plscroll"); if (sc) sc.scrollLeft = plScrollX; }
+/* La frise tient dans la largeur : on n'affiche que les libellés qui ont la place */
+function fitPlLabels() {
+  let prevYear = null;
+  document.querySelectorAll("#planning .plgrp").forEach((el) => {
+    el.classList.remove("yr");
+    const y = el.dataset.year, newYear = y !== prevYear; prevYear = y;
+    el.textContent = el.dataset.lab; if (el.scrollWidth <= el.clientWidth + 1) return;
+    el.textContent = el.dataset.short; if (el.scrollWidth <= el.clientWidth + 1) return;
+    // mois trop étroits : on affiche seulement l'année, au premier mois de chaque année
+    el.textContent = newYear && el.dataset.lab !== y ? y : ""; if (el.textContent) el.classList.add("yr");
+  });
+  const units = [...document.querySelectorAll("#planning .plunit")]; if (!units.length) return;
+  // largeur d'une unité et du plus long libellé : on affiche 1 libellé sur n si la place manque
+  const w = units[Math.min(1, units.length - 1)].getBoundingClientRect().width || 1;
+  document.querySelector("#planning").classList.toggle("dense", w < 9); // traits trop serrés : on ne garde que ceux des mois
+  const longest = Math.max(...units.map((u) => u.dataset.lab.length)) * 6.2 + 6;
+  const n = w >= longest ? 1 : [2, 3, 4, 7, 14, 30, 60].find((k) => k * w >= longest) || 0;
+  const tlw = document.querySelector("#planning .pltl").clientWidth;
+  // en précision Jour, on garde des jours repères du mois (1, 5, 10…) plutôt qu'un jour sur n
+  const DAYS = !n ? [] : n <= 2 ? [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29] : n <= 5 ? [1, 5, 10, 15, 20, 25] : n <= 10 ? [1, 10, 20] : n <= 15 ? [1, 15] : [1];
+  units.forEach((el, i) => {
+    const day = +el.dataset.day;
+    const show = n === 1 || (n && (day ? DAYS.includes(day) : i % n === 0) && el.offsetLeft + longest <= tlw);
+    el.textContent = show && (day || el.getBoundingClientRect().width * n >= longest) ? el.dataset.lab : "";
+    el.style.zIndex = n > 1 && el.textContent ? 1 : ""; el.style.overflow = n > 1 ? "visible" : ""; el.style.textAlign = n > 1 ? "left" : ""; el.style.paddingLeft = n > 1 ? "3px" : ""; });
+}
+let plRO = null;
+function afterPlanningRender() {
+  const tl = document.querySelector("#planning .pltl"); if (!tl) return;
+  fitPlLabels();
+  if (window.ResizeObserver) { if (plRO) plRO.disconnect(); plRO = new ResizeObserver(() => fitPlLabels()); plRO.observe(tl); }
+}
 
 /* Réglages de la plage */
 document.addEventListener("change", (e) => {

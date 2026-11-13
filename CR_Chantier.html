@@ -2233,7 +2233,7 @@ async function exportPdf(opts) {
       const tint = (c, k) => c.map((v) => Math.round(v + (255 - v) * k));
       doc.setFont(FONT, "bold"); doc.setFontSize(7.5);
       const rowsH = pl.rows.map((r) => Math.max(1, doc.splitTextToSize(T(r.name), LW - 4).length));
-      let RH = 10; const FOOT = 6;
+      let RH = land ? 12 : 10; const FOOT = 6;
       const need = (rh) => 18 + HG + HU + 1 + pl.rows.reduce((a, r, i) => a + Math.max(rh, rowsH[i] * 3 + 1.5), 0) + FOOT;
       y = TOP - 4; // page dédiée au planning
       while (y + need(RH) > BOTTOM && RH > 5) RH -= 0.5; // tasse les lignes si besoin
@@ -2262,7 +2262,11 @@ async function exportPdf(opts) {
         const lines = doc.splitTextToSize(T(r.name), LW - (r.sub ? 7 : 4)); const th = lines.length * 3;
         doc.text(lines, M + (r.sub ? 3 : 0), y + (h - th) / 2 + 2.3, { lineHeightFactor: 1.2 });
         const b = A.bars[i];
-        if (b && !b.off) { doc.setFillColor(...(r.sub ? tint(c, 0.45) : c)); const bh = r.sub ? Math.min(3.6, h - 2.4) : Math.min(4.6, h - 2); doc.roundedRect(X(b.l), y + (h - bh) / 2, Math.max(0.6, b.w / 100 * TW), bh, 0.8, 0.8, "F"); }
+        if (b && !b.off) {
+          const bl = Math.max(0, b.l), br = Math.min(100, b.l + b.w); // jamais au-delà de la frise
+          doc.setFillColor(...(r.sub ? tint(c, 0.45) : c)); const bh = r.sub ? Math.min(3.6, h - 2.4) : Math.min(4.6, h - 2);
+          if (br > bl) doc.roundedRect(X(bl), y + (h - bh) / 2, Math.max(0.6, (br - bl) / 100 * TW), bh, 0.8, 0.8, "F");
+        }
         y += h;
       });
       doc.setDrawColor(...LINE); doc.line(M, y, PW - M, y); y += FOOT;
@@ -3096,11 +3100,23 @@ function planningOf(p) {
   }
   if (!PL_PPD[p.planning.scale]) p.planning.scale = "semaine";
   if (!Array.isArray(p.planning.rows)) p.planning.rows = [];
+  const v = plView(p.planning); p.planning.start = v.start; p.planning.end = v.end; // la plage couvre toujours toutes les phases
   return p.planning;
+}
+/* Plage réellement affichée : toutes les phases sont visibles, et les bornes tombent sur la précision choisie
+   (années entières en précision Année, mois entiers en Mois, semaines entières en Semaine) */
+function plView(pl) {
+  let s = pl.start, e = pl.end;
+  pl.rows.forEach((r) => { if (isDate(r.start) && isDate(r.end)) { if (r.start < s) s = r.start; if (r.end > e) e = r.end; } });
+  if (pl.scale === "annee") { s = s.slice(0, 4) + "-01-01"; e = e.slice(0, 4) + "-12-31"; }
+  else if (pl.scale === "mois") { s = s.slice(0, 8) + "01"; e = addDays(firstOfNextMonth(e), -1); }
+  else if (pl.scale === "semaine") { s = mondayOf(s); e = addDays(mondayOf(e), 6); }
+  return s === pl.start && e === pl.end ? pl : { ...pl, start: s, end: e };
 }
 
 // Axe du temps commun à l'écran, à l'impression et au PDF (positions en % de la plage)
 function plAxis(pl) {
+  pl = plView(pl); // vaut aussi pour les plannings figés des CR validés (impression et PDF)
   const D = Math.max(1, dayDiff(pl.start, pl.end) + 1);
   const x = (iso) => dayDiff(pl.start, iso) / D * 100;
   const groups = [], units = [], glines = [], ulines = [];
@@ -3233,7 +3249,9 @@ document.addEventListener("change", (e) => {
   const ns = k === "start" ? tg.value : pl.start, ne = k === "end" ? tg.value : pl.end;
   if (dayDiff(ns, ne) < 0) { toast("La date de fin doit être après la date de début."); tg.value = pl[k]; return; }
   if (dayDiff(ns, ne) > PL_MAXDAYS(pl.scale)) { toast(pl.scale === "annee" ? "Plage limitée à 15 ans." : "Plage limitée à 5 ans (15 ans en précision Année)."); tg.value = pl[k]; return; }
-  pl[k] = tg.value; save(); render();
+  pl[k] = tg.value;
+  const v = plView(pl); if (v.start !== tg.value && v.end !== tg.value) toast("La plage est élargie pour montrer toutes les phases.");
+  save(); render();
 });
 
 /* Boutons du planning */

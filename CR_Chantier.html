@@ -1833,7 +1833,8 @@ async function buildPrint(opts) {
   const pres = (i) => cr.presences[i.id] || { p: "", conv: false };
   const person = (i) => `<div class="pd-person"><div class="r">${esc(roleLine(i))}</div><b>${esc(fullName(i))}${i.societe ? " - " + esc(i.societe) : ""}</b><div>${esc([i.email, i.tel].filter(Boolean).join("  "))}</div><div class="p">${pres(i).p === "P" ? "<b>Présent</b>" : (PRESENCES.find((x) => x.k === pres(i).p) || { l: "—" }).l} | ${pres(i).conv ? "Convoqué à la prochaine réunion" : "Non convoqué"}</div></div>`;
   const ints = crInts(p, cr); const who = (id) => whoTextIn(ints, id);
-  const team = ints.filter((i) => i.bloc === "equipe"), moa = ints.filter((i) => i.bloc === "moa"), others = ints.filter((i) => i.bloc === "intervenant");
+  // Tous les CR présentent les intervenants en liste unique (AMO, puis maîtrise d'ouvrage, puis les autres), quel que soit le projet
+  const team = [], moa = [], others = ["equipe", "moa", "intervenant"].flatMap((b) => ints.filter((i) => (i.bloc || "intervenant") === b));
   let tasksHTML = ""; const REF = lateRef(p, cr);
   SRC.lots.forEach((lot) => {
     const list = SRC.tasks.filter((t) => t.lotId === lot.id && (!cutoff || !t.createdDate || t.createdDate < cutoff)).sort(codeSort)
@@ -2154,7 +2155,8 @@ async function exportPdf(opts) {
 
   /* AMO et maîtrise d'ouvrage, sur deux colonnes */
   const ints = crInts(p, cr); const who = (id) => whoTextIn(ints, id);
-  const team = ints.filter((i) => i.bloc === "equipe"), moa = ints.filter((i) => i.bloc === "moa"), others = ints.filter((i) => i.bloc === "intervenant");
+  // Tous les CR présentent les intervenants en liste unique (AMO, puis maîtrise d'ouvrage, puis les autres), quel que soit le projet
+  const team = [], moa = [], others = ["equipe", "moa", "intervenant"].flatMap((b) => ints.filter((i) => (i.bloc || "intervenant") === b));
   if (team.length || moa.length) {
     const colW = CW / 2 - 4; const y0 = y; let maxY = y;
     [[team, "AMO", M], [moa, "Maîtrise d’ouvrage", M + CW / 2 + 4]].forEach(([list, title, x]) => {

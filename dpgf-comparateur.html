@@ -243,7 +243,43 @@ tr:hover td { background: #fafaf9; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
 /* HOME PAGE */
-.home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 24px; }
+.home-grid-legacy { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 24px; }
+/* ---- Liste des projets (accueil) ---- */
+.home-grid { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; max-width: 1220px; }
+.project-row { display: flex; align-items: stretch; gap: 8px; position: relative; }
+.project-menu-btn { flex: 0 0 34px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; padding: 0; font-family: inherit; }
+.project-menu-btn:hover, .project-menu-btn[aria-expanded="true"] { border-color: var(--gold); color: var(--gold); }
+.project-menu-btn:focus-visible, .project-line:focus-visible, .project-menu button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.project-line { flex: 1; min-width: 0; display: flex; align-items: center; gap: 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 20px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+.project-line:hover { border-color: var(--gold); box-shadow: var(--shadow-md); }
+.project-dot { flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; }
+.project-line-main { flex: 1; min-width: 0; }
+.project-line-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.project-line-desc { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.project-line-meta { flex: 0 0 auto; text-align: right; }
+.project-line-date { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+.project-line-counts { font-size: 10.5px; color: var(--text-light); }
+.project-line-chevron { flex: 0 0 auto; color: var(--text-light); }
+.project-row.is-archived .project-line { background: #faf9f7; }
+.project-row.is-archived .project-line-name, .project-row.is-archived .project-line-desc { color: var(--text-light); }
+.project-menu { position: absolute; top: calc(100% - 4px); left: 0; z-index: 50; min-width: 190px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 10px 24px rgba(26,35,50,0.14); padding: 4px; display: none; }
+.project-menu.open { display: block; }
+.project-menu button { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; text-align: left; padding: 8px 10px; border-radius: 6px; font-size: 13px; font-family: inherit; color: var(--text); cursor: pointer; }
+.project-menu button:hover { background: var(--bg); }
+.project-menu button.danger { color: var(--red); }
+.project-menu button.danger:hover { background: var(--red-bg); }
+.archived-toggle { margin-top: 12px; align-self: flex-start; background: none; border: none; padding: 6px 0; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+.archived-toggle:hover { color: var(--gold); }
+.archived-toggle svg { transition: transform 0.15s; }
+.archived-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.archived-list { display: none; flex-direction: column; gap: 12px; }
+.archived-list.open { display: flex; }
+@media (max-width: 720px) {
+  .project-line { flex-wrap: wrap; gap: 10px 14px; padding: 14px; }
+  .project-line-meta { flex-basis: 100%; text-align: left; padding-left: 23px; }
+  .project-line-chevron { display: none; }
+  .project-line-desc { white-space: normal; }
+}
 .project-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; cursor: pointer; transition: all 0.15s; }
 .project-card:hover { border-color: var(--gold); box-shadow: var(--shadow-md); }
 .project-card-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
@@ -1276,6 +1312,14 @@ function hideAutocomplete(listId) {
 // ============================================================
 // PROJECTS
 // ============================================================
+const PROJECT_DOT_COLORS = ['#3b6fd4','#d4582a','#2e8b57','#b8942a','#8b5cc4','#1f9aa8','#c4416b','#5a6b82'];
+function projectDotColor(id) {
+  const str = String(id); let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return PROJECT_DOT_COLORS[h % PROJECT_DOT_COLORS.length];
+}
+let _showArchived = false;
+
 async function loadProjects() {
   const grid = document.getElementById('projects-grid');
   grid.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement…</div>';
@@ -1283,38 +1327,119 @@ async function loadProjects() {
     const { data, error } = await sb.from('dpgf_projects').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     _projectsCache = data || [];
-    if (!data.length) {
+    if (!_projectsCache.length) {
       grid.innerHTML = `<div class="empty-state"><div class="empty-state-title">Aucun projet</div><div class="empty-state-desc">Créez votre premier projet pour démarrer.</div></div>`;
       return;
     }
-    grid.innerHTML = '';
-    for (const p of data) {
-      const { data: tRows } = await sb.from('dpgf_offers').select('company_name').eq('project_id', p.id);
-      const { data: mRows } = await sb.from('mobilier_offers').select('company_name').eq('project_id', p.id);
+    // Comptage des offres (en parallèle)
+    const counts = await Promise.all(_projectsCache.map(async p => {
+      const [{ data: tRows }, { data: mRows }] = await Promise.all([
+        sb.from('dpgf_offers').select('company_name').eq('project_id', p.id),
+        sb.from('mobilier_offers').select('company_name').eq('project_id', p.id)
+      ]);
       const cT = tRows ? new Set(tRows.map(r => (r.company_name || '').trim().toLowerCase())).size : 0;
       const cM = mRows ? new Set(mRows.map(r => (r.company_name || '').trim().toLowerCase())).size : 0;
-      const card = document.createElement('div');
-      card.className = 'project-card';
-      card.innerHTML = `
-        <div class="project-card-name">${escHtml(p.name)}</div>
-        <div class="project-card-desc">${escHtml(p.description || '—')}</div>
-        <div class="project-card-meta" style="margin-bottom:12px;">
-          <span style="margin-right:12px;">🏗 ${cT||0} offre(s) Travaux</span>
-          <span>🪑 ${cM||0} offre(s) Mobilier</span>
-          <div style="margin-top:4px;">Créé le ${formatDate(p.created_at)}</div>
-        </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary btn-sm" style="flex:1;" onclick="event.stopPropagation();openProjectById('${p.id}')">Ouvrir</button>
-          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDeleteProject('${p.id}','${escHtml(p.name).replace(/'/g,"\\'")}')">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M3 4h10l-1 10H4L3 4zm2-2h6M6 7v5m4-5v5"/></svg>
-          </button>
-        </div>`;
-      card.onclick = () => openProject(p);
-      grid.appendChild(card);
+      return { cT, cM };
+    }));
+
+    const active = [], archived = [];
+    _projectsCache.forEach((p, i) => (p.archived ? archived : active).push({ p, ...counts[i] }));
+
+    grid.innerHTML = '';
+    if (!active.length) {
+      grid.innerHTML = `<div class="empty-state"><div class="empty-state-title">Aucun projet actif</div><div class="empty-state-desc">Créez un nouveau projet ou restaurez un projet archivé.</div></div>`;
+    }
+    active.forEach(item => grid.appendChild(buildProjectRow(item)));
+
+    if (archived.length) {
+      const toggle = document.createElement('button');
+      toggle.className = 'archived-toggle';
+      toggle.setAttribute('aria-expanded', _showArchived ? 'true' : 'false');
+      toggle.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 1.5L6.5 5 3 8.5"/></svg>Projets archivés (${archived.length})`;
+      const list = document.createElement('div');
+      list.className = 'archived-list' + (_showArchived ? ' open' : '');
+      archived.forEach(item => list.appendChild(buildProjectRow(item)));
+      toggle.onclick = () => {
+        _showArchived = !_showArchived;
+        toggle.setAttribute('aria-expanded', _showArchived ? 'true' : 'false');
+        list.classList.toggle('open', _showArchived);
+      };
+      grid.appendChild(toggle);
+      grid.appendChild(list);
     }
   } catch(e) {
     grid.innerHTML = `<div class="alert alert-warning">Erreur de connexion : ${e.message}</div>`;
   }
+}
+
+function buildProjectRow({ p, cT, cM }) {
+  const row = document.createElement('div');
+  row.className = 'project-row' + (p.archived ? ' is-archived' : '');
+  const plural = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+  row.innerHTML = `
+    <button class="project-menu-btn" aria-label="Actions sur le projet ${escHtml(p.name)}" aria-haspopup="menu" aria-expanded="false">
+      <svg width="14" height="4" viewBox="0 0 14 4" fill="currentColor"><circle cx="2" cy="2" r="1.5"/><circle cx="7" cy="2" r="1.5"/><circle cx="12" cy="2" r="1.5"/></svg>
+    </button>
+    <div class="project-menu" role="menu">
+      ${p.archived
+        ? `<button role="menuitem" data-act="unarchive"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5h12v9H2zM1 2h14v3H1zM8 12V7.5M5.8 9.5L8 7.3l2.2 2.2"/></svg>Restaurer le projet</button>`
+        : `<button role="menuitem" data-act="archive"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 5h12v9H2zM1 2h14v3H1zM6 8h4"/></svg>Archiver le projet</button>`}
+      <button role="menuitem" class="danger" data-act="delete"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.8 7v4M9.2 7v4"/></svg>Supprimer le projet</button>
+    </div>
+    <div class="project-line" tabindex="0" role="button" aria-label="Ouvrir le projet ${escHtml(p.name)}">
+      <span class="project-dot" style="background:${projectDotColor(p.id)}"></span>
+      <div class="project-line-main">
+        <div class="project-line-name">${escHtml(p.name)}</div>
+        <div class="project-line-desc">${escHtml(p.description || '—')}</div>
+      </div>
+      <div class="project-line-meta">
+        <div class="project-line-date">${p.archived ? 'Archivé · ' : ''}Créé le ${formatDate(p.created_at)}</div>
+        <div class="project-line-counts">${plural(cT||0,'offre')} Travaux · ${plural(cM||0,'offre')} Mobilier</div>
+      </div>
+      <svg class="project-line-chevron" width="8" height="12" viewBox="0 0 8 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.5 1.5L6 6l-4.5 4.5"/></svg>
+    </div>`;
+
+  const btn = row.querySelector('.project-menu-btn');
+  const menu = row.querySelector('.project-menu');
+  const line = row.querySelector('.project-line');
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const willOpen = !menu.classList.contains('open');
+    closeProjectMenus();
+    if (willOpen) { menu.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); menu.querySelector('button').focus(); }
+  };
+  menu.querySelectorAll('button').forEach(b => b.onclick = (e) => {
+    e.stopPropagation();
+    closeProjectMenus();
+    const act = b.dataset.act;
+    if (act === 'delete') confirmDeleteProject(p.id, p.name);
+    else setProjectArchived(p, act === 'archive');
+  });
+  line.onclick = () => openProject(p);
+  line.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openProject(p); } };
+  return row;
+}
+
+function closeProjectMenus() {
+  document.querySelectorAll('.project-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.project-menu-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+}
+document.addEventListener('click', closeProjectMenus);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeProjectMenus(); });
+
+async function setProjectArchived(project, archived) {
+  try {
+    const { error } = await sb.from('dpgf_projects').update({ archived }).eq('id', project.id);
+    if (error) {
+      if (/archived/i.test(error.message || '')) {
+        alert("L'archivage nécessite une colonne « archived » dans la table dpgf_projects.\n\nÀ exécuter une fois dans Supabase (SQL Editor) :\nalter table dpgf_projects add column archived boolean not null default false;");
+        return;
+      }
+      throw error;
+    }
+    if (archived) _showArchived = false;
+    loadProjects();
+  } catch(e) { alert('Erreur : ' + e.message); }
 }
 
 function showNewProjectModal() {

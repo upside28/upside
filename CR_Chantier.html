@@ -2548,20 +2548,24 @@ const PX = (() => {
   const COLS = [430000, 1450000, 4174490, 1650000, 960000];
   const HEAD = ["N°", "Titre", "Descriptif", "Responsable", "Échéance"];
   const TBL_X = 191187, TBL_Y = 1150119, TBL_W = COLS.reduce((a, b) => a + b, 0);
-  const MAR_LR = 72000, MAR_TB = 36000, HEAD_H = 330000;
-  const FS = 11, LINE = 13.2; // Aptos 11 pt, interligne simple
-  const rPr = (o) => `<a:rPr lang="fr-FR" sz="${(o.sz || FS) * 100}"${o.b ? ' b="1"' : ""} dirty="0"><a:solidFill><a:srgbClr val="${o.color || C.ink}"/></a:solidFill><a:latin typeface="Aptos"/><a:ea typeface="Aptos"/><a:cs typeface="Aptos"/></a:rPr>`;
-  const para = (txt, o) => `<a:p><a:pPr marL="0" indent="0"><a:lnSpc><a:spcPct val="100000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft><a:buNone/></a:pPr>${txt ? `<a:r>${rPr(o)}<a:t>${xe(txt)}</a:t></a:r>` : ""}<a:endParaRPr lang="fr-FR" sz="${(o.sz || FS) * 100}" dirty="0"/></a:p>`;
+  const MAR_LR = 72000, MAR_TB = 30000;
+  const TBL_MAX_H = 5000000; // le tableau s'arrête au-dessus du numéro de page et du logo
+  const SIZES = [10, 9.5, 9, 8.5, 8, 7.5, 7]; // Aptos : 10 pt si ça tient, sinon on réduit jusqu'à ce que tout rentre
+  const lineH = (sz) => sz * 1.22; // interligne simple d'Aptos
+  const NL = /\r\n|\r|\n/;
+  const rPr = (o) => `<a:rPr lang="fr-FR" sz="${Math.round(o.sz * 100)}"${o.b ? ' b="1"' : ""} dirty="0"><a:solidFill><a:srgbClr val="${o.color || C.ink}"/></a:solidFill><a:latin typeface="Aptos"/><a:ea typeface="Aptos"/><a:cs typeface="Aptos"/></a:rPr>`;
+  // Texte repris tel quel : chaque retour à la ligne (lignes vides comprises) devient un paragraphe, espaces conservés
+  const para = (txt, o) => `<a:p><a:pPr marL="0" indent="0"><a:lnSpc><a:spcPct val="100000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft><a:buNone/></a:pPr>${txt ? `<a:r>${rPr(o)}<a:t>${xe(txt)}</a:t></a:r>` : ""}<a:endParaRPr lang="fr-FR" sz="${Math.round(o.sz * 100)}" dirty="0"/></a:p>`;
   const ln = (tag, color) => `<a:${tag} w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:${tag}>`;
   function cell(lines, o, head, first, mlr = MAR_LR) {
-    const paras = (Array.isArray(lines) ? lines : [lines]).map((t) => String(t ?? "")).flatMap((t) => t.split(/\r?\n/));
+    const paras = (Array.isArray(lines) ? lines : [lines]).map((t) => String(t ?? "")).flatMap((t) => t.split(NL));
     const side = head ? C.hline : C.grid;
     return `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>${(paras.length ? paras : [""]).map((t) => para(t, o)).join("")}</a:txBody><a:tcPr marL="${mlr}" marR="${mlr}" marT="${MAR_TB}" marB="${MAR_TB}">${ln("lnL", head && first ? C.grid : side)}${ln("lnR", side)}${ln("lnT", head ? C.grid : first ? C.hline : C.grid)}${ln("lnB", head ? C.hline : C.grid)}${head ? `<a:solidFill><a:srgbClr val="${C.navy}"/></a:solidFill>` : ""}</a:tcPr></a:tc>`;
   }
-  // Estimation du nombre de lignes d'un texte dans une colonne (Inter/Aptos 11 pt ≈ 5,9 pt par caractère)
-  function nLines(text, colW, sz = FS) {
-    const per = Math.max(4, Math.floor((colW - 2 * MAR_LR) / EMU_PT / (sz * 0.54)));
-    return String(text ?? "").split(/\r?\n/).reduce((n, par) => {
+  // Estimation (prudente) du nombre de lignes d'un texte dans une colonne
+  function nLines(text, colW, sz, mlr = MAR_LR) {
+    const per = Math.max(4, Math.floor((colW - 2 * mlr) / EMU_PT / (sz * 0.5)));
+    return String(text ?? "").split(NL).reduce((n, par) => {
       let lines = 1, cur = 0;
       par.split(/\s+/).filter(Boolean).forEach((w) => {
         const L = w.length;
@@ -2572,21 +2576,24 @@ const PX = (() => {
       return n + lines;
     }, 0);
   }
-  const rowH = (r) => {
-    const n = Math.max(nLines(r.code, COLS[0]), nLines(r.title, COLS[1]), nLines(r.desc, COLS[2]), nLines(r.who, COLS[3]) + (r.soc ? nLines(r.soc, COLS[3]) : 0), 1);
-    return Math.round((n * LINE + 2 * MAR_TB / EMU_PT + 2) * EMU_PT);
-  };
+  const padPt = 2 * MAR_TB / EMU_PT + 1.5;
+  const rowH = (r, sz) => Math.round((Math.max(nLines(r.code, COLS[0], sz, 45720), nLines(r.title, COLS[1], sz), nLines(r.desc, COLS[2], sz),
+    nLines(r.who, COLS[3], sz) + (r.soc ? nLines(r.soc, COLS[3], sz) : 0), nLines(r.due, COLS[4], sz), 1) * lineH(sz) + padPt) * EMU_PT);
+  const headH = (sz) => Math.round((lineH(sz) + padPt + 4) * EMU_PT);
+  const tableH = (rows, sz) => headH(sz) + rows.reduce((s, r) => s + rowH(r, sz), 0);
   function taskTable(rows) {
+    const sz = SIZES.find((z) => tableH(rows, z) <= TBL_MAX_H) || SIZES[SIZES.length - 1];
+    const minRow = Math.round((lineH(sz) + padPt) * EMU_PT); // hauteur mini : PowerPoint agrandit la ligne selon son texte
     const grid = COLS.map((w) => `<a:gridCol w="${w}"/>`).join("");
-    const head = `<a:tr h="${HEAD_H}">${HEAD.map((h, i) => cell(h, { b: true, color: C.head }, true, i === 0, i ? MAR_LR : 45720)).join("")}</a:tr>`;
-    const body = rows.map((r, k) => `<a:tr h="${rowH(r)}">${[
-      cell(r.code, { color: C.code }, false, k === 0, 45720),
-      cell(r.title, {}, false, k === 0),
-      cell(r.desc, {}, false, k === 0),
-      cell(r.soc ? [r.who, r.soc] : [r.who], {}, false, k === 0),
-      cell(r.due, { color: r.late ? C.late : C.ink }, false, k === 0)
+    const head = `<a:tr h="${headH(sz)}">${HEAD.map((h, i) => cell(h, { b: true, color: C.head, sz }, true, i === 0, i ? MAR_LR : 45720)).join("")}</a:tr>`;
+    const body = rows.map((r, k) => `<a:tr h="${minRow}">${[
+      cell(r.code, { color: C.code, sz }, false, k === 0, 45720),
+      cell(r.title, { sz }, false, k === 0),
+      cell(r.desc, { sz }, false, k === 0),
+      cell(r.soc ? [r.who, r.soc] : [r.who], { sz }, false, k === 0),
+      cell(r.due, { color: r.late ? C.late : C.ink, sz }, false, k === 0)
     ].join("")}</a:tr>`).join("");
-    const h = HEAD_H + rows.reduce((s, r) => s + rowH(r), 0);
+    const h = Math.min(TBL_MAX_H, tableH(rows, sz));
     return `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Tableau des tâches"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="${TBL_X}" y="${TBL_Y}"/><a:ext cx="${TBL_W}" cy="${h}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr/><a:tblGrid>${grid}</a:tblGrid>${head}${body}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
   }
   const titleSp = (txt) => `<p:sp><p:nvSpPr><p:cNvPr id="2" name="Titre"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="567522" y="562246"/><a:ext cx="8119277" cy="415494"/></a:xfrm></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="fr-FR" dirty="0"/><a:t>${xe(txt)}</a:t></a:r></a:p></p:txBody></p:sp>`;

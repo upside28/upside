@@ -529,7 +529,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .pd-person .p b{display:inline;color:#111}
 .pd .pd-int td.c.isp{font-weight:700;color:#111}.pd .pd-int td.c{color:#777}
 .pd h2.pd-break{break-before:page;page-break-before:always;margin-top:0}
-.pdpl{break-inside:avoid;page-break-inside:avoid;font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;border-bottom:1px solid #e3e6e8}
+.pdpl{break-inside:avoid;page-break-inside:avoid;font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pdpl-h,.pdpl-r{display:flex}
 .pdpl-lc{flex:0 0 28%;padding:0 6px 0 0;display:flex;align-items:center;font-weight:700;color:#1a2332;font-size:8pt;line-height:1.15}
 .pdpl-h .pdpl-lc{font-size:7.5pt;text-transform:uppercase;letter-spacing:.04em;align-items:flex-end;padding-bottom:3px}
@@ -539,11 +539,12 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .pdpl-u{position:absolute;top:18px;height:14px;line-height:14px;text-align:center;color:#777;font-size:6pt;white-space:nowrap;overflow:hidden}
 .pdpl-b{position:relative}
 .pdpl-grid{position:absolute;top:0;bottom:0;right:0;width:72%}
-.pdpl-grid i{position:absolute;top:0;bottom:0;border-left:1px solid #eee}
-.pdpl-grid i.g{border-left-color:#d8d8d8}
+.pdpl-grid i{position:absolute;top:0;bottom:20px;border-left:1px dotted #c9c6c0}
+.pdpl-grid i.g{border-left:1px solid #a9aeb5}
+.pdpl-grid i.edge{left:0}
 .pdpl-m{position:absolute;top:0;bottom:0;border-left:.75px dashed #1a2332;z-index:2}
 .pdpl-m span{position:absolute;bottom:2px;left:0;transform:translateX(-50%);background:#1a2332;color:#fff;font-size:7pt;padding:1px 5px;border-radius:3px;white-space:nowrap}
-.pdpl-r{min-height:30px;border-top:1px solid #eee}
+.pdpl-r{min-height:30px}
 .pdpl-r .pdpl-lc{padding-top:2px;padding-bottom:2px}
 .pdpl-r.sub .pdpl-lc{font-weight:400;padding-left:10px;color:#333}
 .pdpl-r.sub .pdpl-bar{opacity:.55;top:5px;bottom:5px}
@@ -2254,12 +2255,14 @@ async function exportPdf(opts) {
       const top = y;
       const hs = pl.rows.map((r, i) => Math.max(RH, rowsH[i] * 3 + 1.5)); const bottom = top + hs.reduce((a, b) => a + b, 0) + FOOT;
       // quadrillage
-      doc.setLineWidth(0.15); doc.setDrawColor(236, 236, 236); A.ulines.forEach((l) => doc.line(X(l), top, X(l), bottom));
-      doc.setDrawColor(215, 215, 215); A.glines.forEach((l) => doc.line(X(l), top, X(l), bottom));
+      // semaines (ou unités) en pointillé léger, mois (ou périodes) en trait plein, pas de lignes horizontales
+      doc.setLineWidth(0.15); doc.setDrawColor(200, 198, 192); doc.setLineDashPattern([0.4, 0.8], 0);
+      A.ulines.filter((l) => !A.glines.some((g) => Math.abs(g - l) < 1e-6)).forEach((l) => doc.line(X(l), top, X(l), bottom - FOOT));
+      doc.setLineDashPattern([], 0); doc.setLineWidth(0.25); doc.setDrawColor(169, 174, 181);
+      A.glines.forEach((l) => doc.line(X(l), top, X(l), bottom - FOOT)); doc.line(TX, top, TX, bottom - FOOT);
       // lignes et barres
       pl.rows.forEach((r, i) => {
         const h = hs[i]; const c = hexRgb(r.color);
-        doc.setDrawColor(...LINE); doc.setLineWidth(0.15); doc.line(M, y, PW - M, y);
         doc.setFont(FONT, r.sub ? "normal" : "bold"); doc.setFontSize(r.sub ? 7 : 7.5); doc.setTextColor(...(r.sub ? INK : c.map((v) => Math.round(v * 0.7))));
         const lines = doc.splitTextToSize(T(r.name), LW - (r.sub ? 7 : 4)); const th = lines.length * 3;
         doc.text(lines, M + (r.sub ? 3 : 0), y + (h - th) / 2 + 2.3, { lineHeightFactor: 1.2 });
@@ -2271,7 +2274,7 @@ async function exportPdf(opts) {
         }
         y += h;
       });
-      doc.setDrawColor(...LINE); doc.line(M, y, PW - M, y); y += FOOT;
+      y += FOOT;
       // pointillé à la date de la réunion
       const mx = A.mark(cr.date);
       if (mx != null) {
@@ -2542,13 +2545,13 @@ const PX = (() => {
   const hex = (v, d) => { const m = String(v || "").replace("#", "").match(/^[0-9a-fA-F]{6}$/); return m ? m[0].toUpperCase() : d; };
 
   /* --- Tableau des tâches (reprend la mise en forme de la slide d'exemple) --- */
-  const COLS = [500000, 1487775, 4250658, 1437515, 988542];
+  const COLS = [430000, 1450000, 4174490, 1650000, 960000];
   const HEAD = ["N°", "Titre", "Descriptif", "Responsable", "Échéance"];
-  const TBL_X = 191187, TBL_Y = 1150119, TBL_W = COLS.reduce((a, b) => a + b, 0), TBL_MAX_H = 5020000;
-  const MAR_LR = 101600, MAR_TB = 88900, HEAD_H = 513590;
-  const FS = 11, LINE = 15.6;
-  const rPr = (o) => `<a:rPr lang="fr-FR" sz="${(o.sz || FS) * 100}"${o.b ? ' b="1"' : ""} dirty="0"><a:solidFill><a:srgbClr val="${o.color || C.ink}"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="Inter"/><a:cs typeface="Inter"/></a:rPr>`;
-  const para = (txt, o) => `<a:p><a:pPr marL="0" indent="0"><a:lnSpc><a:spcPts val="${Math.round(LINE * 100)}"/></a:lnSpc><a:buNone/></a:pPr>${txt ? `<a:r>${rPr(o)}<a:t>${xe(txt)}</a:t></a:r>` : ""}<a:endParaRPr lang="fr-FR" sz="${(o.sz || FS) * 100}" dirty="0"/></a:p>`;
+  const TBL_X = 191187, TBL_Y = 1150119, TBL_W = COLS.reduce((a, b) => a + b, 0);
+  const MAR_LR = 72000, MAR_TB = 36000, HEAD_H = 330000;
+  const FS = 11, LINE = 13.2; // Aptos 11 pt, interligne simple
+  const rPr = (o) => `<a:rPr lang="fr-FR" sz="${(o.sz || FS) * 100}"${o.b ? ' b="1"' : ""} dirty="0"><a:solidFill><a:srgbClr val="${o.color || C.ink}"/></a:solidFill><a:latin typeface="Aptos"/><a:ea typeface="Aptos"/><a:cs typeface="Aptos"/></a:rPr>`;
+  const para = (txt, o) => `<a:p><a:pPr marL="0" indent="0"><a:lnSpc><a:spcPct val="100000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft><a:buNone/></a:pPr>${txt ? `<a:r>${rPr(o)}<a:t>${xe(txt)}</a:t></a:r>` : ""}<a:endParaRPr lang="fr-FR" sz="${(o.sz || FS) * 100}" dirty="0"/></a:p>`;
   const ln = (tag, color) => `<a:${tag} w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:prstDash val="solid"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/></a:${tag}>`;
   function cell(lines, o, head, first, mlr = MAR_LR) {
     const paras = (Array.isArray(lines) ? lines : [lines]).map((t) => String(t ?? "")).flatMap((t) => t.split(/\r?\n/));
@@ -2571,13 +2574,13 @@ const PX = (() => {
   }
   const rowH = (r) => {
     const n = Math.max(nLines(r.code, COLS[0]), nLines(r.title, COLS[1]), nLines(r.desc, COLS[2]), nLines(r.who, COLS[3]) + (r.soc ? nLines(r.soc, COLS[3]) : 0), 1);
-    return Math.round((n * LINE + 15) * EMU_PT);
+    return Math.round((n * LINE + 2 * MAR_TB / EMU_PT + 2) * EMU_PT);
   };
   function taskTable(rows) {
     const grid = COLS.map((w) => `<a:gridCol w="${w}"/>`).join("");
-    const head = `<a:tr h="${HEAD_H}">${HEAD.map((h, i) => cell(h, { b: true, color: C.head }, true, i === 0, i ? MAR_LR : 63500)).join("")}</a:tr>`;
+    const head = `<a:tr h="${HEAD_H}">${HEAD.map((h, i) => cell(h, { b: true, color: C.head }, true, i === 0, i ? MAR_LR : 45720)).join("")}</a:tr>`;
     const body = rows.map((r, k) => `<a:tr h="${rowH(r)}">${[
-      cell(r.code, { color: C.code, sz: String(r.code || "").length >= 5 ? 10 : FS }, false, k === 0, 63500),
+      cell(r.code, { color: C.code }, false, k === 0, 45720),
       cell(r.title, {}, false, k === 0),
       cell(r.desc, {}, false, k === 0),
       cell(r.soc ? [r.who, r.soc] : [r.who], {}, false, k === 0),
@@ -2585,13 +2588,6 @@ const PX = (() => {
     ].join("")}</a:tr>`).join("");
     const h = HEAD_H + rows.reduce((s, r) => s + rowH(r), 0);
     return `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Tableau des tâches"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="${TBL_X}" y="${TBL_Y}"/><a:ext cx="${TBL_W}" cy="${h}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr/><a:tblGrid>${grid}</a:tblGrid>${head}${body}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
-  }
-  // Répartit les tâches d'un thème sur une ou plusieurs slides selon la hauteur disponible
-  function paginate(rows) {
-    const pages = []; let cur = [], h = HEAD_H;
-    rows.forEach((r) => { const rh = rowH(r); if (cur.length && h + rh > TBL_MAX_H) { pages.push(cur); cur = []; h = HEAD_H; } cur.push(r); h += rh; });
-    if (cur.length) pages.push(cur);
-    return pages;
   }
   const titleSp = (txt) => `<p:sp><p:nvSpPr><p:cNvPr id="2" name="Titre"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="567522" y="562246"/><a:ext cx="8119277" cy="415494"/></a:xfrm></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="fr-FR" dirty="0"/><a:t>${xe(txt)}</a:t></a:r></a:p></p:txBody></p:sp>`;
   const slideXml = (inner) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<p:sld ${NS}><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${inner}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
@@ -2607,7 +2603,8 @@ const PX = (() => {
       const txt = o.text != null ? `<p:txBody><a:bodyPr wrap="${o.wrap ? "square" : "none"}" lIns="${o.lIns ?? 45720}" tIns="0" rIns="${o.rIns ?? 45720}" bIns="0" anchor="ctr" rtlCol="0"><a:noAutofit/></a:bodyPr><a:lstStyle/><a:p><a:pPr algn="${o.algn || "l"}"/><a:r><a:rPr lang="fr-FR" sz="${R((o.sz || 9) * 100)}"${o.b ? ' b="1"' : ""} dirty="0"><a:solidFill><a:srgbClr val="${o.color || C.ink}"/></a:solidFill><a:latin typeface="+mn-lt"/></a:rPr><a:t>${xe(o.text)}</a:t></a:r></a:p></p:txBody>` : "";
       out.push(`<p:sp><p:nvSpPr><p:cNvPr id="${id++}" name="${xe(name)}"/><p:cNvSpPr${o.text != null && !o.fill ? ' txBox="1"' : ""}/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${R(x)}" y="${R(y)}"/><a:ext cx="${Math.max(1, R(w))}" cy="${Math.max(1, R(h))}"/></a:xfrm>${geom}${fill}${line}</p:spPr>${txt}</p:sp>`);
     };
-    const vline = (name, x, y1, y2, color, w, dash) => out.push(`<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="${id++}" name="${xe(name)}"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm><a:off x="${R(x)}" y="${R(y1)}"/><a:ext cx="0" cy="${R(y2 - y1)}"/></a:xfrm><a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:ln w="${w}"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill>${dash ? '<a:prstDash val="dash"/>' : ""}</a:ln></p:spPr></p:cxnSp>`);
+    const tint = (h, k) => h.match(/../g).map((v) => Math.round(parseInt(v, 16) + (255 - parseInt(v, 16)) * k).toString(16).padStart(2, "0")).join("").toUpperCase();
+    const vline = (name, x, y1, y2, color, w, dash) => out.push(`<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="${id++}" name="${xe(name)}"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm><a:off x="${R(x)}" y="${R(y1)}"/><a:ext cx="0" cy="${R(y2 - y1)}"/></a:xfrm><a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:ln w="${w}"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill>${dash ? `<a:prstDash val="${dash === true ? "dash" : dash}"/>` : ""}</a:ln></p:spPr></p:cxnSp>`);
     const hline = (name, x1, x2, y, color) => out.push(`<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="${id++}" name="${xe(name)}"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm><a:off x="${R(x1)}" y="${R(y)}"/><a:ext cx="${R(x2 - x1)}" cy="0"/></a:xfrm><a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:ln w="6350"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill></a:ln></p:spPr></p:cxnSp>`);
 
     const X0 = TBL_X, W = TBL_W, LW = 2050000, TX = X0 + LW, TW = W - LW;
@@ -2631,13 +2628,12 @@ const PX = (() => {
     const showUnits = pl.units.every((u) => fits(u.lab, u.w, 7.5));
     if (showUnits) pl.units.forEach((u) => box("Unité " + u.lab, px(u.l), Y0 + GH, TW * u.w / 100, UH, { text: u.lab, color: C.muted, sz: 7.5, algn: "ctr", lIns: 0, rIns: 0 }));
     // Lignes de lignes et grille
-    pl.rows.forEach((r, i) => hline("Séparateur", X0, X0 + W, RY + RH * (i + 1), "EEEBE5"));
-    if (pl.units.length <= 120) pl.ulines.forEach((l) => vline("Repère", px(l), Y0 + GH, rowsBottom, "ECE9E3", 6350));
-    pl.glines.forEach((l) => { vline("Repère période", px(l), Y0, Y0 + GH, "3A4757", 9525); vline("Repère période", px(l), Y0 + GH + UH, rowsBottom, C.grid, 9525); });
-    vline("Bord", TX, Y0, rowsBottom, C.grid, 9525);
+    if (pl.units.length <= 120) pl.ulines.forEach((l) => { if (!pl.glines.some((g) => Math.abs(g - l) < 1e-6)) vline("Repère semaine", px(l), Y0 + GH + UH, rowsBottom, "C9C6C0", 6350, "sysDot"); });
+    pl.glines.forEach((l) => { vline("Repère période", px(l), Y0, Y0 + GH, "3A4757", 9525); vline("Repère mois", px(l), Y0 + GH + UH, rowsBottom, "A9AEB5", 9525); });
+    vline("Bord", TX, Y0 + GH + UH, rowsBottom, "A9AEB5", 9525);
     // Phases
     pl.rows.forEach((r, i) => {
-      const y = RY + RH * i; const col = hex(r.color, "0E7C86");
+      const y = RY + RH * i; const col0 = hex(r.color, "0E7C86"); const col = r.sub ? tint(col0, 0.45) : col0; // sous-phase : couleur atténuée
       const ind = r.sub ? 160000 : 0;
       box("Pastille " + r.name, X0 + 70000 + ind, y + RH / 2 - 40000, 80000, 80000, { fill: col, round: 50000 });
       box("Phase " + r.name, X0 + 210000 + ind, y, LW - 230000 - ind, RH, { text: r.name || "Sans nom", color: r.sub ? C.muted : C.ink, b: !r.sub, sz: r.sub ? fsRow - 0.5 : fsRow, lIns: 0, wrap: true });
@@ -2664,7 +2660,7 @@ const PX = (() => {
     const slides = []; // { title, inner }
     if (model.planning && model.planning.rows.length) slides.push({ title: model.planning.title, inner: planningShapes(model.planning) });
     model.lots.forEach((lot) => {
-      paginate(lot.rows).forEach((rows, i, all) => slides.push({ title: lot.name + (all.length > 1 && i ? " (suite)" : ""), inner: taskTable(rows) }));
+      slides.push({ title: lot.name, inner: taskTable(lot.rows) }); // un thème = une slide
     });
     if (!slides.length) return null;
     let pres = await zip.file("ppt/presentation.xml").async("string");
@@ -2706,7 +2702,7 @@ function pptModel(p, cr) {
     name: lot.name,
     rows: v.tasks.filter((t) => t.lotId === lot.id && t.status !== "termine" && t.status !== "archive").sort(codeSort).map((t) => {
       const i = t.resp === "TOUS" ? null : intIn(v.intervenants, t.resp);
-      return { code: t.code || "", title: t.title || "", desc: t.desc || "", who: t.resp === "TOUS" ? "Tous" : i ? fullName(i) : "", soc: i ? i.societe || "" : "", due: fmtNum(t.due), late: dispSt(t, t.status, ref) === "retard" };
+      return { code: t.code || "", title: t.title || "", desc: t.desc || "", who: t.resp === "TOUS" ? "Tous" : i ? fullName(i) : "", soc: i ? i.societe || "" : "", due: fmtNum(t.due), late: OPEN_STATUSES.includes(t.status) && !!t.due && t.due <= ref }; // en rouge jusqu’à la date de la réunion comprise
     })
   })).filter((l) => l.rows.length);
   let planning = null; const pl0 = crPlanning(p, cr);
@@ -3408,7 +3404,7 @@ function planningPrintHTML(pl, md) {
       ${A.groups.map((g) => `<div class="pdpl-g" style="left:${pcs(g.l)};width:${pcs(g.w)}">${g.w > 9 ? g.lab : ""}</div>`).join("")}
       ${A.units.map((u) => `<div class="pdpl-u" style="left:${pcs(u.l)};width:${pcs(u.w)}">${unitW > 2.2 ? u.lab : ""}</div>`).join("")}
     </div></div>
-    <div class="pdpl-b"><div class="pdpl-tl pdpl-grid">${A.glines.map((l) => `<i class="g" style="left:${pcs(l)}"></i>`).join("")}${A.ulines.map((l) => `<i style="left:${pcs(l)}"></i>`).join("")}${mx != null ? `<b class="pdpl-m" style="left:${pcs(mx)}"><span>Réunion ${fmtNum(md).slice(0, 5)}</span></b>` : ""}</div>
+    <div class="pdpl-b"><div class="pdpl-tl pdpl-grid"><i class="g edge"></i>${A.glines.map((l) => `<i class="g" style="left:${pcs(l)}"></i>`).join("")}${A.ulines.filter((l) => !A.glines.some((g) => Math.abs(g - l) < 1e-6)).map((l) => `<i style="left:${pcs(l)}"></i>`).join("")}${mx != null ? `<b class="pdpl-m" style="left:${pcs(mx)}"><span>Réunion ${fmtNum(md).slice(0, 5)}</span></b>` : ""}</div>
     ${pl.rows.map((r, i) => { const b = A.bars[i]; return `<div class="pdpl-r${r.sub ? " sub" : ""}"><div class="pdpl-lc">${esc(r.name)}</div><div class="pdpl-tl">${b && !b.off ? `<span class="pdpl-bar" style="left:${pcs(b.l)};width:${pcs(b.w)};background:${esc(r.color)}"></span>` : ""}</div></div>`; }).join("")}
     <div class="pdpl-r pdpl-foot"><div class="pdpl-lc"></div><div class="pdpl-tl"></div></div></div>
   </div>`;

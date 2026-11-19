@@ -123,6 +123,19 @@ body {
 .page-title { font-size: 26px; font-weight: 700; color: var(--navy); line-height: 1.2; }
 .page-subtitle { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
 
+/* ACCUEIL — choix de l'outil */
+.home-choices { display: flex; flex-direction: column; gap: 14px; max-width: 720px; }
+.home-choice { display: flex; align-items: center; gap: 18px; width: 100%; text-align: left; font-family: inherit; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px 24px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
+.home-choice:hover { border-color: var(--gold); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.home-choice:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.home-choice-icon { flex: 0 0 48px; height: 48px; border-radius: 10px; background: var(--navy); color: var(--gold-light); display: flex; align-items: center; justify-content: center; }
+.home-choice-icon svg { width: 24px; height: 24px; }
+.home-choice-body { flex: 1; min-width: 0; }
+.home-choice-title { font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
+.home-choice-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.home-choice-arrow { flex: 0 0 auto; color: var(--text-light); transition: color 0.15s, transform 0.15s; }
+.home-choice:hover .home-choice-arrow { color: var(--gold); transform: translateX(3px); }
+
 /* CARDS */
 .card { background: var(--bg-card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); }
 .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
@@ -695,6 +708,10 @@ tr:hover td { background: #fafaf9; }
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M2 6h12M6 6v8"/></svg>
       Mise en forme DPGF Mobilier
     </div>
+    <div class="sidebar-item" data-page="comparateur" onclick="navigate('comparateur')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 14h12M4 11V7m4 4V3m4 8V6"/></svg>
+      Comparateur DPGF
+    </div>
     <div class="sidebar-divider"></div>
 
     <!-- TRAVAUX NAV -->
@@ -782,8 +799,35 @@ tr:hover td { background: #fafaf9; }
       <iframe id="mef-frame" title="Mise en forme DPGF Mobilier" style="display:block;width:100%;max-width:780px;border:0;height:640px;background:transparent;"></iframe>
     </div>
 
-    <!-- ===== HOME PAGE ===== -->
+    <!-- ===== ACCUEIL : choix de l'outil ===== -->
     <div class="page active" id="page-home">
+      <div class="page-header">
+        <div class="page-eyebrow">Outils internes</div>
+        <div class="page-title">Accueil</div>
+        <div class="page-subtitle">Choisissez l’outil à utiliser.</div>
+      </div>
+      <div class="home-choices">
+        <button type="button" class="home-choice" onclick="navigate('mise-en-forme')">
+          <span class="home-choice-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M2 6h12M6 6v8"/></svg></span>
+          <span class="home-choice-body">
+            <span class="home-choice-title" style="display:block;">Mise en forme DPGF</span>
+            <span class="home-choice-desc" style="display:block;">Transformez un export LibrairIA en DPGF Mobilier au standard Upside : logo, libellés des colonnes de quantités, annexes.</span>
+          </span>
+          <svg class="home-choice-arrow" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
+        <button type="button" class="home-choice" onclick="navigate('comparateur')">
+          <span class="home-choice-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 14h12M4 11V7m4 4V3m4 8V6"/></svg></span>
+          <span class="home-choice-body">
+            <span class="home-choice-title" style="display:block;">Comparateur DPGF</span>
+            <span class="home-choice-desc" style="display:block;">Créez ou ouvrez un projet, importez les offres des entreprises et comparez les DPGF Travaux et Mobilier.</span>
+          </span>
+          <svg class="home-choice-arrow" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== COMPARATEUR DPGF : liste des projets ===== -->
+    <div class="page" id="page-comparateur">
       <div class="page-header">
         <div class="page-eyebrow">Outils internes</div>
         <div class="page-title">Comparateur DPGF</div>
@@ -1235,7 +1279,7 @@ function navigate(page) {
   const navItem = document.querySelector(`[data-page="${page}"]`);
   if (navItem) navItem.classList.add('active');
 
-  if (page === 'home') loadProjects();
+  if (page === 'comparateur') loadProjects();
   if (page === 'mise-en-forme') initMiseEnForme();
   if (page === 'import') renderOffersList();
   if (page === 'offres') renderOffresDetail();

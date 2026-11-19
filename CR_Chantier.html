@@ -570,6 +570,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .pd-lot .cbadge{display:inline-block;padding:1px 6px;border-radius:4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pd-lot tbody.late td{background:#fef2f2;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pd-lot tbody.late .tt{color:#991b1b}.pd-lot .pill.st-retard{color:#991b1b;background:none}.pd-lot .cbadge.st-retard{background:#991b1b;color:#fff}
 .pd-lot .cbadge.st-afaire{background:#fef3c7;color:#92400e}.pd-lot .cbadge.st-encours{background:#dbeafe;color:#1e40af}.pd-lot .cbadge.st-urgent{background:#fee2e2;color:#991b1b}.pd-lot .cbadge.st-memoire{background:#ede9fe;color:#5b21b6}.pd-lot .cbadge.st-termine{background:#dcfce7;color:#166534}.pd-lot .cbadge.st-archive{background:#ebedef;color:#8c9296}
+.pd-lot tbody.tint-encours td:first-child{background:#eff6ff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pd-lot tbody.tint-afaire td:first-child{background:#fffbeb;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pd-lot td.resp{width:150px}
 .pd-lot td.stat{width:105px;text-align:right}
 .pd-lot .tt{font-weight:700;display:block;margin-bottom:2px}
@@ -1849,7 +1850,7 @@ async function buildPrint(opts) {
         coms.sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0));
         const conc = t.concerne.map((id) => who(id)).filter(Boolean);
         const files = (t.files || []).map((f) => f.name);
-        return `<tbody class="${st === "archive" ? "arch" : ""}${ds === "retard" ? " late" : ""}"><tr class="main"><td class="code"><span class="cbadge st-${ds}">${esc(t.code)}</span></td><td><span class="tt">${esc(t.title)}</span><div class="ds">${esc(t.desc)}</div>${showRes(st, t) ? `<div class="res"><svg width="14" height="10" viewBox="0 0 16 12"><path d="M1.5 6h10" stroke="#8a6d1c" stroke-width="2.8" stroke-linecap="round"/><path d="M9 1.2L15 6l-6 4.8z" fill="#8a6d1c"/></svg><span>${esc(t.resolution)}</span></div>` : ""}${conc.length ? `<div class="cc">Concerne aussi : ${conc.map(esc).join(", ")}</div>` : ""}</td>
+        return `<tbody class="${st === "archive" ? "arch" : ""}${ds === "retard" ? " late" : ""}${ds === "encours" || ds === "afaire" ? " tint-" + ds : ""}"><tr class="main"><td class="code"><span class="cbadge st-${ds}">${esc(t.code)}</span></td><td><span class="tt">${esc(t.title)}</span><div class="ds">${esc(t.desc)}</div>${showRes(st, t) ? `<div class="res"><svg width="14" height="10" viewBox="0 0 16 12"><path d="M1.5 6h10" stroke="#8a6d1c" stroke-width="2.8" stroke-linecap="round"/><path d="M9 1.2L15 6l-6 4.8z" fill="#8a6d1c"/></svg><span>${esc(t.resolution)}</span></div>` : ""}${conc.length ? `<div class="cc">Concerne aussi : ${conc.map(esc).join(", ")}</div>` : ""}</td>
           <td class="resp">${esc(who(t.resp))}</td><td class="stat"><span class="pill st-${ds}">${statusLabel(ds)}</span>${st === "archive" && t.archivedAt ? `<span class="dd">le ${fmtNum(t.archivedAt)}</span>` : ""}${t.start || t.due ? `<span class="dd">${fmtNum(t.start)}${t.start && t.due ? " > " : ""}${fmtNum(t.due)}</span>` : ""}</td></tr>
           ${coms.length || files.length ? `<tr class="com"><td></td><td colspan="3">${coms.map((c) => `<div class="cm${isNewIn(c.date, w) ? " new" : ""}"><i>Commentaire du ${fmtNum(c.date)} :</i><span>${esc(c.text)}</span>${comFiles(c)}</div>`).join("")}${files.length ? `<div class="fl">${files.map(esc).join(" · ")}</div>` : ""}</td></tr>` : ""}</tbody>`;
       }).join("") + `</table>`;
@@ -2088,6 +2089,7 @@ function pdfText(v) {
     .replace(/[^\n\x20-\x7E\xA0-\xFF]/gu, (c) => CP1252.includes(c) ? c : "");
 }
 const slug = (v) => String(v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const CODE_TINT = { encours: [239, 246, 255], afaire: [255, 251, 235] }; // fond de la colonne N° dans le PDF
 const ST_BG = { retard: [153, 27, 27], afaire: [254, 243, 199], encours: [219, 234, 254], urgent: [254, 226, 226], memoire: [237, 233, 254], termine: [220, 252, 231], archive: [235, 237, 239] };
 const ST_RGB = { retard: [153, 27, 27], afaire: [146, 64, 14], encours: [30, 64, 175], urgent: [153, 27, 27], memoire: [91, 33, 182], termine: [22, 101, 52], archive: [140, 146, 150] };
 
@@ -2392,6 +2394,7 @@ async function exportPdf(opts) {
         if (d.section !== "body") return; const r = rows[d.row.index];
         if (r.arch && d.column.index !== 3) d.cell.styles.textColor = [150, 156, 160];
         if (r.late) { d.cell.styles.fillColor = [254, 242, 242]; if (d.column.index === 2) d.cell.styles.textColor = [153, 27, 27]; }
+        else if (d.column.index === 0 && CODE_TINT[r.ds]) d.cell.styles.fillColor = CODE_TINT[r.ds]; // fond clair de la colonne N° (en cours / à faire)
       },
       willDrawCell: (d) => { if (d.section === "body" && (d.column.index <= 1 || d.column.index === 3)) d.cell.text = []; },
       didDrawCell: (d) => {

@@ -771,7 +771,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       </div>
       <div class="field"><label for="prArch">Tâches archivées</label><select id="prArch"><option value="grey">Grisées, dans leur catégorie</option><option value="hide">Masquées</option></select></div>
       <div class="field"><label for="prCom">Commentaires</label><select id="prCom"><option value="all">Tout l’historique</option><option value="new">Uniquement ceux de ce CR</option></select></div>
-      <div class="field" id="annexField"><label for="prAnnex">PDF joints aux tâches et commentaires</label><select id="prAnnex"><option value="annex">Ajoutés en annexe, avec liens cliquables dans le CR</option><option value="none">Non joints (seulement cités)</option></select></div>
+      <div class="field" id="annexField"><label for="prAnnex">PDF et images (PNG, JPG) joints aux tâches et commentaires</label><select id="prAnnex"><option value="annex">Ajoutés en annexe, avec liens cliquables dans le CR</option><option value="none">Non joints (seulement cités)</option></select></div>
       <div class="field" id="fontField"><span class="lbl">Police du PDF</span><div class="fontbox" id="fontBox"></div></div>
       <input type="file" id="fontFiles" accept=".ttf,font/ttf" multiple hidden>
       <p class="help" id="printHint"></p>
@@ -2315,12 +2315,14 @@ async function exportPdf(opts) {
     } catch (e) { }
   }
 
-  /* Annexes : PDF joints aux tâches et commentaires */
+  /* Annexes : PDF et images (PNG, JPG) joints aux tâches et commentaires */
   const annexes = [], annexLinks = [];
   const isPdfFile = (m) => !m.missing && (/pdf/i.test(m.type || "") || /\.pdf$/i.test(m.name || ""));
+  const isAnnexImg = (m) => !m.missing && (/^image\/(png|jpe?g)$/i.test(m.type || "") || /\.(png|jpe?g)$/i.test(m.name || ""));
+  const isAnnexFile = (m) => isPdfFile(m) || isAnnexImg(m);
   function annexFor(m, t) {
     const i = annexes.findIndex((a) => a.id === m.id); if (i >= 0) return i + 1;
-    annexes.push({ id: m.id, name: m.name, task: `${t.code ? t.code + " " : ""}${t.title}` }); return annexes.length;
+    annexes.push({ id: m.id, name: m.name, img: !isPdfFile(m) && isAnnexImg(m), task: `${t.code ? t.code + " " : ""}${t.title}` }); return annexes.length;
   }
 
   /* Tâches et avancement */
@@ -2361,12 +2363,12 @@ async function exportPdf(opts) {
         const imgs = fs.filter((m) => pdfImgs[m.id]).slice(0, 6), others = fs.filter((m) => !pdfImgs[m.id]);
         for (let r = 0; r < imgs.length; r += 3) L.push({ t: "", ...g, imgs: imgs.slice(r, r + 3), span: Math.ceil((IMG_H + 1.5) / LH) });
         if (fs.filter((m) => pdfImgs[m.id]).length > 6) add(`+ ${fs.filter((m) => pdfImgs[m.id]).length - 6} autre(s) photo(s)`, { ...g, s: 7.5, c: GREY });
-        const pdfs = opts.annex ? others.filter(isPdfFile) : [], rest = others.filter((m) => !pdfs.includes(m));
+        const pdfs = opts.annex ? fs.filter(isAnnexFile) : [], rest = others.filter((m) => !pdfs.includes(m));
         pdfs.forEach((m) => { const k = annexFor(m, t); add(`Annexe ${k} : ${m.name}`, { ...g, s: 7.5, c: [29, 92, 158], link: k, u: true }); });
         if (rest.length) add("Pièces jointes : " + rest.map((m) => m.name).join("  ·  "), { ...g, s: 7.5, c: [29, 92, 158] });
       });
       if ((t.files || []).length) {
-        const pdfs = opts.annex ? t.files.filter(isPdfFile) : [], rest = t.files.filter((m) => !pdfs.includes(m));
+        const pdfs = opts.annex ? t.files.filter(isAnnexFile) : [], rest = t.files.filter((m) => !pdfs.includes(m));
         L.push({ t: "" });
         pdfs.forEach((m) => { const k = annexFor(m, t); add(`Annexe ${k} : ${m.name}`, { s: 7.5, c: [29, 92, 158], link: k, u: true }); });
         if (rest.length) add(rest.map((x) => x.name).join("   ·   "), { s: 7.5, c: [29, 92, 158] });
@@ -2464,7 +2466,22 @@ async function exportPdf(opts) {
   /* Sommaire des annexes */
   const annexData = [];
   if (opts.annex && annexes.length) {
-    for (const a of annexes) { const b = await getFile(a.id); annexData.push(b ? await b.arrayBuffer() : null); }
+    for (const a of annexes) {
+      const b = await getFile(a.id);
+      if (!b) { annexData.push(null); continue; }
+      if (!a.img) { annexData.push(await b.arrayBuffer()); continue; }
+      // image : redessinée en JPEG (orientation des photos respectée, transparence sur fond blanc, taille raisonnable)
+      try {
+        const url = URL.createObjectURL(b);
+        const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+        const k = Math.min(1, 2400 / Math.max(im.width, im.height));
+        const cv = document.createElement("canvas"); cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k));
+        const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(im, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url);
+        const jb = await new Promise((res) => cv.toBlob(res, "image/jpeg", 0.9));
+        annexData.push(jb ? await jb.arrayBuffer() : null);
+      } catch (e) { annexData.push(null); }
+    }
     doc.addPage("a4", "portrait"); y = TOP - 4; // les annexes commencent sur une nouvelle page
     heading("Annexes"); y += 1;
     annexes.forEach((a, i) => {
@@ -2497,7 +2514,7 @@ async function exportPdf(opts) {
   toast(annexes.length && opts.annex ? `PDF téléchargé avec ${plural(annexes.length - skipped, "annexe", "annexes")}${skipped ? ` (${skipped} non intégrable${skipped > 1 ? "s" : ""})` : ""}` : "PDF téléchargé");
 }
 
-/* Fusion : CR + PDF joints en annexe, liens cliquables vers chaque annexe */
+/* Fusion : CR + PDF et images joints en annexe, liens cliquables vers chaque annexe */
 const PDFLIB = "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js";
 async function appendAnnexes(crBytes, annexes, datas, links, title) {
   if (!window.PDFLib) await loadScript(PDFLIB);
@@ -2508,6 +2525,22 @@ async function appendAnnexes(crBytes, annexes, datas, links, title) {
   const first = []; let skipped = 0;
   for (let i = 0; i < annexes.length; i++) {
     first[i] = null; if (!datas[i]) { skipped++; continue; }
+    if (annexes[i].img) {
+      // image : une page A4 (portrait ou paysage selon l'image), image centrée et ajustée
+      let im; try { im = await out.embedJpg(datas[i]); } catch (e) { skipped++; continue; }
+      const land = im.width > im.height;
+      const pg = out.addPage(land ? [841.89, 595.28] : [595.28, 841.89]);
+      const { width, height } = pg.getSize();
+      const mg = 28, top = 30, aw = width - 2 * mg, ah = height - top - 2 * mg;
+      const sc = Math.min(aw / im.width, ah / im.height, 1.5);
+      const w = im.width * sc, h = im.height * sc;
+      pg.drawImage(im, { x: (width - w) / 2, y: mg + (ah - h) / 2, width: w, height: h });
+      const label = pdfText(`Annexe ${i + 1} — ${annexes[i].name}`).slice(0, 120);
+      const lw = Math.min(width - 20, fontB.widthOfTextAtSize(label, 8) + 12);
+      pg.drawRectangle({ x: 10, y: height - 20, width: lw, height: 14, color: rgb(0.10, 0.14, 0.20), opacity: 0.9 });
+      pg.drawText(label, { x: 16, y: height - 15.5, size: 8, font: fontB, color: rgb(1, 1, 1), maxWidth: lw - 10 });
+      first[i] = pg; continue;
+    }
     let src; try { src = await PDFDocument.load(datas[i], { ignoreEncryption: true }); } catch (e) { skipped++; continue; }
     let pages; try { pages = await out.copyPages(src, src.getPageIndices()); } catch (e) { skipped++; continue; }
     pages.forEach((pg, j) => {
